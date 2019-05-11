@@ -73,8 +73,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator'
 import { fetchList } from '@/api/article'
-import { exportJson2Excel } from '@/utils/excel'
 import { formatJson } from '@/utils'
+import { exportJson2Excel } from '@/utils/excel'
 import * as filters from '@/filters'
 
 @Component({
@@ -83,7 +83,7 @@ import * as filters from '@/filters'
   }
 })
 export default class MergeHeader extends Vue {
-  private list: any = null
+  private list: any[] = []
   private listLoading = true
   private downloadLoading = false
 
@@ -91,12 +91,11 @@ export default class MergeHeader extends Vue {
     this.fetchData()
   }
 
-  private fetchData() {
+  private async fetchData() {
     this.listLoading = true
-    fetchList({ /* Your params here */ }).then(response => {
-      this.list = response.data.items
-      this.listLoading = false
-    })
+    const { data } = await fetchList({ /* Your params here */ })
+    this.list = data.items
+    this.listLoading = false
   }
 
   private handleDownload() {
