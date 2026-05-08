@@ -119,7 +119,8 @@
 import { Component, Vue } from 'vue-property-decorator'
 import { ResumeRepoModule } from '@/store/modules/resume-repo'
 import { ResumeVersionModule } from '@/store/modules/resume-version'
-import { JobType, ResumeVersion } from '@/models'
+import { ResumeVersion } from '@/models'
+import { getJobTypeTag, getJobTypeText } from '@/utils/resume-repo'
 
 @Component({
   name: 'ResumeRepoDetail'
@@ -144,11 +145,11 @@ export default class extends Vue {
   }
 
   get jobTypeText() {
-    return this.currentRepo?.jobType === JobType.CAMPUS ? '校招' : '社招'
+    return getJobTypeText(this.currentRepo?.jobType)
   }
 
   get jobTypeTag() {
-    return this.currentRepo?.jobType === JobType.CAMPUS ? 'success' : 'primary'
+    return getJobTypeTag(this.currentRepo?.jobType)
   }
 
   created() {

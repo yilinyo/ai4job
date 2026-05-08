@@ -24,6 +24,7 @@
           >
             <el-option label="校招" value="campus" />
             <el-option label="社招" value="social" />
+            <el-option label="实习" value="internship" />
           </el-select>
         </el-col>
         <el-col :span="4">
@@ -99,6 +100,7 @@
           <el-radio-group v-model="repoForm.jobType">
             <el-radio label="campus">校招</el-radio>
             <el-radio label="social">社招</el-radio>
+            <el-radio label="internship">实习</el-radio>
           </el-radio-group>
         </el-form-item>
 

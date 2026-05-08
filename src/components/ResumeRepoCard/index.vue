@@ -40,7 +40,8 @@
 
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator'
-import { ResumeRepo, JobType } from '@/models'
+import { ResumeRepo } from '@/models'
+import { getJobTypeTag, getJobTypeText } from '@/utils/resume-repo'
 
 @Component({
   name: 'ResumeRepoCard'
@@ -49,11 +50,11 @@ export default class extends Vue {
   @Prop({ required: true }) private repo!: ResumeRepo
 
   get jobTypeText() {
-    return this.repo.jobType === JobType.CAMPUS ? '校招' : '社招'
+    return getJobTypeText(this.repo.jobType)
   }
 
   get jobTypeTag() {
-    return this.repo.jobType === JobType.CAMPUS ? 'success' : 'primary'
+    return getJobTypeTag(this.repo.jobType)
   }
 
   private formatDate(dateString: string) {

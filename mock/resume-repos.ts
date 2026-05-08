@@ -1,10 +1,12 @@
 import { Response, Request } from 'express'
 
+type JobType = 'campus' | 'social' | 'internship'
+
 interface ResumeRepo {
   id: string
   userId: string
   name: string
-  jobType: 'campus' | 'social'
+  jobType: JobType
   targetPosition: string
   description?: string
   versionCount: number
@@ -45,6 +47,17 @@ const repoList: ResumeRepo[] = [
     versionCount: 1,
     createdAt: new Date('2024-02-15').toISOString(),
     updatedAt: new Date('2024-02-15').toISOString()
+  },
+  {
+    id: '4',
+    userId: '1',
+    name: '前端实习-暑期项目',
+    jobType: 'internship',
+    targetPosition: '前端实习生',
+    description: '面向暑期实习和日常实习的前端岗位',
+    versionCount: 0,
+    createdAt: new Date('2024-03-01').toISOString(),
+    updatedAt: new Date('2024-03-01').toISOString()
   }
 ]
 

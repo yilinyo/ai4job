@@ -5,7 +5,8 @@
 // 求职类型枚举
 export enum JobType {
   CAMPUS = 'campus', // 校招
-  SOCIAL = 'social' // 社招
+  SOCIAL = 'social', // 社招
+  INTERNSHIP = 'internship' // 实习
 }
 
 // 简历仓库
@@ -13,7 +14,7 @@ export interface ResumeRepo {
   id: string
   userId: string // 所属用户ID
   name: string // 仓库名称
-  jobType: JobType // 求职类型: 校招/社招
+  jobType: JobType // 求职类型: 校招/社招/实习
   targetPosition: string // 目标岗位
   description?: string // 仓库描述
   versionCount: number // 版本数量
