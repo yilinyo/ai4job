@@ -58,12 +58,6 @@ const resumeRoutes: RouteConfig = {
       component: () => import(/* webpackChunkName: "resume-application-editor" */ '@/views/resume-application/editor.vue'),
       name: 'ResumeApplicationEdit',
       meta: { title: '编辑投递记录', hidden: true, activeMenu: '/resume/repos' }
-    },
-    {
-      path: 'profile',
-      component: () => import(/* webpackChunkName: "user-profile" */ '@/views/user/profile.vue'),
-      name: 'UserProfile',
-      meta: { title: '个人信息' }
     }
   ]
 }

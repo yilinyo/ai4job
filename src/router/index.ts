@@ -125,6 +125,23 @@ export const constantRoutes: RouteConfig[] = [
     ]
   },
   {
+    path: '/user',
+    component: Layout,
+    redirect: '/user/profile',
+    children: [
+      {
+        path: 'profile',
+        component: () => import(/* webpackChunkName: "user-profile" */ '@/views/user/profile.vue'),
+        name: 'UserProfile',
+        meta: {
+          title: 'userProfile',
+          icon: 'user',
+          noCache: true
+        }
+      }
+    ]
+  },
+  {
     path: '/profile',
     component: Layout,
     redirect: '/profile/index',

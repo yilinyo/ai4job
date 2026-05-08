@@ -18,6 +18,25 @@
           />
         </el-form-item>
 
+        <el-divider content-position="left">基础信息</el-divider>
+
+        <el-form-item
+          label="头像"
+          prop="avatar"
+        >
+          <div class="avatar-form-item">
+            <el-avatar
+              :size="56"
+              :src="profileForm.avatar"
+              icon="el-icon-user-solid"
+            />
+            <el-input
+              v-model="profileForm.avatar"
+              placeholder="请输入头像 URL"
+            />
+          </div>
+        </el-form-item>
+
         <el-form-item
           label="真实姓名"
           prop="realName"
@@ -61,6 +80,18 @@
         </el-form-item>
 
         <el-form-item
+          label="所在地"
+          prop="location"
+        >
+          <el-input
+            v-model="profileForm.location"
+            placeholder="请输入所在地，如：上海"
+          />
+        </el-form-item>
+
+        <el-divider content-position="left">求职意向</el-divider>
+
+        <el-form-item
           label="求职意向"
           prop="jobIntention"
         >
@@ -69,6 +100,69 @@
             type="textarea"
             :rows="3"
             placeholder="请输入求职意向，如：前端工程师、全栈开发等"
+          />
+        </el-form-item>
+
+        <el-form-item
+          label="个人优势"
+          prop="personalAdvantage"
+        >
+          <el-input
+            v-model="profileForm.personalAdvantage"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入个人优势，如：熟悉 Vue、TypeScript，有后台系统项目经验"
+          />
+        </el-form-item>
+
+        <el-divider content-position="left">教育信息</el-divider>
+
+        <el-form-item
+          label="学校"
+          prop="school"
+        >
+          <el-input
+            v-model="profileForm.school"
+            placeholder="请输入学校名称"
+          />
+        </el-form-item>
+
+        <el-form-item
+          label="学历"
+          prop="education"
+        >
+          <el-select
+            v-model="profileForm.education"
+            placeholder="请选择学历"
+            clearable
+          >
+            <el-option label="专科" value="专科" />
+            <el-option label="本科" value="本科" />
+            <el-option label="硕士" value="硕士" />
+            <el-option label="博士" value="博士" />
+            <el-option label="其他" value="其他" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item
+          label="专业"
+          prop="major"
+        >
+          <el-input
+            v-model="profileForm.major"
+            placeholder="请输入专业名称"
+          />
+        </el-form-item>
+
+        <el-form-item
+          label="毕业时间"
+          prop="graduationDate"
+        >
+          <el-date-picker
+            v-model="profileForm.graduationDate"
+            type="month"
+            value-format="yyyy-MM"
+            placeholder="请选择毕业年月"
           />
         </el-form-item>
 
@@ -104,7 +198,14 @@ export default class extends Vue {
     age: undefined,
     email: '',
     phone: '',
-    jobIntention: ''
+    jobIntention: '',
+    avatar: '',
+    school: '',
+    education: '',
+    major: '',
+    graduationDate: '',
+    location: '',
+    personalAdvantage: ''
   }
 
   private loading = false
@@ -149,15 +250,8 @@ export default class extends Vue {
   private async loadUserProfile() {
     try {
       await UserModule.GetUserInfo()
-      // 加载用户信息到表单
       if (UserModule.userProfile) {
-        this.profileForm = {
-          realName: UserModule.userProfile.realName || '',
-          age: UserModule.userProfile.age,
-          email: UserModule.userProfile.email || '',
-          phone: UserModule.userProfile.phone || '',
-          jobIntention: UserModule.userProfile.jobIntention || ''
-        }
+        this.profileForm = this.getProfileForm()
       }
     } catch (error) {
       console.error('加载用户信息失败:', error)
@@ -185,6 +279,24 @@ export default class extends Vue {
     this.loadUserProfile()
     this.$message.info('已重置为当前保存的信息')
   }
+
+  private getProfileForm(): UpdateProfileRequest {
+    const profile = UserModule.userProfile
+    return {
+      realName: profile?.realName || '',
+      age: profile?.age,
+      email: profile?.email || '',
+      phone: profile?.phone || '',
+      jobIntention: profile?.jobIntention || '',
+      avatar: profile?.avatar || '',
+      school: profile?.school || '',
+      education: profile?.education || '',
+      major: profile?.major || '',
+      graduationDate: profile?.graduationDate || '',
+      location: profile?.location || '',
+      personalAdvantage: profile?.personalAdvantage || ''
+    }
+  }
 }
 </script>
 
@@ -199,6 +311,21 @@ export default class extends Vue {
     .card-title {
       font-size: 18px;
       font-weight: bold;
+    }
+
+    .avatar-form-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .el-input {
+        flex: 1;
+      }
+    }
+
+    .el-select,
+    .el-date-editor {
+      width: 100%;
     }
   }
 }

@@ -12,6 +12,12 @@ interface UserProfile {
   phone?: string
   jobIntention?: string
   avatar?: string
+  school?: string
+  education?: string
+  major?: string
+  graduationDate?: string
+  location?: string
+  personalAdvantage?: string
   createdAt: string
   updatedAt: string
 }
@@ -26,6 +32,12 @@ const userList: UserProfile[] = [
     email: 'admin@example.com',
     phone: '13800138000',
     jobIntention: '前端工程师',
+    school: '浙江大学',
+    education: '本科',
+    major: '计算机科学与技术',
+    graduationDate: '2026-06',
+    location: '杭州',
+    personalAdvantage: '熟悉 Vue、TypeScript 与前端工程化，有多个后台系统项目经验。',
     avatar: 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -39,6 +51,12 @@ const userList: UserProfile[] = [
     email: 'user@example.com',
     phone: '13900139000',
     jobIntention: '全栈工程师',
+    school: '上海交通大学',
+    education: '硕士',
+    major: '软件工程',
+    graduationDate: '2024-06',
+    location: '上海',
+    personalAdvantage: '具备前后端全栈开发经验，熟悉 Node.js、Vue 和接口设计。',
     avatar: 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()

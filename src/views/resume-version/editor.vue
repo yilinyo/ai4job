@@ -84,8 +84,10 @@ import { Component, Vue } from 'vue-property-decorator'
 import { Form as ElForm } from 'element-ui'
 import ResumeMarkdownPreview from '@/components/ResumeMarkdownPreview/index.vue'
 import { ResumeVersionModule } from '@/store/modules/resume-version'
+import { UserModule } from '@/store/modules/user'
 import { CreateResumeVersionRequest, UpdateResumeVersionRequest } from '@/models'
 import { renderResumeMarkdown } from '@/utils/resume-markdown'
+import { generateResumeDraftFromProfile } from '@/utils/resume-prefill'
 
 @Component({
   name: 'ResumeVersionEditor',
@@ -130,6 +132,8 @@ export default class extends Vue {
 
     if (this.isEdit) {
       this.loadVersion()
+    } else {
+      this.prefillContentFromUserProfile()
     }
   }
 
@@ -185,6 +189,22 @@ export default class extends Vue {
 
   private setEditorMode(mode: 'edit' | 'preview') {
     this.editorMode = mode
+  }
+
+  private async prefillContentFromUserProfile() {
+    if (this.versionForm.content.trim()) return
+
+    try {
+      await UserModule.GetUserInfo()
+      if (this.versionForm.content.trim()) return
+
+      const draft = generateResumeDraftFromProfile(UserModule.userProfile)
+      if (draft) {
+        this.versionForm.content = draft
+      }
+    } catch (error) {
+      console.error('生成默认简历草稿失败:', error)
+    }
   }
 
   private goBack() {

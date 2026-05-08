@@ -37,7 +37,7 @@
 
 #### 用户模块 (src/views/user/)
 - ✅ `register.vue` - 用户注册页面
-- ✅ `profile.vue` - 个人信息管理页面
+- ✅ `profile.vue` - 顶层个人信息管理页面(支持账号资料表单)
 
 #### 简历仓库模块 (src/views/resume-repo/)
 - ✅ `list.vue` - 简历仓库列表页(搜索、筛选、分页)
@@ -151,8 +151,11 @@ npm run serve
 - POST /api/user/register - 注册
 - POST /api/user/login - 登录
 - POST /api/user/logout - 登出
-- GET /api/user/profile - 获取信息
-- PUT /api/user/profile - 更新信息
+- GET /api/user/profile - 获取当前账号个人信息
+- PUT /api/user/profile - 更新当前账号个人信息
+
+**简历版本:**
+- 创建简历版本时，可基于当前账号个人信息自动生成默认草稿
 
 **简历仓库:**
 - GET /api/resume-repos - 列表(支持搜索/筛选/分页)
