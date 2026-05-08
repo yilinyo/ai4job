@@ -108,7 +108,7 @@ export default class extends Vue {
   }
 
   get avatar() {
-    return UserModule.avatar
+    return UserModule.userProfile?.avatar || ''
   }
 
   private toggleSideBar() {

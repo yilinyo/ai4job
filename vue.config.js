@@ -12,6 +12,12 @@ module.exports = {
   publicPath: process.env.NODE_ENV === 'production' ? '/vue-typescript-admin-template/' : '/',
   lintOnSave: process.env.NODE_ENV === 'development',
   productionSourceMap: false,
+  transpileDependencies: [
+    'html2pdf.js',
+    'html2canvas',
+    'jspdf',
+    'fast-png'
+  ],
   devServer: {
     port: devServerPort,
     open: true,
@@ -24,7 +30,7 @@ module.exports = {
       // change xxx-api/login => /mock-api/v1/login
       // detail: https://cli.vuejs.org/config/#devserver-proxy
       [process.env.VUE_APP_BASE_API]: {
-        target: `http://127.0.0.1:${mockServerPort}/mock-api/v1`,
+        target: `http://127.0.0.1:${mockServerPort}`,
         changeOrigin: true, // needed for virtual hosted sites
         ws: true, // proxy websockets
         pathRewrite: {
@@ -50,6 +56,10 @@ module.exports = {
     }
   },
   chainWebpack(config) {
+    config.resolve.alias
+      .set('jspdf$', path.resolve(__dirname, 'node_modules/jspdf/dist/jspdf.umd.js'))
+      .set('fast-png$', path.resolve(__dirname, 'node_modules/fast-png/lib/index.js'))
+
     // provide the app's title in html-webpack-plugin's options list so that
     // it can be accessed in index.html to inject the correct title.
     // https://cli.vuejs.org/guide/webpack.html#modifying-options-of-a-plugin

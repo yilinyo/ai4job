@@ -9,6 +9,7 @@ import componentsRouter from './modules/components'
 import chartsRouter from './modules/charts'
 import tableRouter from './modules/table'
 import nestedRouter from './modules/nested'
+import resumeRouter, { jobPostingRoutes } from './modules/resume'
 
 Vue.use(VueRouter)
 
@@ -55,6 +56,11 @@ export const constantRoutes: RouteConfig[] = [
   {
     path: '/login',
     component: () => import(/* webpackChunkName: "login" */ '@/views/login/index.vue'),
+    meta: { hidden: true }
+  },
+  {
+    path: '/register',
+    component: () => import(/* webpackChunkName: "register" */ '@/views/user/register.vue'),
     meta: { hidden: true }
   },
   {
@@ -143,6 +149,9 @@ export const constantRoutes: RouteConfig[] = [
  * the routes that need to be dynamically loaded based on user roles
 */
 export const asyncRoutes: RouteConfig[] = [
+  // 简历管理系统模块
+  resumeRouter,
+  jobPostingRoutes,
   {
     path: '/permission',
     component: Layout,
