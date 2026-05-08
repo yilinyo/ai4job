@@ -98,6 +98,22 @@ Recommended branch naming:
 
 Do not implement change code directly on `master`.
 
+Do not commit implementation code or merge a feature branch back to `master` while the corresponding OpenSpec `tasks.md` still has unchecked tasks. If tasks are incomplete, continue implementation or validation first; do not use commit or merge to bypass the task checklist.
+
+## Commit and merge rules
+
+Before committing implementation work on a feature branch:
+
+1. Confirm the corresponding OpenSpec change is known.
+2. Confirm `tasks.md` has no unchecked implementation or validation tasks.
+3. If any task remains unchecked, stop and finish or explicitly de-scope the task in the artifacts before committing.
+
+Before merging a feature branch back to `master`:
+
+1. Re-check the corresponding `tasks.md`.
+2. Confirm all tasks are complete.
+3. If any task remains unchecked, do not merge to `master`.
+
 ## Branch permission enforcement
 
 This repository requires explicit branch-state checks when branch context and action type may conflict.
@@ -114,6 +130,8 @@ Do not silently continue.
 Do not assume branch state is acceptable.
 
 Do not move directly into implementation, archive, or merge-oriented actions without branch confirmation when the workflow requires it.
+
+Do not move into commit or merge actions for an OpenSpec apply if the change tasks are incomplete.
 
 Examples:
 
@@ -139,6 +157,11 @@ Do not recommend archive unless all of the following are true:
 3. OpenSpec documents reflect the final agreed behavior
 4. code is committed
 5. the implementation branch has been merged back to `master`
+6. the current branch is `master`
+
+Archive must be performed on `master`. If the current branch is not `master`, stop before moving files and switch back to `master` first.
+
+After archive files are moved, immediately commit the archive changes on `master` and push `master` to the remote. Do not present archive as workflow-complete until the archive commit has been pushed successfully.
 
 If OpenSpec work is complete but branch merge has not happened yet, say that the change is document-complete but not workflow-complete.
 
