@@ -10,10 +10,22 @@ describe('Utils:resume-prefill', () => {
     email: 'admin@example.com',
     phone: '13800138000',
     jobIntention: '前端工程师',
-    school: '浙江大学',
-    education: '本科',
-    major: '计算机科学与技术',
-    graduationDate: '2026-06',
+    educationExperiences: [
+      {
+        school: '浙江大学',
+        education: '本科',
+        major: '计算机科学与技术',
+        admissionDate: '2022-09',
+        graduationDate: '2026-06'
+      },
+      {
+        school: '清华大学',
+        education: '硕士',
+        major: '软件工程',
+        admissionDate: '2026-09',
+        graduationDate: '2029-06'
+      }
+    ],
     location: '杭州',
     personalAdvantage: '熟悉 Vue、TypeScript 与前端工程化。',
     createdAt: '2026-05-09T00:00:00.000Z',
@@ -27,7 +39,8 @@ describe('Utils:resume-prefill', () => {
     expect(draft).toContain('## 基本信息')
     expect(draft).toContain('- 电话：13800138000')
     expect(draft).toContain('## 教育背景')
-    expect(draft).toContain('- 学校：浙江大学')
+    expect(draft).toContain('- 本科：浙江大学：计算机科学与技术 / 2022-09 - 2026-06')
+    expect(draft).toContain('- 硕士：清华大学：软件工程 / 2026-09 - 2029-06')
     expect(draft).toContain('## 个人优势')
     expect(draft).toContain('熟悉 Vue、TypeScript 与前端工程化。')
   })

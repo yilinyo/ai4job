@@ -22,10 +22,20 @@ export function generateResumeDraftFromProfile(profile?: UserProfile | null) {
   }
 
   const educationInfo: string[] = []
-  appendLine(educationInfo, '学校', profile.school)
-  appendLine(educationInfo, '学历', profile.education)
-  appendLine(educationInfo, '专业', profile.major)
-  appendLine(educationInfo, '毕业时间', profile.graduationDate)
+  const educationExperiences = profile.educationExperiences || []
+  educationExperiences.forEach(experience => {
+    const titleParts = [experience.education, experience.school].filter(Boolean)
+    const detailParts = [
+      experience.major,
+      [experience.admissionDate, experience.graduationDate].filter(Boolean).join(' - ')
+    ].filter(Boolean)
+    const label = titleParts.length ? titleParts.join('：') : '教育经历'
+    if (detailParts.length) {
+      educationInfo.push(`- ${label}：${detailParts.join(' / ')}`)
+    } else if (titleParts.length) {
+      educationInfo.push(`- ${label}`)
+    }
+  })
   if (educationInfo.length) {
     lines.push('## 教育背景', ...educationInfo, '')
   }

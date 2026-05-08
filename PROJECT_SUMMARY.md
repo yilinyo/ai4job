@@ -37,7 +37,7 @@
 
 #### 用户模块 (src/views/user/)
 - ✅ `register.vue` - 用户注册页面
-- ✅ `profile.vue` - 顶层个人信息管理页面(支持账号资料表单)
+- ✅ `profile.vue` - 顶层个人信息管理页面(支持账号资料表单与多段教育经历)
 
 #### 简历仓库模块 (src/views/resume-repo/)
 - ✅ `list.vue` - 简历仓库列表页(搜索、筛选、分页)

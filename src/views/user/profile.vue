@@ -115,55 +115,82 @@
           />
         </el-form-item>
 
-        <el-divider content-position="left">教育信息</el-divider>
+        <el-divider content-position="left">教育经历</el-divider>
 
-        <el-form-item
-          label="学校"
-          prop="school"
+        <div
+          v-for="(experience, index) in profileForm.educationExperiences"
+          :key="index"
+          class="education-experience-card"
         >
-          <el-input
-            v-model="profileForm.school"
-            placeholder="请输入学校名称"
-          />
-        </el-form-item>
+          <div class="education-experience-card__header">
+            <span>教育经历 {{ index + 1 }}</span>
+            <el-button
+              type="text"
+              class="danger"
+              :disabled="profileForm.educationExperiences.length === 1"
+              @click="removeEducationExperience(index)"
+            >
+              删除
+            </el-button>
+          </div>
 
-        <el-form-item
-          label="学历"
-          prop="education"
-        >
-          <el-select
-            v-model="profileForm.education"
-            placeholder="请选择学历"
-            clearable
+          <el-form-item label="学校">
+            <el-input
+              v-model="experience.school"
+              placeholder="请输入学校名称"
+            />
+          </el-form-item>
+
+          <el-form-item label="学历">
+            <el-select
+              v-model="experience.education"
+              placeholder="请选择学历，同一种学历只能添加一段"
+              clearable
+            >
+              <el-option
+                v-for="option in educationOptions"
+                :key="option"
+                :label="option"
+                :value="option"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="专业">
+            <el-input
+              v-model="experience.major"
+              placeholder="请输入专业名称"
+            />
+          </el-form-item>
+
+          <el-form-item label="时间">
+            <div class="education-date-range">
+              <el-date-picker
+                v-model="experience.admissionDate"
+                type="month"
+                value-format="yyyy-MM"
+                placeholder="入学时间"
+              />
+              <span class="date-separator">至</span>
+              <el-date-picker
+                v-model="experience.graduationDate"
+                type="month"
+                value-format="yyyy-MM"
+                placeholder="毕业时间"
+              />
+            </div>
+          </el-form-item>
+        </div>
+
+        <el-form-item>
+          <el-button
+            type="primary"
+            plain
+            icon="el-icon-plus"
+            @click="addEducationExperience"
           >
-            <el-option label="专科" value="专科" />
-            <el-option label="本科" value="本科" />
-            <el-option label="硕士" value="硕士" />
-            <el-option label="博士" value="博士" />
-            <el-option label="其他" value="其他" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item
-          label="专业"
-          prop="major"
-        >
-          <el-input
-            v-model="profileForm.major"
-            placeholder="请输入专业名称"
-          />
-        </el-form-item>
-
-        <el-form-item
-          label="毕业时间"
-          prop="graduationDate"
-        >
-          <el-date-picker
-            v-model="profileForm.graduationDate"
-            type="month"
-            value-format="yyyy-MM"
-            placeholder="请选择毕业年月"
-          />
+            添加教育经历
+          </el-button>
         </el-form-item>
 
         <el-form-item>
@@ -187,7 +214,7 @@
 import { Component, Vue } from 'vue-property-decorator'
 import { Form as ElForm } from 'element-ui'
 import { UserModule } from '@/store/modules/user'
-import { UpdateProfileRequest } from '@/models'
+import { EducationExperience, UpdateProfileRequest } from '@/models'
 
 @Component({
   name: 'UserProfile'
@@ -200,15 +227,13 @@ export default class extends Vue {
     phone: '',
     jobIntention: '',
     avatar: '',
-    school: '',
-    education: '',
-    major: '',
-    graduationDate: '',
+    educationExperiences: [this.createEducationExperience()],
     location: '',
     personalAdvantage: ''
   }
 
   private loading = false
+  private educationOptions = ['专科', '本科', '硕士', '博士', '其他']
 
   get userProfile() {
     return UserModule.userProfile || {
@@ -260,10 +285,10 @@ export default class extends Vue {
 
   private handleUpdate() {
     (this.$refs.profileForm as ElForm).validate(async(valid: boolean) => {
-      if (valid) {
+      if (valid && this.validateEducationExperiences()) {
         this.loading = true
         try {
-          await UserModule.UpdateProfile(this.profileForm)
+          await UserModule.UpdateProfile(this.getSubmitProfileForm())
           this.$message.success('保存成功！')
         } catch (error) {
           console.error('更新失败:', error)
@@ -289,13 +314,86 @@ export default class extends Vue {
       phone: profile?.phone || '',
       jobIntention: profile?.jobIntention || '',
       avatar: profile?.avatar || '',
-      school: profile?.school || '',
-      education: profile?.education || '',
-      major: profile?.major || '',
-      graduationDate: profile?.graduationDate || '',
+      educationExperiences: profile?.educationExperiences?.length
+        ? profile.educationExperiences.map(experience => ({ ...experience }))
+        : [this.createEducationExperience()],
       location: profile?.location || '',
       personalAdvantage: profile?.personalAdvantage || ''
     }
+  }
+
+  private createEducationExperience(): EducationExperience {
+    return {
+      school: '',
+      education: '',
+      major: '',
+      admissionDate: '',
+      graduationDate: ''
+    }
+  }
+
+  private addEducationExperience() {
+    this.profileForm.educationExperiences = [
+      ...(this.profileForm.educationExperiences || []),
+      this.createEducationExperience()
+    ]
+  }
+
+  private removeEducationExperience(index: number) {
+    const experiences = this.profileForm.educationExperiences || []
+    if (experiences.length <= 1) return
+    this.profileForm.educationExperiences = experiences.filter((_, currentIndex) => currentIndex !== index)
+  }
+
+  private getSubmitProfileForm(): UpdateProfileRequest {
+    return {
+      ...this.profileForm,
+      educationExperiences: (this.profileForm.educationExperiences || []).filter(experience =>
+        this.hasEducationContent(experience)
+      )
+    }
+  }
+
+  private validateEducationExperiences() {
+    const experiences = (this.profileForm.educationExperiences || []).filter(experience =>
+      this.hasEducationContent(experience)
+    )
+    const educationSet = new Set<string>()
+
+    for (const experience of experiences) {
+      if (!experience.education) {
+        this.$message.error('请为已填写的教育经历选择学历')
+        return false
+      }
+
+      if (educationSet.has(experience.education)) {
+        this.$message.error(`学历“${experience.education}”只能添加一段教育经历`)
+        return false
+      }
+
+      if (
+        experience.admissionDate &&
+        experience.graduationDate &&
+        experience.graduationDate < experience.admissionDate
+      ) {
+        this.$message.error('毕业时间不能早于入学时间')
+        return false
+      }
+
+      educationSet.add(experience.education)
+    }
+
+    return true
+  }
+
+  private hasEducationContent(experience: EducationExperience) {
+    return Boolean(
+      experience.school ||
+      experience.education ||
+      experience.major ||
+      experience.admissionDate ||
+      experience.graduationDate
+    )
   }
 }
 </script>
@@ -326,6 +424,37 @@ export default class extends Vue {
     .el-select,
     .el-date-editor {
       width: 100%;
+    }
+
+    .education-experience-card {
+      margin-bottom: 18px;
+      padding: 16px 16px 1px;
+      border: 1px solid #ebeef5;
+      border-radius: 4px;
+      background: #fafafa;
+
+      &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        font-weight: 600;
+        color: #303133;
+
+        .danger {
+          color: #f56c6c;
+        }
+      }
+    }
+
+    .education-date-range {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .date-separator {
+        color: #909399;
+      }
     }
   }
 }

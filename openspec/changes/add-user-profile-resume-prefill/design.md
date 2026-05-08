@@ -17,7 +17,7 @@
 - 个人信息页以结构化表单维护，不使用 Markdown。
 - 个人信息页作为一级菜单入口，与“引导页 / Guide”同级显示。
 - 移除“简历管理”下的个人信息入口。
-- 扩展个人信息字段，覆盖简历草稿所需的基础资料。
+- 扩展个人信息字段，覆盖简历草稿所需的基础资料，并支持多段教育经历。
 - 使用 Mock 数据模拟“每个账号独立保存个人资料”。
 - 创建简历版本时自动生成默认简历内容草稿，且用户可以继续编辑修改。
 - 编辑已有简历版本时不自动覆盖已有内容。
@@ -74,14 +74,19 @@ interface UserProfile {
   phone?: string
   jobIntention?: string
   avatar?: string
-  school?: string
-  education?: string
-  major?: string
-  graduationDate?: string
+  educationExperiences?: EducationExperience[]
   location?: string
   personalAdvantage?: string
   createdAt: string
   updatedAt: string
+}
+
+interface EducationExperience {
+  school?: string
+  education?: string
+  major?: string
+  admissionDate?: string
+  graduationDate?: string
 }
 ```
 
@@ -97,10 +102,7 @@ interface UpdateProfileRequest {
   phone?: string
   jobIntention?: string
   avatar?: string
-  school?: string
-  education?: string
-  major?: string
-  graduationDate?: string
+  educationExperiences?: EducationExperience[]
   location?: string
   personalAdvantage?: string
 }
@@ -121,7 +123,7 @@ interface UpdateProfileRequest {
 
 1. 基础信息区：头像、姓名、年龄、邮箱、电话、所在地。
 2. 求职意向区：求职意向、个人优势。
-3. 教育信息区：学校、学历、专业、毕业时间。
+3. 教育经历区：支持添加多段学校经历，每段包含学校、学历、专业、入学时间、毕业时间。
 
 字段建议：
 
@@ -131,10 +133,9 @@ interface UpdateProfileRequest {
 - 电话：手机号格式校验
 - 求职意向：文本或 textarea
 - 头像：URL 输入或沿用现有头像字段展示
-- 学校：文本输入
-- 学历：下拉或文本输入，建议先用下拉
-- 专业：文本输入
-- 毕业时间：月份选择或日期选择
+- 教育经历：可添加多段，每段包含学校、学历、专业、入学时间、毕业时间
+- 学历唯一约束：同一种学历只允许添加一段经历，例如只能有一段“本科”和一段“硕士”
+- 入学时间 / 毕业时间：使用月份选择，毕业时间不能早于入学时间
 - 所在地：文本输入
 - 个人优势：textarea
 
@@ -165,10 +166,7 @@ interface UpdateProfileRequest {
 - 所在地：所在地
 
 ## 教育背景
-- 学校：学校
-- 学历：学历
-- 专业：专业
-- 毕业时间：毕业时间
+- 学历：学校 / 专业 / 入学时间 - 毕业时间
 
 ## 个人优势
 个人优势

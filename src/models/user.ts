@@ -3,6 +3,14 @@
  */
 
 // 用户基本信息
+export interface EducationExperience {
+  school?: string // 学校(选填)
+  education?: string // 学历(选填)
+  major?: string // 专业(选填)
+  admissionDate?: string // 入学时间(选填)
+  graduationDate?: string // 毕业时间(选填)
+}
+
 export interface UserProfile {
   id: string
   username: string // 用户名
@@ -12,10 +20,7 @@ export interface UserProfile {
   phone?: string // 电话(选填)
   jobIntention?: string // 求职意向(选填)
   avatar?: string // 头像URL
-  school?: string // 学校(选填)
-  education?: string // 学历(选填)
-  major?: string // 专业(选填)
-  graduationDate?: string // 毕业时间(选填)
+  educationExperiences?: EducationExperience[] // 教育经历(选填)
   location?: string // 所在地(选填)
   personalAdvantage?: string // 个人优势(选填)
   createdAt: string // 创建时间
@@ -49,10 +54,7 @@ export interface UpdateProfileRequest {
   phone?: string
   jobIntention?: string
   avatar?: string
-  school?: string
-  education?: string
-  major?: string
-  graduationDate?: string
+  educationExperiences?: EducationExperience[]
   location?: string
   personalAdvantage?: string
 }
