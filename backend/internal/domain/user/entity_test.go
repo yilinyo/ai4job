@@ -26,3 +26,16 @@ func TestUser_CheckPassword_WrongPassword(t *testing.T) {
 	_ = u.SetPassword("plaintext123")
 	assert.False(t, u.CheckPassword("wrongpassword"))
 }
+
+func TestUser_SetPassword_EmptyPassword_ReturnsError(t *testing.T) {
+	u := &user.User{}
+	err := u.SetPassword("")
+	assert.Error(t, err)
+}
+
+func TestUser_SetPassword_TooLong_ReturnsError(t *testing.T) {
+	u := &user.User{}
+	longPassword := string(make([]byte, 73)) // 73 bytes > 72 byte limit
+	err := u.SetPassword(longPassword)
+	assert.Error(t, err)
+}

@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -42,6 +43,12 @@ type User struct {
 }
 
 func (u *User) SetPassword(plain string) error {
+	if plain == "" {
+		return errors.New("password must not be empty")
+	}
+	if len([]byte(plain)) > 72 {
+		return errors.New("password exceeds 72-byte bcrypt limit")
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(plain), 12)
 	if err != nil {
 		return err
