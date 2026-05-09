@@ -62,12 +62,14 @@ At minimum, run applicable static checks such as:
 For this project, default to:
 
 ```bash
+cd frontend
 npm run lint
 ```
 
 If unit tests are directly relevant and available, also consider:
 
 ```bash
+cd frontend
 npm run test:unit
 ```
 

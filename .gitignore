@@ -1,8 +1,11 @@
 .DS_Store
 node_modules
 /dist
+frontend/node_modules
+frontend/dist
 
 /tests/**/coverage/
+frontend/tests/**/coverage/
 
 # local env files
 .env.local

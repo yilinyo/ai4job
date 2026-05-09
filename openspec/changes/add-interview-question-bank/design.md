@@ -6,8 +6,8 @@
 
 需求文档与视觉稿位于：
 
-- `docs/面试题库方案/PRD_面试题库与闪卡复习_简版.md`
-- `docs/面试题库方案/VISUAL_面试题库与闪卡复习_mockup.svg`
+- `docs/PRD文档/面试题库方案/PRD_面试题库与闪卡复习_简版.md`
+- `docs/PRD文档/面试题库方案/VISUAL_面试题库与闪卡复习_mockup.svg`
 
 ## Goals / Non-Goals
 

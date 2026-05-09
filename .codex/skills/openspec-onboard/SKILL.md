@@ -63,7 +63,7 @@ Scan the codebase for small improvement opportunities. Look for:
 
 1. **TODO/FIXME comments** - Search for `TODO`, `FIXME`, `HACK`, `XXX` in code files
 2. **Missing error handling** - `catch` blocks that swallow errors, risky operations without try-catch
-3. **Functions without tests** - Cross-reference `src/` with test directories
+3. **Functions without tests** - Cross-reference `frontend/src/` with test directories
 4. **Type issues** - `any` types in TypeScript files (`: any`, `as any`)
 5. **Debug artifacts** - `console.log`, `console.debug`, `debugger` statements in non-debug code
 6. **Missing validation** - User input handlers without validation
@@ -86,12 +86,12 @@ From your analysis, present 3-4 specific suggestions:
 Based on scanning your codebase, here are some good starter tasks:
 
 **1. [Most promising task]**
-   Location: `src/path/to/file.ts:42`
+   Location: `frontend/src/path/to/file.ts:42`
    Scope: ~1-2 files, ~20-30 lines
    Why it's good: [brief reason]
 
 **2. [Second task]**
-   Location: `src/another/file.ts`
+   Location: `frontend/src/another/file.ts`
    Scope: ~1 file, ~15 lines
    Why it's good: [brief reason]
 
@@ -231,7 +231,7 @@ Here's a draft proposal:
 
 ## Impact
 
-- `src/path/to/file.ts`: [what changes]
+- `frontend/src/path/to/file.ts`: [what changes]
 - [other files if applicable]
 
 ---
