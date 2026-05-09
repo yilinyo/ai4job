@@ -1,6 +1,6 @@
 CREATE TABLE resume_repos (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id     UUID         NOT NULL REFERENCES users(id),
+    user_id     VARCHAR(36)  NOT NULL REFERENCES users(id),
     name        VARCHAR(100) NOT NULL,
     description TEXT,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
