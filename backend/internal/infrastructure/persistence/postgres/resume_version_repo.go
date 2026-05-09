@@ -18,7 +18,11 @@ func NewResumeVersionRepo(db *gorm.DB) *ResumeVersionRepo {
 }
 
 func (r *ResumeVersionRepo) Create(ctx context.Context, v *domainversion.ResumeVersion) error {
-	return r.db.WithContext(ctx).Create(v).Error
+	err := r.db.WithContext(ctx).Create(v).Error
+	if err != nil && isUniqueViolation(err) {
+		return domainerrors.ErrDuplicate
+	}
+	return err
 }
 
 func (r *ResumeVersionRepo) FindByIDAndRepoID(ctx context.Context, id, repoID string) (*domainversion.ResumeVersion, error) {
@@ -37,7 +41,25 @@ func (r *ResumeVersionRepo) ListByRepoID(ctx context.Context, repoID string) ([]
 }
 
 func (r *ResumeVersionRepo) Update(ctx context.Context, v *domainversion.ResumeVersion) error {
-	return r.db.WithContext(ctx).Save(v).Error
+	result := r.db.WithContext(ctx).
+		Model(&domainversion.ResumeVersion{}).
+		Where("id = ? AND repo_id = ?", v.ID, v.RepoID).
+		Updates(map[string]any{
+			"title":       v.Title,
+			"content":     v.Content,
+			"version_num": v.VersionNum,
+			"is_default":  v.IsDefault,
+		})
+	if result.Error != nil {
+		if isUniqueViolation(result.Error) {
+			return domainerrors.ErrDuplicate
+		}
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domainerrors.ErrNotFound
+	}
+	return nil
 }
 
 func (r *ResumeVersionRepo) Delete(ctx context.Context, id, repoID string) error {
@@ -51,5 +73,9 @@ func (r *ResumeVersionRepo) MaxVersionNum(ctx context.Context, repoID string) (i
 }
 
 func (r *ResumeVersionRepo) ClearDefaultByRepoID(ctx context.Context, repoID string) error {
-	return r.db.WithContext(ctx).Model(&domainversion.ResumeVersion{}).Where("repo_id = ?", repoID).Update("is_default", false).Error
+	err := r.db.WithContext(ctx).Model(&domainversion.ResumeVersion{}).Where("repo_id = ?", repoID).Update("is_default", false).Error
+	if err != nil && isUniqueViolation(err) {
+		return domainerrors.ErrDuplicate
+	}
+	return err
 }

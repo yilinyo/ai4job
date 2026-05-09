@@ -18,7 +18,11 @@ func NewResumeRepoRepo(db *gorm.DB) *ResumeRepoRepo {
 }
 
 func (r *ResumeRepoRepo) Create(ctx context.Context, rr *domainrepo.ResumeRepo) error {
-	return r.db.WithContext(ctx).Create(rr).Error
+	err := r.db.WithContext(ctx).Create(rr).Error
+	if err != nil && isUniqueViolation(err) {
+		return domainerrors.ErrDuplicate
+	}
+	return err
 }
 
 func (r *ResumeRepoRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainrepo.ResumeRepo, error) {
@@ -31,7 +35,23 @@ func (r *ResumeRepoRepo) FindByIDAndUserID(ctx context.Context, id, userID strin
 }
 
 func (r *ResumeRepoRepo) Update(ctx context.Context, rr *domainrepo.ResumeRepo) error {
-	return r.db.WithContext(ctx).Save(rr).Error
+	result := r.db.WithContext(ctx).
+		Model(&domainrepo.ResumeRepo{}).
+		Where("id = ? AND user_id = ?", rr.ID, rr.UserID).
+		Updates(map[string]any{
+			"name":        rr.Name,
+			"description": rr.Description,
+		})
+	if result.Error != nil {
+		if isUniqueViolation(result.Error) {
+			return domainerrors.ErrDuplicate
+		}
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domainerrors.ErrNotFound
+	}
+	return nil
 }
 
 func (r *ResumeRepoRepo) Delete(ctx context.Context, id, userID string) error {
