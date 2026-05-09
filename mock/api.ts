@@ -5,6 +5,7 @@ export {
   login,
   logout,
   register,
+  sendEmailCode,
   getUserProfile,
   updateUserProfile
 } from './users'

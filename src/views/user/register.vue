@@ -51,8 +51,28 @@
       >
         <el-input
           v-model="registerForm.email"
-          placeholder="请输入邮箱(选填)"
+          placeholder="请输入邮箱"
+          @input="handleEmailChange"
         />
+      </el-form-item>
+
+      <el-form-item
+        label="验证码"
+        prop="emailCode"
+      >
+        <div class="email-code-row">
+          <el-input
+            v-model="registerForm.emailCode"
+            placeholder="请输入邮箱验证码"
+          />
+          <el-button
+            :loading="emailCodeLoading"
+            :disabled="emailCodeCountdown > 0"
+            @click="handleSendEmailCode"
+          >
+            {{ emailCodeButtonText }}
+          </el-button>
+        </div>
       </el-form-item>
 
       <el-form-item>
@@ -81,7 +101,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator'
 import { Form as ElForm } from 'element-ui'
-import { register } from '@/api'
+import { register, sendEmailCode } from '@/api'
 import { RegisterRequest } from '@/models'
 
 @Component({
@@ -92,7 +112,8 @@ export default class extends Vue {
     username: '',
     password: '',
     confirmPassword: '',
-    email: ''
+    email: '',
+    emailCode: ''
   }
 
   private validateUsername = (rule: any, value: string, callback: Function) => {
@@ -120,8 +141,18 @@ export default class extends Vue {
   }
 
   private validateEmail = (rule: any, value: string, callback: Function) => {
-    if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    if (!value) {
+      callback(new Error('请输入邮箱'))
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       callback(new Error('邮箱格式不正确'))
+    } else {
+      callback()
+    }
+  }
+
+  private validateEmailCode = (rule: any, value: string, callback: Function) => {
+    if (!value) {
+      callback(new Error('请输入邮箱验证码'))
     } else {
       callback()
     }
@@ -131,10 +162,65 @@ export default class extends Vue {
     username: [{ validator: this.validateUsername, trigger: 'blur' }],
     password: [{ validator: this.validatePassword, trigger: 'blur' }],
     confirmPassword: [{ validator: this.validateConfirmPassword, trigger: 'blur' }],
-    email: [{ validator: this.validateEmail, trigger: 'blur' }]
+    email: [{ validator: this.validateEmail, trigger: 'blur' }],
+    emailCode: [{ validator: this.validateEmailCode, trigger: 'blur' }]
   }
 
   private loading = false
+  private emailCodeLoading = false
+  private emailCodeCountdown = 0
+  private emailCodeTimer: number | null = null
+
+  get emailCodeButtonText() {
+    return this.emailCodeCountdown > 0 ? `${this.emailCodeCountdown}s 后重发` : '发送验证码'
+  }
+
+  beforeDestroy() {
+    this.clearEmailCodeTimer()
+  }
+
+  private handleEmailChange() {
+    this.registerForm.emailCode = ''
+  }
+
+  private handleSendEmailCode() {
+    (this.$refs.registerForm as ElForm).validateField('email', async(errorMessage: string) => {
+      if (errorMessage) return
+
+      this.emailCodeLoading = true
+      try {
+        const { data } = await sendEmailCode({ email: this.registerForm.email })
+        this.$message.success(`验证码已发送${data.mockCode ? `，Mock 验证码：${data.mockCode}` : ''}`)
+        this.startEmailCodeCountdown(data.expiresIn || 60)
+      } catch (error) {
+        console.error('发送验证码失败:', error)
+        this.$message.error('发送验证码失败，请稍后重试')
+      } finally {
+        this.emailCodeLoading = false
+      }
+    })
+  }
+
+  private startEmailCodeCountdown(seconds: number) {
+    this.clearEmailCodeTimer()
+    this.emailCodeCountdown = Math.min(seconds, 60)
+    this.emailCodeTimer = window.setInterval(() => {
+      this.emailCodeCountdown -= 1
+      if (this.emailCodeCountdown <= 0) {
+        this.clearEmailCodeTimer()
+      }
+    }, 1000)
+  }
+
+  private clearEmailCodeTimer() {
+    if (this.emailCodeTimer !== null) {
+      window.clearInterval(this.emailCodeTimer)
+      this.emailCodeTimer = null
+    }
+    if (this.emailCodeCountdown < 0) {
+      this.emailCodeCountdown = 0
+    }
+  }
 
   private handleRegister() {
     (this.$refs.registerForm as ElForm).validate(async(valid: boolean) => {
@@ -144,7 +230,8 @@ export default class extends Vue {
           const data: RegisterRequest = {
             username: this.registerForm.username,
             password: this.registerForm.password,
-            email: this.registerForm.email || undefined
+            email: this.registerForm.email,
+            emailCode: this.registerForm.emailCode
           }
           await register(data)
           this.$message.success('注册成功！')
@@ -190,6 +277,19 @@ export default class extends Vue {
         margin: 0 auto 30px;
         text-align: center;
         font-weight: bold;
+      }
+    }
+
+    .email-code-row {
+      display: flex;
+      gap: 10px;
+
+      .el-input {
+        flex: 1;
+      }
+
+      .el-button {
+        width: 120px;
       }
     }
   }

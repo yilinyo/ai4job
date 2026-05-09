@@ -41,6 +41,7 @@ app.use((req, res, next) => {
 // ========== 简历管理系统的路由配置 ==========
 // 用户相关
 app.post('/api/user/register', users.register)
+app.post('/api/user/email-code', users.sendEmailCode)
 app.post('/api/user/login', users.login)
 app.post('/api/user/logout', users.logout)
 app.get('/api/user/profile', users.getUserProfile)

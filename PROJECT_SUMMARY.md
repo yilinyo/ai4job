@@ -36,7 +36,7 @@
 ### 4. 页面组件 (src/views/)
 
 #### 用户模块 (src/views/user/)
-- ✅ `register.vue` - 用户注册页面
+- ✅ `register.vue` - 用户注册页面(支持邮箱验证码交互)
 - ✅ `profile.vue` - 顶层个人信息管理页面(支持账号资料表单与多段教育经历)
 
 #### 简历仓库模块 (src/views/resume-repo/)
@@ -149,6 +149,7 @@ npm run serve
 
 **用户相关:**
 - POST /api/user/register - 注册
+- POST /api/user/email-code - 发送邮箱验证码(Mock)
 - POST /api/user/login - 登录
 - POST /api/user/logout - 登出
 - GET /api/user/profile - 获取当前账号个人信息
