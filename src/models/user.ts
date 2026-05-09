@@ -31,7 +31,18 @@ export interface UserProfile {
 export interface RegisterRequest {
   username: string
   password: string
-  email?: string
+  email: string
+  emailCode: string
+}
+
+export interface SendEmailCodeRequest {
+  email: string
+}
+
+export interface SendEmailCodeResponse {
+  email: string
+  mockCode: string
+  expiresIn: number
 }
 
 // 用户登录请求

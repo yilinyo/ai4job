@@ -27,6 +27,16 @@ interface UserProfile {
   updatedAt: string
 }
 
+interface EmailCodeRecord {
+  email: string
+  code: string
+  expiresAt: number
+}
+
+const MOCK_EMAIL_CODE = '123456'
+const EMAIL_CODE_EXPIRES_IN = 5 * 60
+const emailCodeMap: Record<string, EmailCodeRecord> = {}
+
 const userList: UserProfile[] = [
   {
     id: '1',
@@ -85,14 +95,77 @@ const userList: UserProfile[] = [
   }
 ]
 
-export const register = (req: Request, res: Response) => {
-  const { username, email } = req.body
+export const sendEmailCode = (req: Request, res: Response) => {
+  const { email } = req.body
 
-  // 检查用户名是否已存在
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({
+      code: 50006,
+      message: '邮箱格式不正确'
+    })
+  }
+
+  emailCodeMap[email] = {
+    email,
+    code: MOCK_EMAIL_CODE,
+    expiresAt: Date.now() + EMAIL_CODE_EXPIRES_IN * 1000
+  }
+
+  return res.json({
+    code: 20000,
+    message: '验证码已发送',
+    data: {
+      email,
+      mockCode: MOCK_EMAIL_CODE,
+      expiresIn: EMAIL_CODE_EXPIRES_IN
+    }
+  })
+}
+
+export const register = (req: Request, res: Response) => {
+  const { username, email, emailCode } = req.body
+
   if (userList.find(u => u.username === username)) {
     return res.status(400).json({
       code: 50001,
       message: '用户名已存在'
+    })
+  }
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({
+      code: 50006,
+      message: '邮箱格式不正确'
+    })
+  }
+
+  if (userList.find(u => u.email === email)) {
+    return res.status(400).json({
+      code: 50007,
+      message: '邮箱已注册'
+    })
+  }
+
+  const emailCodeRecord = emailCodeMap[email]
+  if (!emailCodeRecord) {
+    return res.status(400).json({
+      code: 50009,
+      message: '请先获取邮箱验证码'
+    })
+  }
+
+  if (emailCodeRecord.expiresAt < Date.now()) {
+    delete emailCodeMap[email]
+    return res.status(400).json({
+      code: 50010,
+      message: '验证码已过期'
+    })
+  }
+
+  if (emailCodeRecord.code !== emailCode) {
+    return res.status(400).json({
+      code: 50011,
+      message: '验证码错误'
     })
   }
 
@@ -105,6 +178,7 @@ export const register = (req: Request, res: Response) => {
     updatedAt: new Date().toISOString()
   }
   userList.push(newUser)
+  delete emailCodeMap[email]
 
   return res.json({
     code: 20000,

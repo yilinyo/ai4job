@@ -2,6 +2,7 @@ import request from '@/utils/request'
 import {
   RegisterRequest,
   LoginRequest,
+  SendEmailCodeRequest,
   UpdateProfileRequest
 } from '@/models'
 
@@ -11,6 +12,16 @@ import {
 export const register = (data: RegisterRequest) =>
   request({
     url: '/api/user/register',
+    method: 'post',
+    data
+  })
+
+/**
+ * 发送邮箱验证码
+ */
+export const sendEmailCode = (data: SendEmailCodeRequest) =>
+  request({
+    url: '/api/user/email-code',
     method: 'post',
     data
   })
