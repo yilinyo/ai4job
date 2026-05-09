@@ -17,7 +17,7 @@ type TokenCache interface {
 	SetEmailCode(ctx context.Context, email, code string) error
 	VerifyEmailCode(ctx context.Context, email, code string) (bool, error)
 	DeleteEmailCode(ctx context.Context, email string) error
-	AddToBlacklist(ctx context.Context, jti string, ttl interface{}) error
+	AddToBlacklist(ctx context.Context, jti string, ttl time.Duration) error
 	IsBlacklisted(ctx context.Context, jti string) (bool, error)
 }
 

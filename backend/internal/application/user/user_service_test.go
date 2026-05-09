@@ -3,6 +3,7 @@ package user_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -65,7 +66,7 @@ func (m *mockTokenCache) VerifyEmailCode(ctx context.Context, email, code string
 func (m *mockTokenCache) DeleteEmailCode(ctx context.Context, email string) error {
 	return m.Called(ctx, email).Error(0)
 }
-func (m *mockTokenCache) AddToBlacklist(ctx context.Context, jti string, ttl interface{}) error {
+func (m *mockTokenCache) AddToBlacklist(ctx context.Context, jti string, ttl time.Duration) error {
 	return m.Called(ctx, jti, ttl).Error(0)
 }
 func (m *mockTokenCache) IsBlacklisted(ctx context.Context, jti string) (bool, error) {
