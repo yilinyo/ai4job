@@ -75,6 +75,7 @@
                 :key="passwordType"
                 ref="password"
                 v-model="loginForm.password"
+                class="password-input"
                 :type="passwordType"
                 :placeholder="$t('login.password')"
                 name="password"
@@ -111,39 +112,9 @@
               立即注册
             </el-button>
           </div>
-
-          <div class="demo-box">
-            <div class="tips">
-              <span>{{ $t('login.username') }} : admin </span>
-              <span>{{ $t('login.password') }} : {{ $t('login.any') }} </span>
-            </div>
-            <div class="tips">
-              <span>{{ $t('login.username') }} : editor </span>
-              <span>{{ $t('login.password') }} : {{ $t('login.any') }} </span>
-            </div>
-
-            <el-button
-              class="thirdparty-button"
-              type="text"
-              @click="showDialog=true"
-            >
-              {{ $t('login.thirdparty') }}
-            </el-button>
-          </div>
         </el-form>
       </div>
     </section>
-
-    <el-dialog
-      :title="$t('login.thirdparty')"
-      :visible.sync="showDialog"
-    >
-      {{ $t('login.thirdpartyTips') }}
-      <br>
-      <br>
-      <br>
-      <social-sign />
-    </el-dialog>
   </div>
 </template>
 
@@ -155,13 +126,11 @@ import { Form as ElForm, Input } from 'element-ui'
 import { UserModule } from '@/store/modules/user'
 import { isValidUsername } from '@/utils/validate'
 import LangSelect from '@/components/LangSelect/index.vue'
-import SocialSign from './components/SocialSignin.vue'
 
 @Component({
   name: 'Login',
   components: {
-    LangSelect,
-    SocialSign
+    LangSelect
   }
 })
 export default class extends Vue {
@@ -193,7 +162,6 @@ export default class extends Vue {
 
   private passwordType = 'password'
   private loading = false
-  private showDialog = false
   private capsTooltip = false
   private redirect?: string
   private otherQuery: Dictionary<string> = {}
@@ -272,16 +240,16 @@ export default class extends Vue {
 <style lang="scss">
 .login-container {
   .el-input {
-    display: inline-block;
-    height: 47px;
-    width: 85%;
+    display: block;
+    height: 48px;
+    width: 100%;
 
     input {
-      height: 47px;
+      height: 48px;
       background: #f8fafc;
       border: 1px solid #e5eaf3;
       border-radius: 10px;
-      padding: 12px 5px 12px 15px;
+      padding: 12px 44px 12px 48px;
       color: #1f2d3d;
       caret-color: #3370ff;
       -webkit-appearance: none;
@@ -294,10 +262,16 @@ export default class extends Vue {
   }
 
   .el-form-item {
+    position: relative;
     border: 0;
     background: transparent;
     border-radius: 10px;
     color: #454545;
+    margin-bottom: 22px;
+  }
+
+  .el-tooltip {
+    display: block;
   }
 }
 </style>
@@ -418,35 +392,22 @@ export default class extends Vue {
     justify-content: center;
     gap: 4px;
     color: #6b778c;
-    margin-bottom: 24px;
-  }
-
-  .demo-box {
-    position: relative;
-    padding: 16px;
-    background: #f7f9fc;
-    border: 1px solid #edf1f7;
-    border-radius: 14px;
-  }
-
-  .tips {
-    font-size: 13px;
-    color: #6b778c;
-    margin-bottom: 8px;
-
-    span {
-      &:first-of-type {
-        margin-right: 16px;
-      }
-    }
+    margin-bottom: 0;
   }
 
   .svg-container {
-    padding: 6px 5px 6px 15px;
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    z-index: 2;
+    transform: translateY(-50%);
+    padding: 0;
     color: #8a97a8;
-    vertical-align: middle;
-    width: 30px;
-    display: inline-block;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .title-container {
@@ -482,18 +443,14 @@ export default class extends Vue {
 
   .show-pwd {
     position: absolute;
-    right: 10px;
-    top: 7px;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
     font-size: 16px;
     color: #8a97a8;
     cursor: pointer;
     user-select: none;
-  }
-
-  .thirdparty-button {
-    position: absolute;
-    right: 12px;
-    bottom: 8px;
+    line-height: 1;
   }
 
   @media only screen and (max-width: 960px) {
@@ -532,9 +489,8 @@ export default class extends Vue {
       grid-template-columns: 1fr;
     }
 
-    .thirdparty-button {
-      position: static;
-      padding-left: 0;
+    .auth-switch {
+      flex-wrap: wrap;
     }
   }
 }
