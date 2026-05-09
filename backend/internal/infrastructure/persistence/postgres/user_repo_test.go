@@ -10,10 +10,10 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	domainuser "github.com/yilin/ai-for-backend/internal/domain/user"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	infrapostgres "github.com/yilin/ai-for-backend/internal/infrastructure/persistence/postgres"
 )
 
@@ -36,7 +36,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := infrapostgres.NewDB(dsn, true)
 	require.NoError(t, err)
 
 	err = db.AutoMigrate(&domainuser.User{})
@@ -46,6 +46,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 }
 
 func TestIntegrationUserRepo_CreateAndFind(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
 	db := setupTestDB(t)
 	repo := infrapostgres.NewUserRepo(db)
 	ctx := context.Background()
@@ -67,6 +70,9 @@ func TestIntegrationUserRepo_CreateAndFind(t *testing.T) {
 }
 
 func TestIntegrationUserRepo_SoftDelete(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
 	db := setupTestDB(t)
 	repo := infrapostgres.NewUserRepo(db)
 	ctx := context.Background()
@@ -85,5 +91,5 @@ func TestIntegrationUserRepo_SoftDelete(t *testing.T) {
 
 	// should not be found after soft delete
 	_, err = repo.FindByUsername(ctx, "deleteuser")
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, domainerrors.ErrNotFound)
 }

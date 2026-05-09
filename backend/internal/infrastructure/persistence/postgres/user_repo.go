@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -19,7 +20,16 @@ func NewUserRepo(db *gorm.DB) *UserRepo {
 }
 
 func (r *UserRepo) Create(ctx context.Context, u *domainuser.User) error {
-	return r.db.WithContext(ctx).Create(u).Error
+	err := r.db.WithContext(ctx).Create(u).Error
+	if err != nil && isUniqueViolation(err) {
+		return domainerrors.ErrDuplicate
+	}
+	return err
+}
+
+// isUniqueViolation detects PostgreSQL unique constraint violation (error code 23505).
+func isUniqueViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "23505")
 }
 
 func (r *UserRepo) FindByID(ctx context.Context, id string) (*domainuser.User, error) {
