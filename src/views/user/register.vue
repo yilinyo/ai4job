@@ -1,100 +1,130 @@
 <template>
   <div class="register-container">
-    <el-form
-      ref="registerForm"
-      :model="registerForm"
-      :rules="registerRules"
-      class="register-form"
-      label-width="100px"
-    >
-      <div class="title-container">
-        <h3 class="title">
-          用户注册
-        </h3>
+    <section class="auth-hero">
+      <div class="brand-panel">
+        <div class="brand-badge">
+          AI For Career
+        </div>
+        <h1>创建账号，沉淀你的求职资产</h1>
+        <p>
+          注册后邮箱会进入个人信息页，后续创建简历时可自动复用基础资料，让每次投递更轻一些。
+        </p>
+        <div class="brand-steps">
+          <div>
+            <strong>01</strong>
+            <span>邮箱验证</span>
+          </div>
+          <div>
+            <strong>02</strong>
+            <span>资料沉淀</span>
+          </div>
+          <div>
+            <strong>03</strong>
+            <span>简历复用</span>
+          </div>
+        </div>
       </div>
 
-      <el-form-item
-        label="用户名"
-        prop="username"
-      >
-        <el-input
-          v-model="registerForm.username"
-          placeholder="请输入用户名"
-        />
-      </el-form-item>
-
-      <el-form-item
-        label="密码"
-        prop="password"
-      >
-        <el-input
-          v-model="registerForm.password"
-          type="password"
-          placeholder="请输入密码(至少6位)"
-        />
-      </el-form-item>
-
-      <el-form-item
-        label="确认密码"
-        prop="confirmPassword"
-      >
-        <el-input
-          v-model="registerForm.confirmPassword"
-          type="password"
-          placeholder="请再次输入密码"
-        />
-      </el-form-item>
-
-      <el-form-item
-        label="邮箱"
-        prop="email"
-      >
-        <el-input
-          v-model="registerForm.email"
-          placeholder="请输入邮箱"
-          @input="handleEmailChange"
-        />
-      </el-form-item>
-
-      <el-form-item
-        label="验证码"
-        prop="emailCode"
-      >
-        <div class="email-code-row">
-          <el-input
-            v-model="registerForm.emailCode"
-            placeholder="请输入邮箱验证码"
-          />
-          <el-button
-            :loading="emailCodeLoading"
-            :disabled="emailCodeCountdown > 0"
-            @click="handleSendEmailCode"
-          >
-            {{ emailCodeButtonText }}
-          </el-button>
+      <div class="auth-card">
+        <div class="title-container">
+          <p class="eyebrow">
+            Start here
+          </p>
+          <h3 class="title">
+            用户注册
+          </h3>
         </div>
-      </el-form-item>
 
-      <el-form-item>
-        <el-button
-          :loading="loading"
-          type="primary"
-          style="width:100%"
-          @click="handleRegister"
+        <el-form
+          ref="registerForm"
+          :model="registerForm"
+          :rules="registerRules"
+          class="register-form"
+          label-position="top"
         >
-          注册
-        </el-button>
-      </el-form-item>
+          <el-form-item
+            label="用户名"
+            prop="username"
+          >
+            <el-input
+              v-model="registerForm.username"
+              placeholder="请输入用户名"
+            />
+          </el-form-item>
 
-      <el-form-item>
-        <el-button
-          style="width:100%"
-          @click="goToLogin"
-        >
-          已有账号？去登录
-        </el-button>
-      </el-form-item>
-    </el-form>
+          <el-form-item
+            label="密码"
+            prop="password"
+          >
+            <el-input
+              v-model="registerForm.password"
+              type="password"
+              placeholder="请输入密码(至少6位)"
+            />
+          </el-form-item>
+
+          <el-form-item
+            label="确认密码"
+            prop="confirmPassword"
+          >
+            <el-input
+              v-model="registerForm.confirmPassword"
+              type="password"
+              placeholder="请再次输入密码"
+            />
+          </el-form-item>
+
+          <el-form-item
+            label="邮箱"
+            prop="email"
+          >
+            <el-input
+              v-model="registerForm.email"
+              placeholder="请输入邮箱"
+              @input="handleEmailChange"
+            />
+          </el-form-item>
+
+          <el-form-item
+            label="验证码"
+            prop="emailCode"
+          >
+            <div class="email-code-row">
+              <el-input
+                v-model="registerForm.emailCode"
+                placeholder="请输入邮箱验证码"
+              />
+              <el-button
+                :loading="emailCodeLoading"
+                :disabled="emailCodeCountdown > 0"
+                @click="handleSendEmailCode"
+              >
+                {{ emailCodeButtonText }}
+              </el-button>
+            </div>
+          </el-form-item>
+
+          <el-button
+            :loading="loading"
+            type="primary"
+            class="submit-button"
+            @click="handleRegister"
+          >
+            注册
+          </el-button>
+
+          <div class="auth-switch">
+            <span>已有账号？</span>
+            <el-button
+              type="text"
+              @click="goToLogin"
+            >
+              去登录
+            </el-button>
+          </div>
+        </el-form>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -258,26 +288,133 @@ export default class extends Vue {
 <style lang="scss" scoped>
 .register-container {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   min-height: 100vh;
-  background-color: #f0f2f5;
+  overflow: auto;
+  padding: 48px;
+  background:
+    radial-gradient(circle at 78% 16%, rgba(64, 158, 255, 0.2), transparent 26%),
+    linear-gradient(135deg, #f7fbff 0%, #eef5ff 48%, #ffffff 100%);
+
+  .auth-hero {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) 480px;
+    gap: 56px;
+    align-items: center;
+    width: 100%;
+    max-width: 1120px;
+  }
+
+  .brand-panel {
+    color: #17233d;
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      height: 36px;
+      padding: 0 16px;
+      margin-bottom: 28px;
+      color: #1d63ed;
+      font-weight: 600;
+      background: rgba(51, 112, 255, 0.1);
+      border: 1px solid rgba(51, 112, 255, 0.18);
+      border-radius: 999px;
+    }
+
+    h1 {
+      max-width: 560px;
+      margin: 0;
+      font-size: 44px;
+      line-height: 1.18;
+      letter-spacing: -1px;
+    }
+
+    p {
+      max-width: 540px;
+      margin: 24px 0 36px;
+      color: #5c6b82;
+      font-size: 17px;
+      line-height: 1.8;
+    }
+  }
+
+  .brand-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    max-width: 520px;
+
+    div {
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(220, 229, 244, 0.9);
+      border-radius: 18px;
+      box-shadow: 0 16px 36px rgba(31, 45, 61, 0.08);
+    }
+
+    strong {
+      display: block;
+      color: #1d63ed;
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    span {
+      color: #6b778c;
+      font-size: 13px;
+    }
+  }
+
+  .auth-card {
+    padding: 40px 42px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(221, 228, 240, 0.88);
+    border-radius: 26px;
+    box-shadow: 0 24px 70px rgba(31, 45, 61, 0.14);
+    backdrop-filter: blur(12px);
+  }
+
+  .title-container {
+    margin-bottom: 24px;
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #3370ff;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .title {
+      font-size: 28px;
+      color: #17233d;
+      margin: 0;
+      font-weight: bold;
+    }
+  }
 
   .register-form {
-    width: 450px;
-    padding: 40px;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    width: 100%;
 
-    .title-container {
-      .title {
-        font-size: 26px;
-        color: #333;
-        margin: 0 auto 30px;
-        text-align: center;
-        font-weight: bold;
-      }
+    ::v-deep .el-form-item {
+      margin-bottom: 18px;
+    }
+
+    ::v-deep .el-form-item__label {
+      padding-bottom: 6px;
+      color: #42526e;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    ::v-deep .el-input__inner {
+      height: 44px;
+      background: #f8fafc;
+      border-color: #e5eaf3;
+      border-radius: 10px;
+      color: #1f2d3d;
     }
 
     .email-code-row {
@@ -289,7 +426,71 @@ export default class extends Vue {
       }
 
       .el-button {
-        width: 120px;
+        width: 122px;
+        border-radius: 10px;
+      }
+    }
+
+    .submit-button {
+      width: 100%;
+      height: 46px;
+      margin-top: 4px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .auth-switch {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: #6b778c;
+      margin-top: 18px;
+    }
+  }
+
+  @media only screen and (max-width: 960px) {
+    padding: 32px 20px;
+
+    .auth-hero {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+
+    .brand-panel {
+      text-align: center;
+
+      h1,
+      p {
+        max-width: none;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+    }
+
+    .brand-steps {
+      margin: 0 auto;
+    }
+  }
+
+  @media only screen and (max-width: 520px) {
+    .auth-card {
+      padding: 28px 22px;
+      border-radius: 20px;
+    }
+
+    .brand-steps {
+      grid-template-columns: 1fr;
+    }
+
+    .email-code-row {
+      flex-direction: column;
+
+      .el-button {
+        width: 100%;
       }
     }
   }
