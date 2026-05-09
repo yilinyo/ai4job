@@ -14,13 +14,13 @@ jobs:
     - name: Yarn install
       uses: Borales/actions-yarn@v2.3.0
       with:
-        cmd: install
+        cmd: --cwd frontend install
     - name: Yarn build
       uses: Borales/actions-yarn@v2.3.0
       with:
-        cmd: build:prod
+        cmd: --cwd frontend build:prod
     - name: Deploy
       uses: maxheld83/ghpages@v0.3.0
       env:
-        BUILD_DIR: dist/
+        BUILD_DIR: frontend/dist/
         GH_PAT: ${{ secrets.GH_PAT }}

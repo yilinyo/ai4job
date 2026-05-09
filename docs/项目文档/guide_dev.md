@@ -1,6 +1,8 @@
 # AI-For 简历管理系统 - 开发指南
 
 > 基于 **Vue 2 + TypeScript + Element UI + Vuex (vuex-module-decorators)** 的后台管理系统，fork 自 `vue-typescript-admin-template`，扩展了简历管理业务功能。
+>
+> 目录结构已调整：前端工程位于仓库根目录的 `frontend/` 下。本文为历史前端开发指南，文中 `src/`、`mock/`、`vue.config.js`、`package.json` 等路径均相对于 `frontend/`。
 
 ---
 

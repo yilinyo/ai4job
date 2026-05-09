@@ -4,7 +4,8 @@
 
 ## 项目概览
 
-- 本项目基于 `vue-typescript-admin-template`
+- 本仓库采用 `frontend/`、`backend/`、`docs/` 分层结构
+- 前端项目基于 `vue-typescript-admin-template`，位于 `frontend/`
 - 当前已扩展为一个求职流程管理前端系统
 - 主要业务包括：
   - 简历仓库管理
@@ -27,30 +28,35 @@
 安装依赖：
 
 ```bash
+cd frontend
 npm install --legacy-peer-deps
 ```
 
 启动前端 + Mock：
 
 ```bash
+cd frontend
 npm run serve
 ```
 
 仅启动 Mock：
 
 ```bash
+cd frontend
 npm run mock
 ```
 
 静态检查：
 
 ```bash
+cd frontend
 npm run lint
 ```
 
 单元测试：
 
 ```bash
+cd frontend
 npm run test:unit
 ```
 
@@ -60,20 +66,20 @@ npm run test:unit
 - Mock API 端口：`9528`
 - 开发环境 API 前缀：`/dev-api`
 - 代理配置见：
-  - [vue.config.js](/Users/yilin/project/ai-for/vue.config.js)
-  - [mock/mock-server.ts](/Users/yilin/project/ai-for/mock/mock-server.ts)
+  - [vue.config.js](/Users/yilin/project/ai-for/frontend/vue.config.js)
+  - [mock/mock-server.ts](/Users/yilin/project/ai-for/frontend/mock/mock-server.ts)
 
 ## 代码分层约定
 
 新增业务模块时，优先遵循以下分层：
 
-1. `src/models/`
-2. `src/api/`
-3. `mock/`
-4. `src/store/modules/`
-5. `src/router/modules/`
-6. `src/views/`
-7. `src/components/`
+1. `frontend/src/models/`
+2. `frontend/src/api/`
+3. `frontend/mock/`
+4. `frontend/src/store/modules/`
+5. `frontend/src/router/modules/`
+6. `frontend/src/views/`
+7. `frontend/src/components/`
 
 不要只改页面而跳过 model / api / store 层。
 
@@ -305,12 +311,15 @@ PATH="/Users/yilin/.nvm/versions/node/v24.11.1/bin:$PATH" openspec status --chan
 
 ## 文档存放约定
 
-业务 PRD 和视觉稿统一归档到 `docs/` 下，按主题拆目录。
+`docs/` 下需要明确区分 PRD 文档和项目文档：
+
+- PRD、需求方案、视觉稿、PRD 模板统一放到 `docs/PRD文档/`
+- 开发指南、项目总结、README、后端 API 设计、历史说明统一放到 `docs/项目文档/`
 
 当前已有：
 
-- [docs/岗位库方案](/Users/yilin/project/ai-for/docs/岗位库方案)
-- [docs/投递与面试方案](/Users/yilin/project/ai-for/docs/投递与面试方案)
+- [docs/PRD文档](/Users/yilin/project/ai-for/docs/PRD文档)
+- [docs/项目文档](/Users/yilin/project/ai-for/docs/项目文档)
 
 如果新增同类文档，优先归到 `docs/`，不要长期散落在根目录。
 
@@ -329,8 +338,8 @@ origin https://github.com/yilinyo/ai-for-frontend.git
 在执行较大改动前，建议先看：
 
 - [CLAUDE.md](/Users/yilin/project/ai-for/CLAUDE.md)
-- [PROJECT_SUMMARY.md](/Users/yilin/project/ai-for/PROJECT_SUMMARY.md)
-- [guide_dev.md](/Users/yilin/project/ai-for/guide_dev.md)
+- [PROJECT_SUMMARY.md](/Users/yilin/project/ai-for/docs/项目文档/PROJECT_SUMMARY.md)
+- [guide_dev.md](/Users/yilin/project/ai-for/docs/项目文档/guide_dev.md)
 
 ## 完成前检查
 

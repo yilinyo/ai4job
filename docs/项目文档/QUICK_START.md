@@ -1,12 +1,15 @@
 # 简历管理系统 - 快速启动指南
 
+> 目录结构已调整：前端工程位于仓库根目录的 `frontend/` 下。本文为历史快速启动文档，执行前端命令前请先 `cd frontend`；文中 `src/`、`mock/`、`vue.config.js` 等路径均相对于 `frontend/`。
+
 ## 🚀 快速开始
 
 ### 1. 启动开发服务器
 
-在项目根目录执行:
+在前端目录执行:
 
 ```bash
+cd frontend
 npm run serve
 ```
 
