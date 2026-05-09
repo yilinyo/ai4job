@@ -28,10 +28,11 @@ const allowedTags = [
   'tr',
   'th',
   'td',
-  'a'
+  'a',
+  'img'
 ]
 
-const allowedAttributes = ['href', 'title', 'target', 'rel']
+const allowedAttributes = ['href', 'title', 'target', 'rel', 'src', 'alt']
 
 marked.setOptions({
   gfm: true,

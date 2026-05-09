@@ -62,7 +62,11 @@ export default {
     clipboard: 'Clipboard',
     i18n: 'I18n',
     externalLink: 'External Link',
-    profile: 'Profile'
+    profile: 'Profile',
+    interviewQuestionBank: 'Interview Question Bank',
+    interviewQuestionLibrary: 'Question Library',
+    interviewFlashcardReview: 'Flashcard Review',
+    interviewQuestionDetail: 'Question Detail'
   },
   navbar: {
     logOut: 'Log Out',

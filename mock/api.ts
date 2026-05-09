@@ -50,3 +50,17 @@ export {
   updateInterviewProgress,
   deleteInterviewProgress
 } from './interview-progress'
+
+export {
+  getInterviewQuestions,
+  getInterviewQuestionById,
+  createInterviewQuestion,
+  updateInterviewQuestion,
+  deleteInterviewQuestion,
+  updateInterviewQuestionFavorite,
+  getQuestionOccurrences,
+  createQuestionOccurrence,
+  deleteQuestionOccurrence,
+  getFlashcards,
+  createFlashcardReview
+} from './interview-questions'

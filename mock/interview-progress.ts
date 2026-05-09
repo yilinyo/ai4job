@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { ApplicationStatus, getApplicationByIdInternal, updateApplicationStatusInternal } from './resume-applications'
+import { clearQuestionOccurrenceProgressLinkByProgressId } from './interview-questions'
 
 export enum InterviewStage {
   APPLIED = 'applied',
@@ -265,7 +266,8 @@ export const deleteInterviewProgress = (req: Request, res: Response) => {
     })
   }
 
-  const { applicationId } = progressList[index]
+  const { applicationId, id } = progressList[index]
+  clearQuestionOccurrenceProgressLinkByProgressId(id)
   progressList.splice(index, 1)
   syncApplicationStatus(applicationId)
 

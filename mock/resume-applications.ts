@@ -1,4 +1,5 @@
 import { Request, Response } from 'express'
+import { cascadeDeleteQuestionOccurrencesByApplicationId } from './interview-questions'
 
 export enum ApplicationStatus {
   APPLIED = 'applied',
@@ -267,6 +268,8 @@ export const deleteResumeApplication = (req: Request, res: Response) => {
     })
   }
 
+  const applicationId = applicationList[index].id
+  cascadeDeleteQuestionOccurrencesByApplicationId(applicationId)
   applicationList.splice(index, 1)
 
   return res.json({
