@@ -87,4 +87,36 @@ export const jobPostingRoutes: RouteConfig = {
   ]
 }
 
+export const interviewQuestionBankRoutes: RouteConfig = {
+  path: '/interview-question-bank',
+  component: Layout,
+  redirect: '/interview-question-bank/list',
+  name: 'InterviewQuestionBank',
+  meta: {
+    title: 'interviewQuestionBank',
+    icon: 'clipboard',
+    alwaysShow: true
+  },
+  children: [
+    {
+      path: 'list',
+      component: () => import(/* webpackChunkName: "interview-question-bank" */ '@/views/interview-question-bank/index.vue'),
+      name: 'InterviewQuestionBankList',
+      meta: { title: 'interviewQuestionLibrary' }
+    },
+    {
+      path: 'flashcard',
+      component: () => import(/* webpackChunkName: "interview-flashcard-review" */ '@/views/interview-question-bank/flashcard-review-tab.vue'),
+      name: 'InterviewFlashcardReview',
+      meta: { title: 'interviewFlashcardReview' }
+    },
+    {
+      path: 'question/:id',
+      component: () => import(/* webpackChunkName: "interview-question-detail" */ '@/views/interview-question-bank/detail.vue'),
+      name: 'InterviewQuestionDetail',
+      meta: { title: 'interviewQuestionDetail', hidden: true, activeMenu: '/interview-question-bank/list' }
+    }
+  ]
+}
+
 export default resumeRoutes

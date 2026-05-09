@@ -146,6 +146,16 @@ export default class extends Vue {
       text-decoration: none;
     }
 
+    ::v-deep img {
+      display: block;
+      max-width: 100%;
+      max-height: 360px;
+      margin: 12px 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+
     ::v-deep hr {
       border: none;
       border-top: 1px solid #dbe3f0;

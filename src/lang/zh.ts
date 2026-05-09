@@ -63,7 +63,11 @@ export default {
     i18n: '国际化',
     externalLink: '外链',
     profile: '个人中心',
-    userProfile: '个人信息'
+    userProfile: '个人信息',
+    interviewQuestionBank: '面试题库',
+    interviewQuestionLibrary: '题库列表',
+    interviewFlashcardReview: '闪卡复习',
+    interviewQuestionDetail: '题目详情'
   },
   navbar: {
     logOut: '退出登录',

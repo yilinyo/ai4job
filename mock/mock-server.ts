@@ -14,6 +14,7 @@ import * as resumeVersions from './resume-versions'
 import * as resumeApplications from './resume-applications'
 import * as interviewProgress from './interview-progress'
 import * as jobPostings from './job-postings'
+import * as interviewQuestions from './interview-questions'
 
 const app = express()
 const port = 9528
@@ -82,6 +83,19 @@ app.get('/api/interview-progress', interviewProgress.getInterviewProgressList)
 app.post('/api/interview-progress', interviewProgress.createInterviewProgress)
 app.put('/api/interview-progress/:id', interviewProgress.updateInterviewProgress)
 app.delete('/api/interview-progress/:id', interviewProgress.deleteInterviewProgress)
+
+// 面试题库相关
+app.get('/api/interview-questions', interviewQuestions.getInterviewQuestions)
+app.get('/api/interview-questions/:id', interviewQuestions.getInterviewQuestionById)
+app.post('/api/interview-questions', interviewQuestions.createInterviewQuestion)
+app.put('/api/interview-questions/:id', interviewQuestions.updateInterviewQuestion)
+app.delete('/api/interview-questions/:id', interviewQuestions.deleteInterviewQuestion)
+app.put('/api/interview-questions/:id/favorite', interviewQuestions.updateInterviewQuestionFavorite)
+app.get('/api/question-occurrences', interviewQuestions.getQuestionOccurrences)
+app.post('/api/question-occurrences', interviewQuestions.createQuestionOccurrence)
+app.delete('/api/question-occurrences/:id', interviewQuestions.deleteQuestionOccurrence)
+app.get('/api/flashcards', interviewQuestions.getFlashcards)
+app.post('/api/flashcard-reviews', interviewQuestions.createFlashcardReview)
 
 // Read and swagger config file
 const apiDefinition = yaml.load(path.resolve(__dirname, 'swagger.yml'))

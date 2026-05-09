@@ -106,6 +106,26 @@ npm run test:unit
 
 本仓库使用 OpenSpec 做需求与实现跟踪。
 
+### OpenSpec CLI PATH
+
+当前环境中 OpenSpec CLI 安装在：
+
+```bash
+/Users/yilin/.nvm/versions/node/v24.11.1/bin/openspec
+```
+
+Agent 在本仓库执行任何 `openspec` 命令前，必须先显式加载 PATH，避免非交互 shell 找不到 CLI：
+
+```bash
+export PATH="/Users/yilin/.nvm/versions/node/v24.11.1/bin:$PATH"
+```
+
+推荐执行格式：
+
+```bash
+PATH="/Users/yilin/.nvm/versions/node/v24.11.1/bin:$PATH" openspec status --change "<change-name>" --json
+```
+
 ### 基本规则
 
 - 新需求优先通过 OpenSpec change 管理

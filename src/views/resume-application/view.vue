@@ -20,6 +20,9 @@
             <el-button type="primary" size="small" icon="el-icon-edit" @click="handleEdit">
               编辑投递
             </el-button>
+            <el-button size="small" icon="el-icon-collection" @click="openQuestionCreateDialog()">
+              沉淀题目
+            </el-button>
             <el-button size="small" icon="el-icon-plus" @click="openProgressDialog()">
               新增进展
             </el-button>
@@ -96,7 +99,13 @@
           </el-col>
           <el-col :span="12">
             <el-card shadow="never" class="info-block">
-              <div slot="header">面试小记</div>
+              <div slot="header" class="block-header">
+                <span>面试小记</span>
+                <div>
+                  <el-button type="text" size="small" @click="openQuestionCreateDialog()">沉淀到题库</el-button>
+                  <el-button type="text" size="small" @click="openQuestionLinkDialog()">关联题目</el-button>
+                </div>
+              </div>
               <div class="text-block">{{ currentApplication.interviewNotes || '暂无面试小记' }}</div>
             </el-card>
           </el-col>
@@ -127,6 +136,12 @@
                 <div class="timeline-item__meta">{{ item.interviewerOrTeam || '未填写面试官/团队' }}</div>
                 <div class="timeline-item__note">{{ item.note || '暂无备注' }}</div>
                 <div class="timeline-item__actions">
+                  <el-button type="text" size="mini" @click="openQuestionCreateDialog(item)">
+                    沉淀题目
+                  </el-button>
+                  <el-button type="text" size="mini" @click="openQuestionLinkDialog(item)">
+                    关联题目
+                  </el-button>
                   <el-button type="text" size="mini" @click="openProgressDialog(item)">
                     编辑
                   </el-button>
@@ -196,19 +211,50 @@
         </el-button>
       </span>
     </el-dialog>
+
+    <question-form-dialog
+      :visible.sync="questionDialogVisible"
+      title="沉淀新题目"
+      :loading="questionSubmitting"
+      :question-data="questionDraft"
+      @submit="submitQuestionAndOccurrence"
+    />
+
+    <occurrence-dialog
+      :visible.sync="questionLinkDialogVisible"
+      title="关联已有题目"
+      :loading="questionSubmitting"
+      :questions="questions"
+      :applications="currentApplication ? [currentApplication] : []"
+      :progress-options="progressList"
+      :application-id="applicationId"
+      :progress-id="linkProgressId"
+      :stage-snapshot="linkStageSnapshot"
+      :occurred-at="linkOccurredAt"
+      :lock-application="true"
+      @submit="submitQuestionOccurrence"
+    />
   </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator'
 import { Form as ElForm } from 'element-ui'
+import QuestionFormDialog from '@/components/InterviewQuestion/QuestionFormDialog.vue'
+import OccurrenceDialog from '@/components/InterviewQuestion/OccurrenceDialog.vue'
 import { ResumeApplicationModule } from '@/store/modules/resume-application'
 import { InterviewProgressModule } from '@/store/modules/interview-progress'
+import { InterviewQuestionBankModule } from '@/store/modules/interview-question-bank'
 import {
   ApplicationStatus,
+  CreateInterviewQuestionRequest,
+  CreateQuestionOccurrenceRequest,
   InterviewProgress,
   InterviewStage,
-  InterviewResult
+  InterviewResult,
+  InterviewQuestionDifficulty,
+  InterviewQuestionType,
+  QuestionMasteryStatus
 } from '@/models'
 
 interface ProcessNodeView {
@@ -218,13 +264,24 @@ interface ProcessNodeView {
 }
 
 @Component({
-  name: 'ResumeApplicationView'
+  name: 'ResumeApplicationView',
+  components: {
+    QuestionFormDialog,
+    OccurrenceDialog
+  }
 })
 export default class extends Vue {
   private applicationId = ''
   private progressDialogVisible = false
   private editingProgressId = ''
   private progressSubmitting = false
+  private questionDialogVisible = false
+  private questionLinkDialogVisible = false
+  private questionSubmitting = false
+  private linkProgressId = ''
+  private linkStageSnapshot = ''
+  private linkOccurredAt = ''
+  private questionDraft: Partial<CreateInterviewQuestionRequest> = this.getDefaultQuestionDraft()
 
   private stageLabelMap: Record<string, string> = {
     [InterviewStage.APPLIED]: '简历投递',
@@ -307,6 +364,10 @@ export default class extends Vue {
     return InterviewProgressModule.progressList
   }
 
+  get questions() {
+    return InterviewQuestionBankModule.questions
+  }
+
   get progressDialogTitle() {
     return this.editingProgressId ? '编辑面试进展' : '新增面试进展'
   }
@@ -378,6 +439,7 @@ export default class extends Vue {
   private async loadData() {
     await ResumeApplicationModule.GetResumeApplicationById(this.applicationId)
     await InterviewProgressModule.GetInterviewProgressList({ applicationId: this.applicationId })
+    await InterviewQuestionBankModule.GetInterviewQuestions({ page: 1, pageSize: 100 })
   }
 
   private formatDate(dateString: string) {
@@ -426,6 +488,84 @@ export default class extends Vue {
       }
     }
     this.progressDialogVisible = true
+  }
+
+  private getDefaultQuestionDraft(): Partial<CreateInterviewQuestionRequest> {
+    return {
+      title: '',
+      content: '',
+      answerAnalysis: '',
+      tags: ['面试复盘'],
+      difficulty: InterviewQuestionDifficulty.MEDIUM,
+      questionType: InterviewQuestionType.SCENARIO,
+      masteryStatus: QuestionMasteryStatus.UNREVIEWED,
+      isFavorite: false,
+      source: '面试复盘',
+      remark: ''
+    }
+  }
+
+  private buildProgressOccurrenceDefaults(progress?: InterviewProgress) {
+    this.linkProgressId = progress?.id || ''
+    this.linkStageSnapshot = progress?.stage || ''
+    this.linkOccurredAt = progress ? this.formatDateTimeInput(progress.occurredAt) : this.formatDateTimeInput(new Date().toISOString())
+  }
+
+  private openQuestionCreateDialog(progress?: InterviewProgress) {
+    this.buildProgressOccurrenceDefaults(progress)
+    this.questionDraft = {
+      ...this.getDefaultQuestionDraft(),
+      content: progress?.note || this.currentApplication?.interviewNotes || '',
+      remark: progress ? `来自${this.stageLabelMap[progress.stage]}复盘` : '来自投递详情复盘'
+    }
+    this.questionDialogVisible = true
+  }
+
+  private openQuestionLinkDialog(progress?: InterviewProgress) {
+    this.buildProgressOccurrenceDefaults(progress)
+    this.questionLinkDialogVisible = true
+  }
+
+  private async submitQuestionAndOccurrence(payload: CreateInterviewQuestionRequest) {
+    if (!this.currentApplication) return
+    this.questionSubmitting = true
+    try {
+      const createdQuestion = await InterviewQuestionBankModule.CreateInterviewQuestion(payload)
+      if (!createdQuestion) return
+
+      await InterviewQuestionBankModule.CreateQuestionOccurrence({
+        questionId: createdQuestion.id,
+        applicationId: this.applicationId,
+        interviewProgressId: this.linkProgressId || undefined,
+        interviewStageSnapshot: this.linkStageSnapshot || undefined,
+        occurredAt: this.linkOccurredAt,
+        actualQuestion: payload.content,
+        note: this.linkProgressId ? '从面试进展沉淀新题目' : '从投递详情沉淀新题目'
+      })
+      await InterviewQuestionBankModule.GetInterviewQuestions({ page: 1, pageSize: 100 })
+      this.questionDialogVisible = false
+      this.$message.success('题目已沉淀并生成面试提问记录')
+    } catch (error) {
+      console.error('沉淀题目失败:', error)
+      this.$message.error('保存失败，请稍后重试')
+    } finally {
+      this.questionSubmitting = false
+    }
+  }
+
+  private async submitQuestionOccurrence(payload: CreateQuestionOccurrenceRequest) {
+    this.questionSubmitting = true
+    try {
+      await InterviewQuestionBankModule.CreateQuestionOccurrence(payload)
+      await InterviewQuestionBankModule.GetInterviewQuestions({ page: 1, pageSize: 100 })
+      this.questionLinkDialogVisible = false
+      this.$message.success('已关联题目并生成面试提问记录')
+    } catch (error) {
+      console.error('关联题目失败:', error)
+      this.$message.error('保存失败，请稍后重试')
+    } finally {
+      this.questionSubmitting = false
+    }
   }
 
   private submitProgress() {
@@ -590,6 +730,12 @@ export default class extends Vue {
 
     .info-block {
       margin-bottom: 20px;
+
+      .block-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
     }
 
     .score-list {

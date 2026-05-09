@@ -20,3 +20,8 @@ export * from './interview-progress'
 
 // 岗位库相关API
 export * from './job-postings'
+
+// 面试题库相关 API
+export * from './interview-questions'
+export * from './question-occurrences'
+export * from './flashcards'

@@ -1,0 +1,142 @@
+<svg width="1600" height="1040" viewBox="0 0 1600 1040" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="1040" fill="#F5F7FA"/>
+
+  <text x="60" y="56" fill="#303133" font-size="28" font-family="Arial, sans-serif" font-weight="700">面试题库与闪卡复习视觉稿</text>
+  <text x="60" y="86" fill="#909399" font-size="14" font-family="Arial, sans-serif">面试题库为独立一级模块，内部通过“题库列表 / 闪卡复习”两个子 tab 区分管理与复习场景</text>
+
+  <rect x="40" y="120" width="720" height="860" rx="18" fill="#FFFFFF" stroke="#E4E7ED"/>
+  <text x="70" y="162" fill="#303133" font-size="22" font-family="Arial, sans-serif" font-weight="700">面试题库</text>
+
+  <rect x="70" y="184" width="660" height="46" rx="12" fill="#F5F7FA" stroke="#EBEEF5"/>
+  <rect x="78" y="192" width="148" height="30" rx="9" fill="#409EFF"/>
+  <text x="126" y="212" fill="#FFFFFF" font-size="14" font-family="Arial, sans-serif">题库列表</text>
+  <rect x="236" y="192" width="148" height="30" rx="9" fill="#FFFFFF"/>
+  <text x="284" y="212" fill="#606266" font-size="14" font-family="Arial, sans-serif">闪卡复习</text>
+
+  <rect x="70" y="252" width="660" height="94" rx="12" fill="#FFFFFF" stroke="#EBEEF5"/>
+  <rect x="94" y="276" width="190" height="34" rx="8" fill="#F5F7FA" stroke="#DCDFE6"/>
+  <text x="110" y="298" fill="#909399" font-size="13" font-family="Arial, sans-serif">搜索题目标题或内容</text>
+  <rect x="300" y="276" width="96" height="34" rx="8" fill="#F5F7FA" stroke="#DCDFE6"/>
+  <text x="326" y="298" fill="#606266" font-size="13" font-family="Arial, sans-serif">标签</text>
+  <rect x="410" y="276" width="96" height="34" rx="8" fill="#F5F7FA" stroke="#DCDFE6"/>
+  <text x="436" y="298" fill="#606266" font-size="13" font-family="Arial, sans-serif">难度</text>
+  <rect x="520" y="276" width="96" height="34" rx="8" fill="#F5F7FA" stroke="#DCDFE6"/>
+  <text x="540" y="298" fill="#606266" font-size="13" font-family="Arial, sans-serif">收藏状态</text>
+  <rect x="632" y="276" width="72" height="34" rx="8" fill="#67C23A"/>
+  <text x="647" y="298" fill="#FFFFFF" font-size="13" font-family="Arial, sans-serif">新增题目</text>
+  <text x="94" y="330" fill="#909399" font-size="12" font-family="Arial, sans-serif">支持按题型、掌握状态、出现次数和最近复习时间排序</text>
+
+  <rect x="70" y="372" width="660" height="102" rx="12" fill="#FFFFFF" stroke="#EBEEF5"/>
+  <text x="94" y="405" fill="#F7BA2A" font-size="22" font-family="Arial, sans-serif">★</text>
+  <text x="124" y="402" fill="#303133" font-size="17" font-family="Arial, sans-serif" font-weight="700">Vue2 响应式原理是什么？</text>
+  <rect x="338" y="383" width="54" height="24" rx="12" fill="#ECF5FF"/>
+  <text x="354" y="399" fill="#409EFF" font-size="12" font-family="Arial, sans-serif">Vue</text>
+  <rect x="402" y="383" width="54" height="24" rx="12" fill="#FDF6EC"/>
+  <text x="417" y="399" fill="#E6A23C" font-size="12" font-family="Arial, sans-serif">中等</text>
+  <rect x="466" y="383" width="66" height="24" rx="12" fill="#F0F9EB"/>
+  <text x="485" y="399" fill="#67C23A" font-size="12" font-family="Arial, sans-serif">熟练</text>
+  <text x="124" y="432" fill="#606266" font-size="13" font-family="Arial, sans-serif">八股题 · 出现 5 次 · 最近复习：2026-05-08</text>
+  <text x="124" y="456" fill="#909399" font-size="12" font-family="Arial, sans-serif">Object.defineProperty、依赖收集、派发更新、数组响应式</text>
+  <text x="575" y="432" fill="#409EFF" font-size="13" font-family="Arial, sans-serif">查看</text>
+  <text x="616" y="432" fill="#409EFF" font-size="13" font-family="Arial, sans-serif">复习</text>
+  <text x="658" y="432" fill="#F56C6C" font-size="13" font-family="Arial, sans-serif">删除</text>
+
+  <rect x="70" y="492" width="660" height="102" rx="12" fill="#FFFFFF" stroke="#EBEEF5"/>
+  <text x="94" y="525" fill="#C0C4CC" font-size="22" font-family="Arial, sans-serif">☆</text>
+  <text x="124" y="522" fill="#303133" font-size="17" font-family="Arial, sans-serif" font-weight="700">如何设计前端监控 SDK？</text>
+  <rect x="338" y="503" width="66" height="24" rx="12" fill="#ECF5FF"/>
+  <text x="353" y="519" fill="#409EFF" font-size="12" font-family="Arial, sans-serif">工程化</text>
+  <rect x="414" y="503" width="54" height="24" rx="12" fill="#FEF0F0"/>
+  <text x="429" y="519" fill="#F56C6C" font-size="12" font-family="Arial, sans-serif">困难</text>
+  <rect x="478" y="503" width="66" height="24" rx="12" fill="#FDF6EC"/>
+  <text x="497" y="519" fill="#E6A23C" font-size="12" font-family="Arial, sans-serif">一般</text>
+  <text x="124" y="552" fill="#606266" font-size="13" font-family="Arial, sans-serif">场景题 · 出现 3 次 · 最近复习：2026-05-05</text>
+  <text x="124" y="576" fill="#909399" font-size="12" font-family="Arial, sans-serif">错误采集、性能指标、上报策略、采样和告警</text>
+  <text x="575" y="552" fill="#409EFF" font-size="13" font-family="Arial, sans-serif">查看</text>
+  <text x="616" y="552" fill="#409EFF" font-size="13" font-family="Arial, sans-serif">复习</text>
+  <text x="658" y="552" fill="#F56C6C" font-size="13" font-family="Arial, sans-serif">删除</text>
+
+  <rect x="70" y="612" width="660" height="102" rx="12" fill="#FFFFFF" stroke="#EBEEF5"/>
+  <text x="94" y="645" fill="#F7BA2A" font-size="22" font-family="Arial, sans-serif">★</text>
+  <text x="124" y="642" fill="#303133" font-size="17" font-family="Arial, sans-serif" font-weight="700">请介绍一个你主导的复杂项目</text>
+  <rect x="374" y="623" width="78" height="24" rx="12" fill="#ECF5FF"/>
+  <text x="389" y="639" fill="#409EFF" font-size="12" font-family="Arial, sans-serif">项目经历</text>
+  <rect x="462" y="623" width="54" height="24" rx="12" fill="#FDF6EC"/>
+  <text x="477" y="639" fill="#E6A23C" font-size="12" font-family="Arial, sans-serif">中等</text>
+  <rect x="526" y="623" width="66" height="24" rx="12" fill="#FEF0F0"/>
+  <text x="545" y="639" fill="#F56C6C" font-size="12" font-family="Arial, sans-serif">生疏</text>
+  <text x="124" y="672" fill="#606266" font-size="13" font-family="Arial, sans-serif">项目追问 · 出现 7 次 · 最近复习：未复习</text>
+  <text x="124" y="696" fill="#909399" font-size="12" font-family="Arial, sans-serif">背景、难点、方案权衡、结果指标、复盘</text>
+  <text x="575" y="672" fill="#409EFF" font-size="13" font-family="Arial, sans-serif">查看</text>
+  <text x="616" y="672" fill="#409EFF" font-size="13" font-family="Arial, sans-serif">复习</text>
+  <text x="658" y="672" fill="#F56C6C" font-size="13" font-family="Arial, sans-serif">删除</text>
+
+  <rect x="70" y="754" width="660" height="116" rx="14" fill="#F9FAFC" stroke="#EBEEF5"/>
+  <text x="94" y="788" fill="#303133" font-size="17" font-family="Arial, sans-serif" font-weight="700">删除确认弹窗状态</text>
+  <text x="94" y="818" fill="#606266" font-size="13" font-family="Arial, sans-serif">删除题目前二次确认，若存在真实面试出现记录，需要提示会影响关联记录展示。</text>
+  <rect x="540" y="834" width="72" height="30" rx="8" fill="#FFFFFF" stroke="#DCDFE6"/>
+  <text x="563" y="854" fill="#606266" font-size="13" font-family="Arial, sans-serif">取消</text>
+  <rect x="626" y="834" width="72" height="30" rx="8" fill="#F56C6C"/>
+  <text x="649" y="854" fill="#FFFFFF" font-size="13" font-family="Arial, sans-serif">删除</text>
+
+  <text x="70" y="922" fill="#909399" font-size="13" font-family="Arial, sans-serif">分页：共 126 题  ‹ 1 2 3 4 5 ›</text>
+
+  <rect x="800" y="120" width="760" height="860" rx="18" fill="#FFFFFF" stroke="#E4E7ED"/>
+  <text x="830" y="162" fill="#303133" font-size="22" font-family="Arial, sans-serif" font-weight="700">面试题库</text>
+
+  <rect x="830" y="184" width="690" height="46" rx="12" fill="#F5F7FA" stroke="#EBEEF5"/>
+  <rect x="838" y="192" width="148" height="30" rx="9" fill="#FFFFFF"/>
+  <text x="886" y="212" fill="#606266" font-size="14" font-family="Arial, sans-serif">题库列表</text>
+  <rect x="996" y="192" width="148" height="30" rx="9" fill="#409EFF"/>
+  <text x="1044" y="212" fill="#FFFFFF" font-size="14" font-family="Arial, sans-serif">闪卡复习</text>
+
+  <rect x="830" y="252" width="690" height="70" rx="12" fill="#FFFFFF" stroke="#EBEEF5"/>
+  <text x="854" y="282" fill="#303133" font-size="16" font-family="Arial, sans-serif" font-weight="700">复习模式</text>
+  <rect x="946" y="264" width="88" height="30" rx="15" fill="#409EFF"/>
+  <text x="970" y="284" fill="#FFFFFF" font-size="13" font-family="Arial, sans-serif">随机</text>
+  <rect x="1046" y="264" width="88" height="30" rx="15" fill="#FFFFFF" stroke="#B3D8FF"/>
+  <text x="1064" y="284" fill="#409EFF" font-size="13" font-family="Arial, sans-serif">收藏优先</text>
+  <rect x="1146" y="264" width="88" height="30" rx="15" fill="#FFFFFF" stroke="#E6A23C"/>
+  <text x="1164" y="284" fill="#E6A23C" font-size="13" font-family="Arial, sans-serif">薄弱优先</text>
+  <rect x="1246" y="264" width="88" height="30" rx="15" fill="#FFFFFF" stroke="#67C23A"/>
+  <text x="1264" y="284" fill="#67C23A" font-size="13" font-family="Arial, sans-serif">高频优先</text>
+  <text x="1380" y="284" fill="#909399" font-size="13" font-family="Arial, sans-serif">第 4 / 20 题</text>
+
+  <rect x="872" y="366" width="560" height="370" rx="24" fill="#FFFFFF" stroke="#DCE6F2"/>
+  <rect x="890" y="384" width="524" height="334" rx="20" fill="#F9FAFC" stroke="#EBEEF5"/>
+  <text x="922" y="430" fill="#909399" font-size="13" font-family="Arial, sans-serif">卡片正面 · 点击卡片翻转</text>
+  <text x="922" y="486" fill="#303133" font-size="25" font-family="Arial, sans-serif" font-weight="700">Vue2 响应式原理是什么？</text>
+  <text x="922" y="530" fill="#606266" font-size="15" font-family="Arial, sans-serif">请先口述 Object.defineProperty、依赖收集、派发更新与数组响应式处理。</text>
+  <rect x="922" y="574" width="54" height="24" rx="12" fill="#ECF5FF"/>
+  <text x="938" y="590" fill="#409EFF" font-size="12" font-family="Arial, sans-serif">Vue</text>
+  <rect x="986" y="574" width="54" height="24" rx="12" fill="#FDF6EC"/>
+  <text x="1001" y="590" fill="#E6A23C" font-size="12" font-family="Arial, sans-serif">中等</text>
+  <rect x="1050" y="574" width="66" height="24" rx="12" fill="#F0F9EB"/>
+  <text x="1069" y="590" fill="#67C23A" font-size="12" font-family="Arial, sans-serif">熟练</text>
+  <rect x="922" y="642" width="118" height="38" rx="10" fill="#409EFF"/>
+  <text x="950" y="666" fill="#FFFFFF" font-size="14" font-family="Arial, sans-serif">翻转答案</text>
+
+  <text x="840" y="562" fill="#C0C4CC" font-size="32" font-family="Arial, sans-serif">‹</text>
+  <text x="1450" y="562" fill="#C0C4CC" font-size="32" font-family="Arial, sans-serif">›</text>
+  <path d="M918 762 C1020 800 1280 800 1390 762" stroke="#B3D8FF" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 10"/>
+  <text x="1042" y="816" fill="#909399" font-size="13" font-family="Arial, sans-serif">左右滑动切换卡片，滑出后下一题自然进入并回到正面</text>
+
+  <rect x="850" y="850" width="190" height="82" rx="16" fill="#F9FAFC" stroke="#EBEEF5"/>
+  <text x="874" y="884" fill="#303133" font-size="16" font-family="Arial, sans-serif" font-weight="700">翻转动画</text>
+  <text x="874" y="912" fill="#909399" font-size="13" font-family="Arial, sans-serif">250ms-400ms 3D 翻面</text>
+
+  <rect x="1064" y="850" width="190" height="82" rx="16" fill="#F9FAFC" stroke="#EBEEF5"/>
+  <text x="1088" y="884" fill="#303133" font-size="16" font-family="Arial, sans-serif" font-weight="700">背面答案</text>
+  <text x="1088" y="912" fill="#909399" font-size="13" font-family="Arial, sans-serif">展示解析和自评按钮</text>
+
+  <rect x="1278" y="850" width="190" height="82" rx="16" fill="#F9FAFC" stroke="#EBEEF5"/>
+  <text x="1302" y="884" fill="#303133" font-size="16" font-family="Arial, sans-serif" font-weight="700">滑动切换</text>
+  <text x="1302" y="912" fill="#909399" font-size="13" font-family="Arial, sans-serif">位移、缩放、透明度过渡</text>
+
+  <rect x="1300" y="640" width="96" height="28" rx="14" fill="#FEF0F0"/>
+  <text x="1324" y="659" fill="#F56C6C" font-size="12" font-family="Arial, sans-serif">不会</text>
+  <rect x="1300" y="676" width="96" height="28" rx="14" fill="#FDF6EC"/>
+  <text x="1324" y="695" fill="#E6A23C" font-size="12" font-family="Arial, sans-serif">模糊</text>
+  <rect x="1300" y="712" width="96" height="28" rx="14" fill="#F0F9EB"/>
+  <text x="1324" y="731" fill="#67C23A" font-size="12" font-family="Arial, sans-serif">掌握</text>
+</svg>

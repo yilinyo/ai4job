@@ -9,7 +9,7 @@ import componentsRouter from './modules/components'
 import chartsRouter from './modules/charts'
 import tableRouter from './modules/table'
 import nestedRouter from './modules/nested'
-import resumeRouter, { jobPostingRoutes } from './modules/resume'
+import resumeRouter, { interviewQuestionBankRoutes, jobPostingRoutes } from './modules/resume'
 
 Vue.use(VueRouter)
 
@@ -169,6 +169,7 @@ export const asyncRoutes: RouteConfig[] = [
   // 简历管理系统模块
   resumeRouter,
   jobPostingRoutes,
+  interviewQuestionBankRoutes,
   {
     path: '/permission',
     component: Layout,
