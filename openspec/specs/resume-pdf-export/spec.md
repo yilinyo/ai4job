@@ -1,4 +1,9 @@
-## ADDED Requirements
+# resume-pdf-export Specification
+
+## Purpose
+Define how users export resume versions as readable PDF files from the resume version detail flow.
+
+## Requirements
 
 ### Requirement: User can export the viewed resume as a PDF
 The system SHALL allow a user on the resume version detail page to download the currently viewed resume version as a PDF file.
