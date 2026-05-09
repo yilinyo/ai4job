@@ -21,3 +21,8 @@ func TestResumeRepo_Validate_EmptyName(t *testing.T) {
 	repo := &resume_repo.ResumeRepo{UserID: "user-1", Name: "   "}
 	assert.Error(t, repo.Validate())
 }
+
+func TestResumeRepo_Validate_NameTooLong(t *testing.T) {
+	repo := &resume_repo.ResumeRepo{UserID: "user-1", Name: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+	assert.Error(t, repo.Validate())
+}
