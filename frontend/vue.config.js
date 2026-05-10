@@ -5,7 +5,9 @@ const path = require('path')
 // use administrator privileges to execute the command line.
 // For example, on Mac: sudo npm run / sudo yarn
 const devServerPort = 9527 // TODO: get this variable from setting.ts
+const backendServerPort = 8080 // TODO: get this variable from setting.ts
 const mockServerPort = 9528 // TODO: get this variable from setting.ts
+const useMockApi = process.env.VUE_APP_USE_MOCK !== 'false'
 const name = 'Vue Typescript Admin' // TODO: get this variable from setting.ts
 
 module.exports = {
@@ -27,14 +29,17 @@ module.exports = {
     },
     progress: false,
     proxy: {
-      // change xxx-api/login => /mock-api/v1/login
+      // mock keeps /api/*, real dev backend expects /api/v1/*
       // detail: https://cli.vuejs.org/config/#devserver-proxy
       [process.env.VUE_APP_BASE_API]: {
-        target: `http://127.0.0.1:${mockServerPort}`,
+        target: useMockApi
+          ? `http://127.0.0.1:${mockServerPort}`
+          : `http://127.0.0.1:${backendServerPort}`,
         changeOrigin: true, // needed for virtual hosted sites
         ws: true, // proxy websockets
-        pathRewrite: {
-          ['^' + process.env.VUE_APP_BASE_API]: ''
+        pathRewrite(path) {
+          const apiPath = path.replace(new RegExp('^' + process.env.VUE_APP_BASE_API), '')
+          return useMockApi ? apiPath : apiPath.replace(/^\/api(?=\/|$)/, '/api/v1')
         }
       }
     }
