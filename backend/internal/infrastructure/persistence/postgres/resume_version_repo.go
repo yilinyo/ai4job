@@ -79,3 +79,32 @@ func (r *ResumeVersionRepo) ClearDefaultByRepoID(ctx context.Context, repoID str
 	}
 	return err
 }
+
+func (r *ResumeVersionRepo) SetDefaultByID(ctx context.Context, repoID, id string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var exists int64
+		if err := tx.Model(&domainversion.ResumeVersion{}).Where("id = ? AND repo_id = ?", id, repoID).Count(&exists).Error; err != nil {
+			return err
+		}
+		if exists == 0 {
+			return domainerrors.ErrNotFound
+		}
+		if err := tx.Model(&domainversion.ResumeVersion{}).Where("repo_id = ?", repoID).Update("is_default", false).Error; err != nil {
+			if isUniqueViolation(err) {
+				return domainerrors.ErrDuplicate
+			}
+			return err
+		}
+		result := tx.Model(&domainversion.ResumeVersion{}).Where("id = ? AND repo_id = ?", id, repoID).Update("is_default", true)
+		if result.Error != nil {
+			if isUniqueViolation(result.Error) {
+				return domainerrors.ErrDuplicate
+			}
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return domainerrors.ErrNotFound
+		}
+		return nil
+	})
+}

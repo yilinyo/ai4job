@@ -21,3 +21,8 @@ func TestResumeVersion_ValidateForCreate_EmptyContent(t *testing.T) {
 	version := &resume_version.ResumeVersion{RepoID: "repo-1", Title: "v1", Content: ""}
 	assert.Error(t, version.ValidateForCreate())
 }
+
+func TestResumeVersion_ValidateForCreate_TitleTooLong(t *testing.T) {
+	version := &resume_version.ResumeVersion{RepoID: "repo-1", Title: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Content: "{}"}
+	assert.Error(t, version.ValidateForCreate())
+}

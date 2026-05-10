@@ -49,6 +49,10 @@ func (m *mockResumeVersionRepo) ClearDefaultByRepoID(ctx context.Context, repoID
 	return m.Called(ctx, repoID).Error(0)
 }
 
+func (m *mockResumeVersionRepo) SetDefaultByID(ctx context.Context, repoID, id string) error {
+	return m.Called(ctx, repoID, id).Error(0)
+}
+
 type mockVersionUseChecker struct{ mock.Mock }
 
 func (m *mockVersionUseChecker) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) {
@@ -71,20 +75,21 @@ func TestResumeVersionService_Create_AssignsNextVersionNum(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestResumeVersionService_Create_DefaultClearsExistingDefault(t *testing.T) {
+func TestResumeVersionService_Create_DefaultPersistsBeforeSwitchingDefault(t *testing.T) {
 	repo := &mockResumeVersionRepo{}
 	checker := &mockVersionUseChecker{}
 	repo.On("MaxVersionNum", mock.Anything, "repo-1").Return(0, nil)
-	repo.On("ClearDefaultByRepoID", mock.Anything, "repo-1").Return(nil)
 	repo.On("Create", mock.Anything, mock.MatchedBy(func(v *domainversion.ResumeVersion) bool {
-		return v.IsDefault && v.VersionNum == 1
+		return !v.IsDefault && v.VersionNum == 1
 	})).Return(nil)
+	repo.On("SetDefaultByID", mock.Anything, "repo-1", mock.AnythingOfType("string")).Return(nil)
 	svc := appsvc.NewResumeVersionService(repo, checker)
 
 	err := svc.Create(context.Background(), "repo-1", dto.CreateResumeVersionRequest{Title: "v1", Content: "{}", IsDefault: true})
 
 	require.NoError(t, err)
 	repo.AssertExpectations(t)
+	repo.AssertNotCalled(t, "ClearDefaultByRepoID")
 }
 
 func TestResumeVersionService_List(t *testing.T) {
@@ -131,9 +136,23 @@ func TestResumeVersionService_Update_Success(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
+func TestResumeVersionService_Update_InvalidTitle(t *testing.T) {
+	repo := &mockResumeVersionRepo{}
+	checker := &mockVersionUseChecker{}
+	existing := &domainversion.ResumeVersion{ID: "v1", RepoID: "repo-1", Title: "old", Content: "{}", VersionNum: 1}
+	repo.On("FindByIDAndRepoID", mock.Anything, "v1", "repo-1").Return(existing, nil)
+	svc := appsvc.NewResumeVersionService(repo, checker)
+
+	err := svc.Update(context.Background(), "repo-1", "v1", dto.UpdateResumeVersionRequest{Title: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Content: "{}"})
+
+	assert.ErrorIs(t, err, domainerrors.ErrBadParams)
+	repo.AssertNotCalled(t, "Update")
+}
+
 func TestResumeVersionService_Delete_InUse(t *testing.T) {
 	repo := &mockResumeVersionRepo{}
 	checker := &mockVersionUseChecker{}
+	repo.On("FindByIDAndRepoID", mock.Anything, "v1", "repo-1").Return(&domainversion.ResumeVersion{ID: "v1", RepoID: "repo-1", Title: "v1", Content: "{}", VersionNum: 1}, nil)
 	checker.On("ExistsByResumeVersionID", mock.Anything, "v1").Return(true, nil)
 	svc := appsvc.NewResumeVersionService(repo, checker)
 
@@ -143,9 +162,23 @@ func TestResumeVersionService_Delete_InUse(t *testing.T) {
 	repo.AssertNotCalled(t, "Delete")
 }
 
+func TestResumeVersionService_Delete_NotFoundBeforeUseCheck(t *testing.T) {
+	repo := &mockResumeVersionRepo{}
+	checker := &mockVersionUseChecker{}
+	repo.On("FindByIDAndRepoID", mock.Anything, "v1", "repo-1").Return(nil, domainerrors.ErrNotFound)
+	svc := appsvc.NewResumeVersionService(repo, checker)
+
+	err := svc.Delete(context.Background(), "repo-1", "v1")
+
+	assert.ErrorIs(t, err, domainerrors.ErrNotFound)
+	checker.AssertNotCalled(t, "ExistsByResumeVersionID")
+	repo.AssertNotCalled(t, "Delete")
+}
+
 func TestResumeVersionService_Delete_Success(t *testing.T) {
 	repo := &mockResumeVersionRepo{}
 	checker := &mockVersionUseChecker{}
+	repo.On("FindByIDAndRepoID", mock.Anything, "v1", "repo-1").Return(&domainversion.ResumeVersion{ID: "v1", RepoID: "repo-1", Title: "v1", Content: "{}", VersionNum: 1}, nil)
 	checker.On("ExistsByResumeVersionID", mock.Anything, "v1").Return(false, nil)
 	repo.On("Delete", mock.Anything, "v1", "repo-1").Return(nil)
 	svc := appsvc.NewResumeVersionService(repo, checker)
@@ -160,12 +193,7 @@ func TestResumeVersionService_Delete_Success(t *testing.T) {
 func TestResumeVersionService_SetDefault(t *testing.T) {
 	repo := &mockResumeVersionRepo{}
 	checker := &mockVersionUseChecker{}
-	existing := &domainversion.ResumeVersion{ID: "v1", RepoID: "repo-1", Title: "v1", Content: "{}", VersionNum: 1}
-	repo.On("FindByIDAndRepoID", mock.Anything, "v1", "repo-1").Return(existing, nil)
-	repo.On("ClearDefaultByRepoID", mock.Anything, "repo-1").Return(nil)
-	repo.On("Update", mock.Anything, mock.MatchedBy(func(v *domainversion.ResumeVersion) bool {
-		return v.ID == "v1" && v.IsDefault
-	})).Return(nil)
+	repo.On("SetDefaultByID", mock.Anything, "repo-1", "v1").Return(nil)
 	svc := appsvc.NewResumeVersionService(repo, checker)
 
 	err := svc.SetDefault(context.Background(), "repo-1", "v1")

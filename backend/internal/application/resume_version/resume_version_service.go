@@ -27,16 +27,17 @@ func (s *ResumeVersionService) Create(ctx context.Context, repoID string, req dt
 	if err != nil {
 		return err
 	}
-	v := &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: repoID, Title: req.Title, Content: req.Content, VersionNum: maxNum + 1, IsDefault: req.IsDefault}
+	v := &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: repoID, Title: req.Title, Content: req.Content, VersionNum: maxNum + 1}
 	if err := v.ValidateForCreate(); err != nil {
 		return err
 	}
-	if req.IsDefault {
-		if err := s.repo.ClearDefaultByRepoID(ctx, repoID); err != nil {
-			return err
-		}
+	if err := s.repo.Create(ctx, v); err != nil {
+		return err
 	}
-	return s.repo.Create(ctx, v)
+	if req.IsDefault {
+		return s.repo.SetDefaultByID(ctx, repoID, v.ID)
+	}
+	return nil
 }
 
 func (s *ResumeVersionService) List(ctx context.Context, repoID string) ([]domainversion.ResumeVersion, error) {
@@ -61,6 +62,9 @@ func (s *ResumeVersionService) Update(ctx context.Context, repoID, id string, re
 }
 
 func (s *ResumeVersionService) Delete(ctx context.Context, repoID, id string) error {
+	if _, err := s.repo.FindByIDAndRepoID(ctx, id, repoID); err != nil {
+		return err
+	}
 	inUse, err := s.checker.ExistsByResumeVersionID(ctx, id)
 	if err != nil {
 		return err
@@ -72,13 +76,5 @@ func (s *ResumeVersionService) Delete(ctx context.Context, repoID, id string) er
 }
 
 func (s *ResumeVersionService) SetDefault(ctx context.Context, repoID, id string) error {
-	v, err := s.repo.FindByIDAndRepoID(ctx, id, repoID)
-	if err != nil {
-		return err
-	}
-	if err := s.repo.ClearDefaultByRepoID(ctx, repoID); err != nil {
-		return err
-	}
-	v.IsDefault = true
-	return s.repo.Update(ctx, v)
+	return s.repo.SetDefaultByID(ctx, repoID, id)
 }
