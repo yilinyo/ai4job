@@ -4,6 +4,8 @@ import "context"
 
 type ListFilter struct {
 	UserID   string
+	JobType  JobType
+	Keyword  string
 	Page     int
 	PageSize int
 }
@@ -15,4 +17,5 @@ type Repository interface {
 	Delete(ctx context.Context, id, userID string) error
 	ListByUser(ctx context.Context, f ListFilter) ([]ResumeRepo, int64, error)
 	ExistsByUserAndName(ctx context.Context, userID, name, excludeID string) (bool, error)
+	IncrementVersionCount(ctx context.Context, id string, delta int) error
 }

@@ -25,15 +25,23 @@ func (s *ResumeRepoService) Create(ctx context.Context, userID string, req dto.C
 	if exists {
 		return domainerrors.ErrDuplicate
 	}
-	r := &domainrepo.ResumeRepo{ID: uuid.NewString(), UserID: userID, Name: req.Name, Description: req.Description}
+	r := &domainrepo.ResumeRepo{
+		ID:             uuid.NewString(),
+		UserID:         userID,
+		Name:           req.Name,
+		JobType:        req.JobType,
+		TargetPosition: req.TargetPosition,
+		Description:    req.Description,
+		VersionCount:   0,
+	}
 	if err := r.Validate(); err != nil {
 		return err
 	}
 	return s.repo.Create(ctx, r)
 }
 
-func (s *ResumeRepoService) List(ctx context.Context, userID string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error) {
-	return s.repo.ListByUser(ctx, domainrepo.ListFilter{UserID: userID, Page: page, PageSize: pageSize})
+func (s *ResumeRepoService) List(ctx context.Context, userID string, jobType domainrepo.JobType, keyword string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error) {
+	return s.repo.ListByUser(ctx, domainrepo.ListFilter{UserID: userID, JobType: jobType, Keyword: keyword, Page: page, PageSize: pageSize})
 }
 
 func (s *ResumeRepoService) Get(ctx context.Context, userID, id string) (*domainrepo.ResumeRepo, error) {
@@ -53,6 +61,8 @@ func (s *ResumeRepoService) Update(ctx context.Context, userID, id string, req d
 		return domainerrors.ErrDuplicate
 	}
 	r.Name = req.Name
+	r.JobType = req.JobType
+	r.TargetPosition = req.TargetPosition
 	r.Description = req.Description
 	if err := r.Validate(); err != nil {
 		return err
@@ -62,4 +72,8 @@ func (s *ResumeRepoService) Update(ctx context.Context, userID, id string, req d
 
 func (s *ResumeRepoService) Delete(ctx context.Context, userID, id string) error {
 	return s.repo.Delete(ctx, id, userID)
+}
+
+func (s *ResumeRepoService) IncrementVersionCount(ctx context.Context, id string, delta int) error {
+	return s.repo.IncrementVersionCount(ctx, id, delta)
 }

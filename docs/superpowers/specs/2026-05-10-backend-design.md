@@ -94,20 +94,22 @@ location VARCHAR | personal_advantage TEXT
 education_experiences JSONB        -- 内嵌存储，避免过度拆表
 created_at TIMESTAMPTZ | updated_at TIMESTAMPTZ | deleted_at TIMESTAMPTZ
 
--- resume_repos
-id UUID PK | user_id UUID FK→users | name VARCHAR(100)
-job_type VARCHAR(20)               -- campus/social/internship
-target_position VARCHAR(100) | description TEXT
-version_count INT DEFAULT 0
+-- resume_repos（字段以前端 ResumeRepo 模型为准）
+id UUID PK | user_id VARCHAR(36) FK→users | name VARCHAR(100)
+job_type VARCHAR(20)               -- JSON: jobType，campus/social/internship
+target_position VARCHAR(100)       -- JSON: targetPosition
+description TEXT | version_count INT DEFAULT 0  -- JSON: versionCount
 created_at | updated_at | deleted_at
+INDEX ON (user_id, job_type)
 
--- resume_versions
+-- resume_versions（字段以前端 ResumeVersion 模型为准）
 id UUID PK | repo_id UUID FK→resume_repos
-version VARCHAR(20)                -- e.g. v1.0.0
-title VARCHAR(200) | content TEXT | remark TEXT
-is_active BOOLEAN DEFAULT false
+version VARCHAR(20)                -- JSON: version，e.g. v1.0.0
+title VARCHAR(120) | content TEXT | remark TEXT
+is_active BOOLEAN DEFAULT false    -- JSON: isActive
 created_at | updated_at | deleted_at
 UNIQUE INDEX ON (repo_id, version) WHERE deleted_at IS NULL
+UNIQUE INDEX ON (repo_id) WHERE is_active = TRUE AND deleted_at IS NULL
 
 -- job_postings
 id UUID PK | user_id UUID FK→users
@@ -168,7 +170,9 @@ deleted_at TIMESTAMPTZ
 
 | 规则 | 实现位置 |
 |------|---------|
-| `version_count` 维护 | Domain Service（创建/删除 version 时同步） |
+| `version_count` 维护 | Application Service（创建/删除 version 成功后通过 ResumeRepo Repository 同步） |
+| `version` 生成 | Application Service（同仓库按现有版本数生成 `v1.N.0`，返回给前端 `version` 字段） |
+| `is_active` 唯一激活 | Repository 事务（同仓库先清空其他 active，再激活当前 version） |
 | 删除 version 前检查 application 引用 | Application Service（查询存在则返回 50008） |
 | interview_progress 变更同步 `currentStatus` | Domain Service：`RecalculateApplicationStatus`（从全量 progress 重算） |
 | delete progress 时清空 occurrence 的 `interviewProgressId` | Application Service 编排 |
@@ -241,14 +245,14 @@ GET  /api/v1/user/profile
 PUT  /api/v1/user/profile
 POST /api/v1/user/logout
 
-GET    /api/v1/resume-repos
+GET    /api/v1/resume-repos?page=&pageSize=&jobType=&keyword=
 POST   /api/v1/resume-repos
 GET    /api/v1/resume-repos/:id
 PUT    /api/v1/resume-repos/:id
 DELETE /api/v1/resume-repos/:id
 
-GET    /api/v1/resume-versions
-POST   /api/v1/resume-versions
+GET    /api/v1/resume-versions?repoId=:repoId&page=&pageSize=
+POST   /api/v1/resume-versions              # body 包含 repoId/title/content/remark
 GET    /api/v1/resume-versions/:id
 PUT    /api/v1/resume-versions/:id
 DELETE /api/v1/resume-versions/:id
@@ -388,7 +392,10 @@ make lint         # golangci-lint 检查
 
 ### 4.4 前端对接说明
 
-前端需要做以下调整：
+本阶段以后端适配既有前端模型/API 为原则：
+- `resume-repos` 响应字段使用前端 camelCase：`jobType`、`targetPosition`、`versionCount`
+- `resume-versions` 响应字段使用前端 camelCase：`version`、`remark`、`isActive`
+- 版本接口使用前端现有资源路径：`/api/v1/resume-versions`，列表通过 `repoId` query 过滤并返回统一分页结构 `{list,total,page,pageSize}`，创建通过 body 携带 `repoId`
 - `vue.config.js` 代理目标从 `http://127.0.0.1:9528` 改为 `http://127.0.0.1:8080`
 - 所有 API 调用路径从 `/api/*` 改为 `/api/v1/*`（或在 devServer proxy 中 rewrite 路径前缀）
 
