@@ -57,7 +57,7 @@ func (h *ResumeRepoHandler) List(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.SuccessPage(c, rows, total, p.Page, p.PageSize)
+	response.SuccessPage(c, dto.ToResumeRepoResponses(rows), total, p.Page, p.PageSize)
 }
 
 func (h *ResumeRepoHandler) Get(c *gin.Context) {
@@ -71,7 +71,7 @@ func (h *ResumeRepoHandler) Get(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, row)
+	response.Success(c, dto.ToResumeRepoResponse(row))
 }
 
 func (h *ResumeRepoHandler) Update(c *gin.Context) {

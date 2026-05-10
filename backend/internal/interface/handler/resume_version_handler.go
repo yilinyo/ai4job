@@ -77,7 +77,7 @@ func (h *ResumeVersionHandler) List(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, rows)
+	response.Success(c, dto.ToResumeVersionResponses(rows))
 }
 
 func (h *ResumeVersionHandler) Get(c *gin.Context) {
@@ -90,7 +90,7 @@ func (h *ResumeVersionHandler) Get(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, row)
+	response.Success(c, dto.ToResumeVersionResponse(row))
 }
 
 func (h *ResumeVersionHandler) Update(c *gin.Context) {
