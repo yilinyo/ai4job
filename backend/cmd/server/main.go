@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	resumerepoapp "github.com/yilin/ai-for-backend/internal/application/resume_repo"
+	resumeversionapp "github.com/yilin/ai-for-backend/internal/application/resume_version"
 	"github.com/yilin/ai-for-backend/internal/application/user"
 	"github.com/yilin/ai-for-backend/internal/infrastructure/auth"
 	infraCache "github.com/yilin/ai-for-backend/internal/infrastructure/cache"
@@ -42,6 +44,12 @@ func (a *blacklistAdapter) IsBlacklisted(ctx context.Context, jti string) (bool,
 	return a.cache.IsBlacklisted(ctx, jti)
 }
 
+type noopVersionUseChecker struct{}
+
+func (n *noopVersionUseChecker) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) {
+	return false, nil
+}
+
 func main() {
 	cfg := config.Load()
 
@@ -63,9 +71,13 @@ func main() {
 
 	// --- Repositories ---
 	userRepo := infraDB.NewUserRepo(db)
+	resumeRepoRepo := infraDB.NewResumeRepoRepo(db)
+	resumeVersionRepo := infraDB.NewResumeVersionRepo(db)
 
 	// --- Application Services ---
 	userSvc := user.NewUserService(userRepo, tokenCache, jwtMgr, cfg.EmailMock)
+	resumeRepoSvc := resumerepoapp.NewResumeRepoService(resumeRepoRepo)
+	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeVersionRepo, &noopVersionUseChecker{})
 
 	// --- Middleware ---
 	authMiddleware := middleware.Auth(
@@ -75,11 +87,15 @@ func main() {
 
 	// --- Handlers ---
 	userHandler := handler.NewUserHandler(userSvc)
+	resumeRepoHandler := handler.NewResumeRepoHandler(resumeRepoSvc)
+	resumeVersionHandler := handler.NewResumeVersionHandler(resumeVersionSvc)
 
 	// --- Router ---
 	r := router.NewRouter(router.Dependencies{
-		UserHandler:    userHandler,
-		AuthMiddleware: authMiddleware,
+		UserHandler:          userHandler,
+		ResumeRepoHandler:    resumeRepoHandler,
+		ResumeVersionHandler: resumeVersionHandler,
+		AuthMiddleware:       authMiddleware,
 	})
 
 	// --- HTTP Server ---

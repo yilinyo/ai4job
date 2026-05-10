@@ -33,7 +33,12 @@ func (h *ResumeRepoHandler) Create(c *gin.Context) {
 		response.Fail(c, pkgerrors.CodeBadParams, "参数错误")
 		return
 	}
-	if err := h.svc.Create(c.Request.Context(), c.GetString("userID"), req); err != nil {
+	userID := c.GetString("userID")
+	if userID == "" {
+		mapError(c, pkgerrors.ErrUnauthorized)
+		return
+	}
+	if err := h.svc.Create(c.Request.Context(), userID, req); err != nil {
 		mapError(c, err)
 		return
 	}
@@ -41,8 +46,13 @@ func (h *ResumeRepoHandler) Create(c *gin.Context) {
 }
 
 func (h *ResumeRepoHandler) List(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		mapError(c, pkgerrors.ErrUnauthorized)
+		return
+	}
 	p := pagination.FromContext(c)
-	rows, total, err := h.svc.List(c.Request.Context(), c.GetString("userID"), p.Page, p.PageSize)
+	rows, total, err := h.svc.List(c.Request.Context(), userID, p.Page, p.PageSize)
 	if err != nil {
 		mapError(c, err)
 		return
@@ -51,7 +61,12 @@ func (h *ResumeRepoHandler) List(c *gin.Context) {
 }
 
 func (h *ResumeRepoHandler) Get(c *gin.Context) {
-	row, err := h.svc.Get(c.Request.Context(), c.GetString("userID"), c.Param("id"))
+	userID := c.GetString("userID")
+	if userID == "" {
+		mapError(c, pkgerrors.ErrUnauthorized)
+		return
+	}
+	row, err := h.svc.Get(c.Request.Context(), userID, c.Param("id"))
 	if err != nil {
 		mapError(c, err)
 		return
@@ -65,7 +80,12 @@ func (h *ResumeRepoHandler) Update(c *gin.Context) {
 		response.Fail(c, pkgerrors.CodeBadParams, "参数错误")
 		return
 	}
-	if err := h.svc.Update(c.Request.Context(), c.GetString("userID"), c.Param("id"), req); err != nil {
+	userID := c.GetString("userID")
+	if userID == "" {
+		mapError(c, pkgerrors.ErrUnauthorized)
+		return
+	}
+	if err := h.svc.Update(c.Request.Context(), userID, c.Param("id"), req); err != nil {
 		mapError(c, err)
 		return
 	}
@@ -73,7 +93,12 @@ func (h *ResumeRepoHandler) Update(c *gin.Context) {
 }
 
 func (h *ResumeRepoHandler) Delete(c *gin.Context) {
-	if err := h.svc.Delete(c.Request.Context(), c.GetString("userID"), c.Param("id")); err != nil {
+	userID := c.GetString("userID")
+	if userID == "" {
+		mapError(c, pkgerrors.ErrUnauthorized)
+		return
+	}
+	if err := h.svc.Delete(c.Request.Context(), userID, c.Param("id")); err != nil {
 		mapError(c, err)
 		return
 	}
