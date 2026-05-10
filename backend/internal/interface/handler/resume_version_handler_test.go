@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -93,5 +94,71 @@ func TestResumeVersionHandler_Create_Success(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, pkgerrors.CodeSuccess, responseCode(t, w))
+	svc.AssertExpectations(t)
+}
+
+func TestResumeVersionHandler_List_ReturnsDTOFields(t *testing.T) {
+	now := time.Date(2026, 5, 10, 10, 0, 0, 0, time.UTC)
+	svc := &mockResumeVersionService{}
+	svc.On("List", mock.Anything, "u1", "r1").Return([]domainversion.ResumeVersion{
+		{ID: "v1", RepoID: "r1", Title: "Main", Content: "{}", VersionNum: 1, IsDefault: true, CreatedAt: now, UpdatedAt: now},
+	}, nil)
+	r := gin.New()
+	h := handler.NewResumeVersionHandler(svc)
+	r.GET("/api/v1/resume-repos/:repoId/versions", func(c *gin.Context) {
+		c.Set("userID", "u1")
+		h.List(c)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/resume-repos/r1/versions", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, pkgerrors.CodeSuccess, responseCode(t, w))
+	resp := responseMap(t, w)
+	list := resp["data"].([]any)
+	version := list[0].(map[string]any)
+	assert.Equal(t, "v1", version["id"])
+	assert.Equal(t, "r1", version["repoId"])
+	assert.Equal(t, "Main", version["title"])
+	assert.Equal(t, "{}", version["content"])
+	assert.Equal(t, float64(1), version["versionNum"])
+	assert.Equal(t, true, version["isDefault"])
+	assert.Contains(t, version, "createdAt")
+	assert.Contains(t, version, "updatedAt")
+	assertNoJSONKeys(t, version, "ID", "RepoID", "Title", "Content", "VersionNum", "IsDefault", "CreatedAt", "UpdatedAt", "DeletedAt")
+	svc.AssertExpectations(t)
+}
+
+func TestResumeVersionHandler_Get_ReturnsDTOFields(t *testing.T) {
+	now := time.Date(2026, 5, 10, 10, 0, 0, 0, time.UTC)
+	svc := &mockResumeVersionService{}
+	svc.On("Get", mock.Anything, "u1", "r1", "v1").Return(
+		&domainversion.ResumeVersion{ID: "v1", RepoID: "r1", Title: "Main", Content: "{}", VersionNum: 1, IsDefault: true, CreatedAt: now, UpdatedAt: now},
+		nil,
+	)
+	r := gin.New()
+	h := handler.NewResumeVersionHandler(svc)
+	r.GET("/api/v1/resume-repos/:repoId/versions/:versionId", func(c *gin.Context) {
+		c.Set("userID", "u1")
+		h.Get(c)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/resume-repos/r1/versions/v1", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, pkgerrors.CodeSuccess, responseCode(t, w))
+	resp := responseMap(t, w)
+	version := resp["data"].(map[string]any)
+	assert.Equal(t, "v1", version["id"])
+	assert.Equal(t, "r1", version["repoId"])
+	assert.Equal(t, "Main", version["title"])
+	assert.Equal(t, "{}", version["content"])
+	assert.Equal(t, float64(1), version["versionNum"])
+	assert.Equal(t, true, version["isDefault"])
+	assert.Contains(t, version, "createdAt")
+	assert.Contains(t, version, "updatedAt")
+	assertNoJSONKeys(t, version, "ID", "RepoID", "Title", "Content", "VersionNum", "IsDefault", "CreatedAt", "UpdatedAt", "DeletedAt")
 	svc.AssertExpectations(t)
 }
