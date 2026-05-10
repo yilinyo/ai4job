@@ -47,12 +47,15 @@ func (s *stubResumeRepoService) Update(ctx context.Context, userID, id string, r
 }
 func (s *stubResumeRepoService) Delete(ctx context.Context, userID, id string) error { return nil }
 
-type stubResumeVersionService struct{}
+type stubResumeVersionService struct {
+	lastRepoID string
+}
 
 func (s *stubResumeVersionService) Create(ctx context.Context, repoID string, req dto.CreateResumeVersionRequest) error {
 	return nil
 }
 func (s *stubResumeVersionService) List(ctx context.Context, repoID string) ([]domainversion.ResumeVersion, error) {
+	s.lastRepoID = repoID
 	return []domainversion.ResumeVersion{}, nil
 }
 func (s *stubResumeVersionService) Get(ctx context.Context, repoID, id string) (*domainversion.ResumeVersion, error) {
@@ -68,10 +71,11 @@ func (s *stubResumeVersionService) SetDefault(ctx context.Context, repoID, id st
 
 func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	versionSvc := &stubResumeVersionService{}
 	r := router.NewRouter(router.Dependencies{
 		UserHandler:          handler.NewUserHandler(&stubUserService{}),
 		ResumeRepoHandler:    handler.NewResumeRepoHandler(&stubResumeRepoService{}),
-		ResumeVersionHandler: handler.NewResumeVersionHandler(&stubResumeVersionService{}),
+		ResumeVersionHandler: handler.NewResumeVersionHandler(versionSvc),
 		AuthMiddleware: func(c *gin.Context) {
 			c.Set("userID", "u1")
 			c.Next()
@@ -93,4 +97,5 @@ func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 		r.ServeHTTP(w, req)
 		assert.NotEqual(t, http.StatusNotFound, w.Code, tc.path)
 	}
+	assert.Equal(t, "r1", versionSvc.lastRepoID)
 }

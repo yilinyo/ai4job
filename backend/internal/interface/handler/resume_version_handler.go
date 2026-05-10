@@ -27,13 +27,20 @@ func NewResumeVersionHandler(svc ResumeVersionService) *ResumeVersionHandler {
 	return &ResumeVersionHandler{svc: svc}
 }
 
+func resumeRepoParam(c *gin.Context) string {
+	if repoID := c.Param("repoId"); repoID != "" {
+		return repoID
+	}
+	return c.Param("id")
+}
+
 func (h *ResumeVersionHandler) Create(c *gin.Context) {
 	var req dto.CreateResumeVersionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, pkgerrors.CodeBadParams, "参数错误")
 		return
 	}
-	if err := h.svc.Create(c.Request.Context(), c.Param("repoId"), req); err != nil {
+	if err := h.svc.Create(c.Request.Context(), resumeRepoParam(c), req); err != nil {
 		mapError(c, err)
 		return
 	}
@@ -41,7 +48,7 @@ func (h *ResumeVersionHandler) Create(c *gin.Context) {
 }
 
 func (h *ResumeVersionHandler) List(c *gin.Context) {
-	rows, err := h.svc.List(c.Request.Context(), c.Param("repoId"))
+	rows, err := h.svc.List(c.Request.Context(), resumeRepoParam(c))
 	if err != nil {
 		mapError(c, err)
 		return
@@ -50,7 +57,7 @@ func (h *ResumeVersionHandler) List(c *gin.Context) {
 }
 
 func (h *ResumeVersionHandler) Get(c *gin.Context) {
-	row, err := h.svc.Get(c.Request.Context(), c.Param("repoId"), c.Param("id"))
+	row, err := h.svc.Get(c.Request.Context(), resumeRepoParam(c), c.Param("id"))
 	if err != nil {
 		mapError(c, err)
 		return
@@ -64,7 +71,7 @@ func (h *ResumeVersionHandler) Update(c *gin.Context) {
 		response.Fail(c, pkgerrors.CodeBadParams, "参数错误")
 		return
 	}
-	if err := h.svc.Update(c.Request.Context(), c.Param("repoId"), c.Param("id"), req); err != nil {
+	if err := h.svc.Update(c.Request.Context(), resumeRepoParam(c), c.Param("id"), req); err != nil {
 		mapError(c, err)
 		return
 	}
@@ -72,7 +79,7 @@ func (h *ResumeVersionHandler) Update(c *gin.Context) {
 }
 
 func (h *ResumeVersionHandler) Delete(c *gin.Context) {
-	if err := h.svc.Delete(c.Request.Context(), c.Param("repoId"), c.Param("id")); err != nil {
+	if err := h.svc.Delete(c.Request.Context(), resumeRepoParam(c), c.Param("id")); err != nil {
 		mapError(c, err)
 		return
 	}
@@ -80,7 +87,7 @@ func (h *ResumeVersionHandler) Delete(c *gin.Context) {
 }
 
 func (h *ResumeVersionHandler) SetDefault(c *gin.Context) {
-	if err := h.svc.SetDefault(c.Request.Context(), c.Param("repoId"), c.Param("id")); err != nil {
+	if err := h.svc.SetDefault(c.Request.Context(), resumeRepoParam(c), c.Param("id")); err != nil {
 		mapError(c, err)
 		return
 	}
