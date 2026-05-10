@@ -117,6 +117,8 @@ func mapError(c *gin.Context, err error) {
 		response.Fail(c, pkgerrors.CodeConflict, "资源已存在")
 	case errors.Is(err, pkgerrors.ErrEmailCodeWrong):
 		response.Fail(c, pkgerrors.CodeConflict, "验证码错误")
+	case errors.Is(err, pkgerrors.ErrVersionInUse):
+		response.Fail(c, pkgerrors.CodeConflict, "简历版本已被使用")
 	default:
 		response.Fail(c, pkgerrors.CodeInternalError, "服务器错误")
 	}
