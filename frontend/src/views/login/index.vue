@@ -124,7 +124,6 @@ import { Route } from 'vue-router'
 import { Dictionary } from 'vue-router/types/router'
 import { Form as ElForm, Input } from 'element-ui'
 import { UserModule } from '@/store/modules/user'
-import { isValidUsername } from '@/utils/validate'
 import LangSelect from '@/components/LangSelect/index.vue'
 
 @Component({
@@ -135,8 +134,8 @@ import LangSelect from '@/components/LangSelect/index.vue'
 })
 export default class extends Vue {
   private validateUsername = (rule: any, value: string, callback: Function) => {
-    if (!isValidUsername(value)) {
-      callback(new Error('Please enter the correct user name'))
+    if (!value || value.trim().length <= 0) {
+      callback(new Error('用户名至少1个字符'))
     } else {
       callback()
     }
