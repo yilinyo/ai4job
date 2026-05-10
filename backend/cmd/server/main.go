@@ -77,7 +77,7 @@ func main() {
 	// --- Application Services ---
 	userSvc := user.NewUserService(userRepo, tokenCache, jwtMgr, cfg.EmailMock)
 	resumeRepoSvc := resumerepoapp.NewResumeRepoService(resumeRepoRepo)
-	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeVersionRepo, &noopVersionUseChecker{})
+	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, &noopVersionUseChecker{})
 
 	// --- Middleware ---
 	authMiddleware := middleware.Auth(

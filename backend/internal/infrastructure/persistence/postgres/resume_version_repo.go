@@ -63,7 +63,14 @@ func (r *ResumeVersionRepo) Update(ctx context.Context, v *domainversion.ResumeV
 }
 
 func (r *ResumeVersionRepo) Delete(ctx context.Context, id, repoID string) error {
-	return r.db.WithContext(ctx).Where("id = ? AND repo_id = ?", id, repoID).Delete(&domainversion.ResumeVersion{}).Error
+	result := r.db.WithContext(ctx).Where("id = ? AND repo_id = ?", id, repoID).Delete(&domainversion.ResumeVersion{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domainerrors.ErrNotFound
+	}
+	return nil
 }
 
 func (r *ResumeVersionRepo) MaxVersionNum(ctx context.Context, repoID string) (int, error) {

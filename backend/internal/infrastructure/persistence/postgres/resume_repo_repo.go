@@ -55,7 +55,14 @@ func (r *ResumeRepoRepo) Update(ctx context.Context, rr *domainrepo.ResumeRepo) 
 }
 
 func (r *ResumeRepoRepo) Delete(ctx context.Context, id, userID string) error {
-	return r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&domainrepo.ResumeRepo{}).Error
+	result := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&domainrepo.ResumeRepo{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domainerrors.ErrNotFound
+	}
+	return nil
 }
 
 func (r *ResumeRepoRepo) ListByUser(ctx context.Context, f domainrepo.ListFilter) ([]domainrepo.ResumeRepo, int64, error) {

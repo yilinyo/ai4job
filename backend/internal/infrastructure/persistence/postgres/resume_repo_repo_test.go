@@ -55,6 +55,16 @@ func TestIntegrationResumeRepoRepo_UpdateMissingReturnsNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, domainerrors.ErrNotFound)
 }
 
+func TestIntegrationResumeRepoRepo_DeleteMissingReturnsNotFound(t *testing.T) {
+	db := setupTestDB(t)
+	migrateResumeTables(t, db)
+	repo := infrapostgres.NewResumeRepoRepo(db)
+	ctx := context.Background()
+
+	err := repo.Delete(ctx, uuid.NewString(), uuid.NewString())
+	assert.ErrorIs(t, err, domainerrors.ErrNotFound)
+}
+
 func TestIntegrationResumeRepoRepo_DuplicateNameReturnsDuplicate(t *testing.T) {
 	db := setupTestDB(t)
 	migrateResumeTables(t, db)

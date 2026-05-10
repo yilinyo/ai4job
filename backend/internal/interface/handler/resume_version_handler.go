@@ -11,12 +11,12 @@ import (
 )
 
 type ResumeVersionService interface {
-	Create(ctx context.Context, repoID string, req dto.CreateResumeVersionRequest) error
-	List(ctx context.Context, repoID string) ([]domainversion.ResumeVersion, error)
-	Get(ctx context.Context, repoID, id string) (*domainversion.ResumeVersion, error)
-	Update(ctx context.Context, repoID, id string, req dto.UpdateResumeVersionRequest) error
-	Delete(ctx context.Context, repoID, id string) error
-	SetDefault(ctx context.Context, repoID, id string) error
+	Create(ctx context.Context, userID, repoID string, req dto.CreateResumeVersionRequest) error
+	List(ctx context.Context, userID, repoID string) ([]domainversion.ResumeVersion, error)
+	Get(ctx context.Context, userID, repoID, id string) (*domainversion.ResumeVersion, error)
+	Update(ctx context.Context, userID, repoID, id string, req dto.UpdateResumeVersionRequest) error
+	Delete(ctx context.Context, userID, repoID, id string) error
+	SetDefault(ctx context.Context, userID, repoID, id string) error
 }
 
 type ResumeVersionHandler struct {
@@ -41,13 +41,26 @@ func resumeVersionParam(c *gin.Context) string {
 	return c.Param("id")
 }
 
+func resumeUserID(c *gin.Context) (string, bool) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		mapError(c, pkgerrors.ErrUnauthorized)
+		return "", false
+	}
+	return userID, true
+}
+
 func (h *ResumeVersionHandler) Create(c *gin.Context) {
 	var req dto.CreateResumeVersionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Fail(c, pkgerrors.CodeBadParams, "参数错误")
 		return
 	}
-	if err := h.svc.Create(c.Request.Context(), resumeRepoParam(c), req); err != nil {
+	userID, ok := resumeUserID(c)
+	if !ok {
+		return
+	}
+	if err := h.svc.Create(c.Request.Context(), userID, resumeRepoParam(c), req); err != nil {
 		mapError(c, err)
 		return
 	}
@@ -55,7 +68,11 @@ func (h *ResumeVersionHandler) Create(c *gin.Context) {
 }
 
 func (h *ResumeVersionHandler) List(c *gin.Context) {
-	rows, err := h.svc.List(c.Request.Context(), resumeRepoParam(c))
+	userID, ok := resumeUserID(c)
+	if !ok {
+		return
+	}
+	rows, err := h.svc.List(c.Request.Context(), userID, resumeRepoParam(c))
 	if err != nil {
 		mapError(c, err)
 		return
@@ -64,7 +81,11 @@ func (h *ResumeVersionHandler) List(c *gin.Context) {
 }
 
 func (h *ResumeVersionHandler) Get(c *gin.Context) {
-	row, err := h.svc.Get(c.Request.Context(), resumeRepoParam(c), resumeVersionParam(c))
+	userID, ok := resumeUserID(c)
+	if !ok {
+		return
+	}
+	row, err := h.svc.Get(c.Request.Context(), userID, resumeRepoParam(c), resumeVersionParam(c))
 	if err != nil {
 		mapError(c, err)
 		return
@@ -78,7 +99,11 @@ func (h *ResumeVersionHandler) Update(c *gin.Context) {
 		response.Fail(c, pkgerrors.CodeBadParams, "参数错误")
 		return
 	}
-	if err := h.svc.Update(c.Request.Context(), resumeRepoParam(c), resumeVersionParam(c), req); err != nil {
+	userID, ok := resumeUserID(c)
+	if !ok {
+		return
+	}
+	if err := h.svc.Update(c.Request.Context(), userID, resumeRepoParam(c), resumeVersionParam(c), req); err != nil {
 		mapError(c, err)
 		return
 	}
@@ -86,7 +111,11 @@ func (h *ResumeVersionHandler) Update(c *gin.Context) {
 }
 
 func (h *ResumeVersionHandler) Delete(c *gin.Context) {
-	if err := h.svc.Delete(c.Request.Context(), resumeRepoParam(c), resumeVersionParam(c)); err != nil {
+	userID, ok := resumeUserID(c)
+	if !ok {
+		return
+	}
+	if err := h.svc.Delete(c.Request.Context(), userID, resumeRepoParam(c), resumeVersionParam(c)); err != nil {
 		mapError(c, err)
 		return
 	}
@@ -94,7 +123,11 @@ func (h *ResumeVersionHandler) Delete(c *gin.Context) {
 }
 
 func (h *ResumeVersionHandler) SetDefault(c *gin.Context) {
-	if err := h.svc.SetDefault(c.Request.Context(), resumeRepoParam(c), resumeVersionParam(c)); err != nil {
+	userID, ok := resumeUserID(c)
+	if !ok {
+		return
+	}
+	if err := h.svc.SetDefault(c.Request.Context(), userID, resumeRepoParam(c), resumeVersionParam(c)); err != nil {
 		mapError(c, err)
 		return
 	}

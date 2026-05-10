@@ -52,23 +52,25 @@ type stubResumeVersionService struct {
 	lastVersionID string
 }
 
-func (s *stubResumeVersionService) Create(ctx context.Context, repoID string, req dto.CreateResumeVersionRequest) error {
+func (s *stubResumeVersionService) Create(ctx context.Context, userID, repoID string, req dto.CreateResumeVersionRequest) error {
 	return nil
 }
-func (s *stubResumeVersionService) List(ctx context.Context, repoID string) ([]domainversion.ResumeVersion, error) {
+func (s *stubResumeVersionService) List(ctx context.Context, userID, repoID string) ([]domainversion.ResumeVersion, error) {
 	s.lastRepoID = repoID
 	return []domainversion.ResumeVersion{}, nil
 }
-func (s *stubResumeVersionService) Get(ctx context.Context, repoID, id string) (*domainversion.ResumeVersion, error) {
+func (s *stubResumeVersionService) Get(ctx context.Context, userID, repoID, id string) (*domainversion.ResumeVersion, error) {
 	s.lastRepoID = repoID
 	s.lastVersionID = id
 	return &domainversion.ResumeVersion{ID: id, RepoID: repoID, Title: "v1", Content: "{}", VersionNum: 1}, nil
 }
-func (s *stubResumeVersionService) Update(ctx context.Context, repoID, id string, req dto.UpdateResumeVersionRequest) error {
+func (s *stubResumeVersionService) Update(ctx context.Context, userID, repoID, id string, req dto.UpdateResumeVersionRequest) error {
 	return nil
 }
-func (s *stubResumeVersionService) Delete(ctx context.Context, repoID, id string) error { return nil }
-func (s *stubResumeVersionService) SetDefault(ctx context.Context, repoID, id string) error {
+func (s *stubResumeVersionService) Delete(ctx context.Context, userID, repoID, id string) error {
+	return nil
+}
+func (s *stubResumeVersionService) SetDefault(ctx context.Context, userID, repoID, id string) error {
 	return nil
 }
 
