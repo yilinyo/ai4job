@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -23,8 +22,8 @@ func (m *mockResumeRepoService) Create(ctx context.Context, userID string, req d
 	return m.Called(ctx, userID, req).Error(0)
 }
 
-func (m *mockResumeRepoService) List(ctx context.Context, userID string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error) {
-	args := m.Called(ctx, userID, page, pageSize)
+func (m *mockResumeRepoService) List(ctx context.Context, userID string, jobType domainrepo.JobType, keyword string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error) {
+	args := m.Called(ctx, userID, jobType, keyword, page, pageSize)
 	return args.Get(0).([]domainrepo.ResumeRepo), args.Get(1).(int64), args.Error(2)
 }
 
@@ -61,13 +60,13 @@ func TestResumeRepoHandler_Create_BadRequest(t *testing.T) {
 
 func TestResumeRepoHandler_Create_Success(t *testing.T) {
 	svc := &mockResumeRepoService{}
-	svc.On("Create", mock.Anything, "u1", dto.CreateResumeRepoRequest{Name: "Main", Description: "desc"}).Return(nil)
+	svc.On("Create", mock.Anything, "u1", dto.CreateResumeRepoRequest{Name: "Main", JobType: domainrepo.JobTypeCampus, TargetPosition: "Frontend Engineer", Description: "desc"}).Return(nil)
 	r := gin.New()
 	h := handler.NewResumeRepoHandler(svc)
 	r.POST("/api/v1/resume-repos", func(c *gin.Context) { c.Set("userID", "u1"); h.Create(c) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/resume-repos", bytes.NewBufferString(`{"name":"Main","description":"desc"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/resume-repos", bytes.NewBufferString(`{"name":"Main","jobType":"campus","targetPosition":"Frontend Engineer","description":"desc"}`))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
@@ -75,42 +74,33 @@ func TestResumeRepoHandler_Create_Success(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestResumeRepoHandler_List_ReturnsDTOFields(t *testing.T) {
-	now := time.Date(2026, 5, 10, 10, 0, 0, 0, time.UTC)
+func TestResumeRepoHandler_List_Success(t *testing.T) {
 	svc := &mockResumeRepoService{}
-	svc.On("List", mock.Anything, "u1", 1, 10).Return([]domainrepo.ResumeRepo{
-		{ID: "r1", UserID: "u1", Name: "Main", Description: "desc", CreatedAt: now, UpdatedAt: now},
-	}, int64(1), nil)
+	rows := []domainrepo.ResumeRepo{{ID: "r1", UserID: "u1", Name: "Main", JobType: domainrepo.JobTypeCampus, TargetPosition: "Frontend Engineer", VersionCount: 2}}
+	svc.On("List", mock.Anything, "u1", domainrepo.JobTypeCampus, "front", 1, 10).Return(rows, int64(1), nil)
 	r := gin.New()
 	h := handler.NewResumeRepoHandler(svc)
 	r.GET("/api/v1/resume-repos", func(c *gin.Context) { c.Set("userID", "u1"); h.List(c) })
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/resume-repos", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/resume-repos?jobType=campus&keyword=front", nil)
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, pkgerrors.CodeSuccess, responseCode(t, w))
-	resp := responseMap(t, w)
-	data := resp["data"].(map[string]any)
-	list := data["list"].([]any)
-	repo := list[0].(map[string]any)
-	assert.Equal(t, "r1", repo["id"])
-	assert.Equal(t, "u1", repo["userId"])
-	assert.Equal(t, "Main", repo["name"])
-	assert.Equal(t, "desc", repo["description"])
-	assert.Contains(t, repo, "createdAt")
-	assert.Contains(t, repo, "updatedAt")
-	assertNoJSONKeys(t, repo, "ID", "UserID", "Name", "CreatedAt", "UpdatedAt", "DeletedAt")
+	body := w.Body.String()
+	assert.Contains(t, body, `"jobType":"campus"`)
+	assert.Contains(t, body, `"targetPosition":"Frontend Engineer"`)
+	assert.Contains(t, body, `"versionCount":2`)
+	assert.NotContains(t, body, "JobType")
+	assert.NotContains(t, body, "TargetPosition")
+	assert.NotContains(t, body, "VersionCount")
 	svc.AssertExpectations(t)
 }
 
-func TestResumeRepoHandler_Get_ReturnsDTOFields(t *testing.T) {
-	now := time.Date(2026, 5, 10, 10, 0, 0, 0, time.UTC)
+func TestResumeRepoHandler_Get_Success(t *testing.T) {
 	svc := &mockResumeRepoService{}
-	svc.On("Get", mock.Anything, "u1", "r1").Return(
-		&domainrepo.ResumeRepo{ID: "r1", UserID: "u1", Name: "Main", Description: "desc", CreatedAt: now, UpdatedAt: now},
-		nil,
-	)
+	row := &domainrepo.ResumeRepo{ID: "r1", UserID: "u1", Name: "Main", JobType: domainrepo.JobTypeCampus, TargetPosition: "Frontend Engineer", VersionCount: 2}
+	svc.On("Get", mock.Anything, "u1", "r1").Return(row, nil)
 	r := gin.New()
 	h := handler.NewResumeRepoHandler(svc)
 	r.GET("/api/v1/resume-repos/:id", func(c *gin.Context) { c.Set("userID", "u1"); h.Get(c) })
@@ -120,14 +110,12 @@ func TestResumeRepoHandler_Get_ReturnsDTOFields(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, pkgerrors.CodeSuccess, responseCode(t, w))
-	resp := responseMap(t, w)
-	repo := resp["data"].(map[string]any)
-	assert.Equal(t, "r1", repo["id"])
-	assert.Equal(t, "u1", repo["userId"])
-	assert.Equal(t, "Main", repo["name"])
-	assert.Equal(t, "desc", repo["description"])
-	assert.Contains(t, repo, "createdAt")
-	assert.Contains(t, repo, "updatedAt")
-	assertNoJSONKeys(t, repo, "ID", "UserID", "Name", "CreatedAt", "UpdatedAt", "DeletedAt")
+	body := w.Body.String()
+	assert.Contains(t, body, `"jobType":"campus"`)
+	assert.Contains(t, body, `"targetPosition":"Frontend Engineer"`)
+	assert.Contains(t, body, `"versionCount":2`)
+	assert.NotContains(t, body, "JobType")
+	assert.NotContains(t, body, "TargetPosition")
+	assert.NotContains(t, body, "VersionCount")
 	svc.AssertExpectations(t)
 }

@@ -36,7 +36,7 @@ type stubResumeRepoService struct{}
 func (s *stubResumeRepoService) Create(ctx context.Context, userID string, req dto.CreateResumeRepoRequest) error {
 	return nil
 }
-func (s *stubResumeRepoService) List(ctx context.Context, userID string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error) {
+func (s *stubResumeRepoService) List(ctx context.Context, userID string, jobType domainrepo.JobType, keyword string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error) {
 	return []domainrepo.ResumeRepo{}, 0, nil
 }
 func (s *stubResumeRepoService) Get(ctx context.Context, userID, id string) (*domainrepo.ResumeRepo, error) {
@@ -52,25 +52,24 @@ type stubResumeVersionService struct {
 	lastVersionID string
 }
 
-func (s *stubResumeVersionService) Create(ctx context.Context, userID, repoID string, req dto.CreateResumeVersionRequest) error {
+func (s *stubResumeVersionService) Create(ctx context.Context, userID string, req dto.CreateResumeVersionRequest) error {
 	return nil
 }
 func (s *stubResumeVersionService) List(ctx context.Context, userID, repoID string) ([]domainversion.ResumeVersion, error) {
 	s.lastRepoID = repoID
 	return []domainversion.ResumeVersion{}, nil
 }
-func (s *stubResumeVersionService) Get(ctx context.Context, userID, repoID, id string) (*domainversion.ResumeVersion, error) {
-	s.lastRepoID = repoID
+func (s *stubResumeVersionService) Get(ctx context.Context, userID, id string) (*domainversion.ResumeVersion, error) {
 	s.lastVersionID = id
-	return &domainversion.ResumeVersion{ID: id, RepoID: repoID, Title: "v1", Content: "{}", VersionNum: 1}, nil
+	return &domainversion.ResumeVersion{ID: id, RepoID: "r1", Title: "v1", Content: "{}", Version: "v1.0.0"}, nil
 }
-func (s *stubResumeVersionService) Update(ctx context.Context, userID, repoID, id string, req dto.UpdateResumeVersionRequest) error {
+func (s *stubResumeVersionService) Update(ctx context.Context, userID, id string, req dto.UpdateResumeVersionRequest) error {
 	return nil
 }
-func (s *stubResumeVersionService) Delete(ctx context.Context, userID, repoID, id string) error {
+func (s *stubResumeVersionService) Delete(ctx context.Context, userID, id string) error {
 	return nil
 }
-func (s *stubResumeVersionService) SetDefault(ctx context.Context, userID, repoID, id string) error {
+func (s *stubResumeVersionService) Activate(ctx context.Context, userID, id string) error {
 	return nil
 }
 
@@ -93,8 +92,13 @@ func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 	}{
 		{http.MethodGet, "/api/v1/resume-repos"},
 		{http.MethodGet, "/api/v1/resume-repos/r1"},
-		{http.MethodGet, "/api/v1/resume-repos/r1/versions"},
-		{http.MethodGet, "/api/v1/resume-repos/r1/versions/v1"},
+		{http.MethodGet, "/api/v1/resume-versions?repoId=r1"},
+		{http.MethodPost, "/api/v1/resume-versions"},
+		{http.MethodGet, "/api/v1/resume-versions/compare"},
+		{http.MethodGet, "/api/v1/resume-versions/v1"},
+		{http.MethodPut, "/api/v1/resume-versions/v1"},
+		{http.MethodDelete, "/api/v1/resume-versions/v1"},
+		{http.MethodPost, "/api/v1/resume-versions/v1/activate"},
 	}
 	for _, tc := range cases {
 		w := httptest.NewRecorder()
@@ -104,4 +108,26 @@ func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 	}
 	assert.Equal(t, "r1", versionSvc.lastRepoID)
 	assert.Equal(t, "v1", versionSvc.lastVersionID)
+}
+
+func TestRouter_ResumeVersionCompareUsesStaticRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	versionSvc := &stubResumeVersionService{}
+	r := router.NewRouter(router.Dependencies{
+		UserHandler:          handler.NewUserHandler(&stubUserService{}),
+		ResumeRepoHandler:    handler.NewResumeRepoHandler(&stubResumeRepoService{}),
+		ResumeVersionHandler: handler.NewResumeVersionHandler(versionSvc),
+		AuthMiddleware: func(c *gin.Context) {
+			c.Set("userID", "u1")
+			c.Next()
+		},
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/resume-versions/compare", nil)
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "暂不支持版本对比")
+	assert.Empty(t, versionSvc.lastVersionID)
 }

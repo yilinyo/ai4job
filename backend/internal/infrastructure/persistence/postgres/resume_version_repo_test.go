@@ -13,24 +13,26 @@ import (
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
-func TestIntegrationResumeVersionRepo_CreateMaxAndDefault(t *testing.T) {
+func TestIntegrationResumeVersionRepo_CreateCountAndSetActive(t *testing.T) {
 	db := setupTestDB(t)
 	migrateResumeTables(t, db)
 	repo := infrapostgres.NewResumeVersionRepo(db)
 	ctx := context.Background()
 	repoID := uuid.NewString()
+	require.NoError(t, db.Create(testResumeRepo(repoID, uuid.NewString(), "Backend", domainrepo.JobTypeCampus)).Error)
 
-	v1 := &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: repoID, Title: "v1", Content: "{}", VersionNum: 1, IsDefault: true}
+	v1 := &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: repoID, Version: "v1.0.0", Title: "v1", Content: "{}", Remark: "first", IsActive: false}
 	require.NoError(t, repo.Create(ctx, v1))
 
-	max, err := repo.MaxVersionNum(ctx, repoID)
+	count, err := repo.CountByRepoID(ctx, repoID)
 	require.NoError(t, err)
-	assert.Equal(t, 1, max)
+	assert.Equal(t, int64(1), count)
 
-	require.NoError(t, repo.ClearDefaultByRepoID(ctx, repoID))
-	found, err := repo.FindByIDAndRepoID(ctx, v1.ID, repoID)
+	require.NoError(t, repo.SetActiveByID(ctx, repoID, v1.ID))
+	found, err := repo.FindByID(ctx, v1.ID)
 	require.NoError(t, err)
-	assert.False(t, found.IsDefault)
+	assert.True(t, found.IsActive)
+	assert.Equal(t, "first", found.Remark)
 }
 
 func TestIntegrationResumeVersionRepo_UpdateMissingReturnsNotFound(t *testing.T) {
@@ -39,7 +41,7 @@ func TestIntegrationResumeVersionRepo_UpdateMissingReturnsNotFound(t *testing.T)
 	repo := infrapostgres.NewResumeVersionRepo(db)
 	ctx := context.Background()
 
-	err := repo.Update(ctx, &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: uuid.NewString(), Title: "missing", Content: "{}", VersionNum: 1})
+	err := repo.Update(ctx, &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: uuid.NewString(), Version: "v1.0.0", Title: "missing", Content: "{}"})
 	assert.ErrorIs(t, err, domainerrors.ErrNotFound)
 }
 
@@ -53,15 +55,15 @@ func TestIntegrationResumeVersionRepo_DeleteMissingReturnsNotFound(t *testing.T)
 	assert.ErrorIs(t, err, domainerrors.ErrNotFound)
 }
 
-func TestIntegrationResumeVersionRepo_DuplicateVersionNumReturnsDuplicate(t *testing.T) {
+func TestIntegrationResumeVersionRepo_DuplicateVersionReturnsDuplicate(t *testing.T) {
 	db := setupTestDB(t)
 	migrateResumeTables(t, db)
 	repo := infrapostgres.NewResumeVersionRepo(db)
 	ctx := context.Background()
 	repoID := uuid.NewString()
 
-	require.NoError(t, db.Create(&domainrepo.ResumeRepo{ID: repoID, UserID: uuid.NewString(), Name: "Backend"}).Error)
-	require.NoError(t, repo.Create(ctx, &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: repoID, Title: "v1", Content: "{}", VersionNum: 1}))
-	err := repo.Create(ctx, &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: repoID, Title: "v1-copy", Content: "{}", VersionNum: 1})
+	require.NoError(t, db.Create(testResumeRepo(repoID, uuid.NewString(), "Backend", domainrepo.JobTypeCampus)).Error)
+	require.NoError(t, repo.Create(ctx, &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: repoID, Version: "v1.0.0", Title: "v1", Content: "{}"}))
+	err := repo.Create(ctx, &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: repoID, Version: "v1.0.0", Title: "v1-copy", Content: "{}"})
 	assert.ErrorIs(t, err, domainerrors.ErrDuplicate)
 }

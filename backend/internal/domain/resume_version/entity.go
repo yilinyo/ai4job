@@ -9,22 +9,23 @@ import (
 )
 
 type ResumeVersion struct {
-	ID         string `gorm:"type:uuid;primaryKey"`
-	RepoID     string `gorm:"type:uuid;not null;index"`
-	Title      string `gorm:"type:varchar(120);not null"`
-	Content    string `gorm:"type:text;not null"`
-	VersionNum int    `gorm:"not null"`
-	IsDefault  bool   `gorm:"not null;default:false"`
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	DeletedAt  gorm.DeletedAt `gorm:"index"`
+	ID        string `gorm:"type:uuid;primaryKey"`
+	RepoID    string `gorm:"type:uuid;not null;index"`
+	Version   string `gorm:"type:varchar(20);not null"`
+	Title     string `gorm:"type:varchar(120);not null"`
+	Content   string `gorm:"type:text;not null"`
+	Remark    string `gorm:"type:text"`
+	IsActive  bool   `gorm:"not null;default:false"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 func (v *ResumeVersion) ValidateForCreate() error {
-	if strings.TrimSpace(v.RepoID) == "" || strings.TrimSpace(v.Title) == "" || strings.TrimSpace(v.Content) == "" {
+	if strings.TrimSpace(v.RepoID) == "" || strings.TrimSpace(v.Version) == "" || strings.TrimSpace(v.Title) == "" || strings.TrimSpace(v.Content) == "" {
 		return domainerrors.ErrBadParams
 	}
-	if len([]rune(v.Title)) > 120 {
+	if len([]rune(v.Version)) > 20 || len([]rune(v.Title)) > 120 {
 		return domainerrors.ErrBadParams
 	}
 	return nil

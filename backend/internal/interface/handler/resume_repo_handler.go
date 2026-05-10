@@ -13,7 +13,7 @@ import (
 
 type ResumeRepoService interface {
 	Create(ctx context.Context, userID string, req dto.CreateResumeRepoRequest) error
-	List(ctx context.Context, userID string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error)
+	List(ctx context.Context, userID string, jobType domainrepo.JobType, keyword string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error)
 	Get(ctx context.Context, userID, id string) (*domainrepo.ResumeRepo, error)
 	Update(ctx context.Context, userID, id string, req dto.UpdateResumeRepoRequest) error
 	Delete(ctx context.Context, userID, id string) error
@@ -52,12 +52,18 @@ func (h *ResumeRepoHandler) List(c *gin.Context) {
 		return
 	}
 	p := pagination.FromContext(c)
-	rows, total, err := h.svc.List(c.Request.Context(), userID, p.Page, p.PageSize)
+	jobType := domainrepo.JobType(c.Query("jobType"))
+	keyword := c.Query("keyword")
+	rows, total, err := h.svc.List(c.Request.Context(), userID, jobType, keyword, p.Page, p.PageSize)
 	if err != nil {
 		mapError(c, err)
 		return
 	}
-	response.SuccessPage(c, dto.ToResumeRepoResponses(rows), total, p.Page, p.PageSize)
+	items := make([]dto.ResumeRepoResponse, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, dto.ToResumeRepoResponse(row))
+	}
+	response.SuccessPage(c, items, total, p.Page, p.PageSize)
 }
 
 func (h *ResumeRepoHandler) Get(c *gin.Context) {
@@ -71,7 +77,7 @@ func (h *ResumeRepoHandler) Get(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, dto.ToResumeRepoResponse(row))
+	response.Success(c, dto.ToResumeRepoResponse(*row))
 }
 
 func (h *ResumeRepoHandler) Update(c *gin.Context) {
