@@ -141,3 +141,84 @@ func TestUserService_Register_InvalidEmailCode(t *testing.T) {
 
 	assert.ErrorIs(t, err, domainerrors.ErrEmailCodeWrong)
 }
+
+func TestUserService_Register_InitializesEducationExperiences(t *testing.T) {
+	repo := &mockUserRepo{}
+	cache := &mockTokenCache{}
+	jwtMgr := &mockJWT{}
+
+	cache.On("VerifyEmailCode", mock.Anything, "test@example.com", "123456").Return(true, nil)
+	repo.On("ExistsByEmail", mock.Anything, "test@example.com").Return(false, nil)
+	repo.On("ExistsByUsername", mock.Anything, "alice").Return(false, nil)
+	repo.On("Create", mock.Anything, mock.MatchedBy(func(u *domainuser.User) bool {
+		return u.Username == "alice" &&
+			u.Email == "test@example.com" &&
+			u.PasswordHash != "" &&
+			u.EducationExperiences != nil &&
+			len(u.EducationExperiences) == 0
+	})).Return(nil)
+	cache.On("DeleteEmailCode", mock.Anything, "test@example.com").Return(nil)
+
+	svc := appuser.NewUserService(repo, cache, jwtMgr, true)
+	err := svc.Register(context.Background(), dto.RegisterRequest{
+		Username:  "alice",
+		Password:  "pass1234",
+		Email:     "test@example.com",
+		EmailCode: "123456",
+	})
+
+	require.NoError(t, err)
+	repo.AssertExpectations(t)
+	cache.AssertExpectations(t)
+}
+
+func TestUserService_UpdateProfile_NormalizesNilEducationExperiences(t *testing.T) {
+	repo := &mockUserRepo{}
+	cache := &mockTokenCache{}
+	jwtMgr := &mockJWT{}
+
+	existingUser := &domainuser.User{ID: "uid-1", Username: "alice", Email: "test@example.com"}
+
+	repo.On("FindByID", mock.Anything, "uid-1").Return(existingUser, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(u *domainuser.User) bool {
+		return u.ID == "uid-1" &&
+			u.RealName == "Alice" &&
+			u.EducationExperiences != nil &&
+			len(u.EducationExperiences) == 0
+	})).Return(nil)
+
+	svc := appuser.NewUserService(repo, cache, jwtMgr, true)
+	resp, err := svc.UpdateProfile(context.Background(), "uid-1", dto.UpdateProfileRequest{
+		RealName: "Alice",
+	})
+
+	require.NoError(t, err)
+	assert.NotNil(t, resp.EducationExperiences)
+	assert.Empty(t, resp.EducationExperiences)
+	repo.AssertExpectations(t)
+}
+
+func TestUserService_UpdateProfile_PreservesNonEmptyEducationExperiences(t *testing.T) {
+	repo := &mockUserRepo{}
+	cache := &mockTokenCache{}
+	jwtMgr := &mockJWT{}
+
+	exps := []domainuser.EducationExperience{
+		{School: "Test University", Education: "本科", Major: "Computer Science"},
+	}
+	existingUser := &domainuser.User{ID: "uid-1", Username: "alice", Email: "test@example.com"}
+
+	repo.On("FindByID", mock.Anything, "uid-1").Return(existingUser, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(u *domainuser.User) bool {
+		return assert.ObjectsAreEqual(exps, u.EducationExperiences)
+	})).Return(nil)
+
+	svc := appuser.NewUserService(repo, cache, jwtMgr, true)
+	resp, err := svc.UpdateProfile(context.Background(), "uid-1", dto.UpdateProfileRequest{
+		EducationExperiences: exps,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, exps, resp.EducationExperiences)
+	repo.AssertExpectations(t)
+}

@@ -39,3 +39,23 @@ func TestUser_SetPassword_TooLong_ReturnsError(t *testing.T) {
 	err := u.SetPassword(longPassword)
 	assert.Error(t, err)
 }
+
+func TestUser_Normalize_InitializesNilEducationExperiences(t *testing.T) {
+	u := &user.User{}
+
+	u.Normalize()
+
+	assert.NotNil(t, u.EducationExperiences)
+	assert.Empty(t, u.EducationExperiences)
+}
+
+func TestUser_Normalize_PreservesExistingEducationExperiences(t *testing.T) {
+	exps := []user.EducationExperience{
+		{School: "Test University", Education: "本科", Major: "Computer Science"},
+	}
+	u := &user.User{EducationExperiences: exps}
+
+	u.Normalize()
+
+	assert.Equal(t, exps, u.EducationExperiences)
+}

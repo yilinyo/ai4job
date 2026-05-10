@@ -25,10 +25,10 @@ type EducationExperience struct {
 }
 
 type User struct {
-	ID                   string                `gorm:"type:uuid;primaryKey"`
-	Username             string                `gorm:"uniqueIndex;not null"`
-	PasswordHash         string                `gorm:"not null"`
-	Email                string                `gorm:"uniqueIndex;not null"`
+	ID                   string `gorm:"type:uuid;primaryKey"`
+	Username             string `gorm:"uniqueIndex;not null"`
+	PasswordHash         string `gorm:"not null"`
+	Email                string `gorm:"uniqueIndex;not null"`
 	RealName             string
 	Age                  int
 	Phone                string
@@ -36,10 +36,29 @@ type User struct {
 	Avatar               string
 	Location             string
 	PersonalAdvantage    string                `gorm:"type:text"`
-	EducationExperiences []EducationExperience `gorm:"serializer:json"`
+	EducationExperiences []EducationExperience `gorm:"type:jsonb;serializer:json;not null;default:'[]'"`
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
-	DeletedAt            gorm.DeletedAt        `gorm:"index"`
+	DeletedAt            gorm.DeletedAt `gorm:"index"`
+}
+
+func (u *User) Normalize() {
+	if u == nil {
+		return
+	}
+	if u.EducationExperiences == nil {
+		u.EducationExperiences = []EducationExperience{}
+	}
+}
+
+func (u *User) BeforeSave(tx *gorm.DB) error {
+	u.Normalize()
+	return nil
+}
+
+func (u *User) AfterFind(tx *gorm.DB) error {
+	u.Normalize()
+	return nil
 }
 
 func (u *User) SetPassword(plain string) error {

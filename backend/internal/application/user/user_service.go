@@ -72,9 +72,10 @@ func (s *UserService) Register(ctx context.Context, req dto.RegisterRequest) err
 		return domainerrors.ErrDuplicate
 	}
 	u := &domainuser.User{
-		ID:       uuid.NewString(),
-		Username: req.Username,
-		Email:    req.Email,
+		ID:                   uuid.NewString(),
+		Username:             req.Username,
+		Email:                req.Email,
+		EducationExperiences: []domainuser.EducationExperience{},
 	}
 	if err := u.SetPassword(req.Password); err != nil {
 		return err
@@ -121,6 +122,7 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID string, req dto.
 	u.Location = req.Location
 	u.PersonalAdvantage = req.PersonalAdvantage
 	u.EducationExperiences = req.EducationExperiences
+	u.Normalize()
 	if err := s.repo.Update(ctx, u); err != nil {
 		return nil, err
 	}
