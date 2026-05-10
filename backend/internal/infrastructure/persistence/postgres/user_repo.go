@@ -20,6 +20,7 @@ func NewUserRepo(db *gorm.DB) *UserRepo {
 }
 
 func (r *UserRepo) Create(ctx context.Context, u *domainuser.User) error {
+	u.Normalize()
 	err := r.db.WithContext(ctx).Create(u).Error
 	if err != nil && isUniqueViolation(err) {
 		return domainerrors.ErrDuplicate
@@ -38,6 +39,7 @@ func (r *UserRepo) FindByID(ctx context.Context, id string) (*domainuser.User, e
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domainerrors.ErrNotFound
 	}
+	u.Normalize()
 	return &u, err
 }
 
@@ -47,6 +49,7 @@ func (r *UserRepo) FindByUsername(ctx context.Context, username string) (*domain
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domainerrors.ErrNotFound
 	}
+	u.Normalize()
 	return &u, err
 }
 
@@ -56,10 +59,12 @@ func (r *UserRepo) FindByEmail(ctx context.Context, email string) (*domainuser.U
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domainerrors.ErrNotFound
 	}
+	u.Normalize()
 	return &u, err
 }
 
 func (r *UserRepo) Update(ctx context.Context, u *domainuser.User) error {
+	u.Normalize()
 	return r.db.WithContext(ctx).Save(u).Error
 }
 
