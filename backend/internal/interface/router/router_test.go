@@ -48,7 +48,8 @@ func (s *stubResumeRepoService) Update(ctx context.Context, userID, id string, r
 func (s *stubResumeRepoService) Delete(ctx context.Context, userID, id string) error { return nil }
 
 type stubResumeVersionService struct {
-	lastRepoID string
+	lastRepoID    string
+	lastVersionID string
 }
 
 func (s *stubResumeVersionService) Create(ctx context.Context, repoID string, req dto.CreateResumeVersionRequest) error {
@@ -59,6 +60,8 @@ func (s *stubResumeVersionService) List(ctx context.Context, repoID string) ([]d
 	return []domainversion.ResumeVersion{}, nil
 }
 func (s *stubResumeVersionService) Get(ctx context.Context, repoID, id string) (*domainversion.ResumeVersion, error) {
+	s.lastRepoID = repoID
+	s.lastVersionID = id
 	return &domainversion.ResumeVersion{ID: id, RepoID: repoID, Title: "v1", Content: "{}", VersionNum: 1}, nil
 }
 func (s *stubResumeVersionService) Update(ctx context.Context, repoID, id string, req dto.UpdateResumeVersionRequest) error {
@@ -98,4 +101,5 @@ func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 		assert.NotEqual(t, http.StatusNotFound, w.Code, tc.path)
 	}
 	assert.Equal(t, "r1", versionSvc.lastRepoID)
+	assert.Equal(t, "v1", versionSvc.lastVersionID)
 }

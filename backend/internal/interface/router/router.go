@@ -41,10 +41,10 @@ func NewRouter(deps Dependencies) *gin.Engine {
 
 		auth.GET("/resume-repos/:id/versions", deps.ResumeVersionHandler.List)
 		auth.POST("/resume-repos/:id/versions", deps.ResumeVersionHandler.Create)
-		auth.GET("/resume-repos/:id/versions/:id", deps.ResumeVersionHandler.Get)
-		auth.PUT("/resume-repos/:id/versions/:id", deps.ResumeVersionHandler.Update)
-		auth.DELETE("/resume-repos/:id/versions/:id", deps.ResumeVersionHandler.Delete)
-		auth.POST("/resume-repos/:id/versions/:id/set-default", deps.ResumeVersionHandler.SetDefault)
+		auth.GET("/resume-repos/:id/versions/:versionId", deps.ResumeVersionHandler.Get)
+		auth.PUT("/resume-repos/:id/versions/:versionId", deps.ResumeVersionHandler.Update)
+		auth.DELETE("/resume-repos/:id/versions/:versionId", deps.ResumeVersionHandler.Delete)
+		auth.POST("/resume-repos/:id/versions/:versionId/set-default", deps.ResumeVersionHandler.SetDefault)
 
 		auth.GET("/resume-repos/:id", deps.ResumeRepoHandler.Get)
 		auth.PUT("/resume-repos/:id", deps.ResumeRepoHandler.Update)
