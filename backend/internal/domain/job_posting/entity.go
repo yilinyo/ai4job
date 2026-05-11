@@ -20,7 +20,7 @@ const (
 
 type JobPosting struct {
 	ID              string `gorm:"type:uuid;primaryKey"`
-	UserID          string `gorm:"type:uuid;not null;index"`
+	UserID          string `gorm:"type:varchar(36);not null;index"`
 	CompanyName     string `gorm:"type:varchar(120);not null"`
 	CompanyIntro    string `gorm:"type:text"`
 	JobTitle        string `gorm:"type:varchar(120);not null"`

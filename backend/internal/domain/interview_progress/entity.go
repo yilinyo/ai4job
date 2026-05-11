@@ -31,7 +31,7 @@ const (
 
 type InterviewProgress struct {
 	ID                string    `gorm:"type:uuid;primaryKey"`
-	UserID            string    `gorm:"type:uuid;not null;index"`
+	UserID            string    `gorm:"type:varchar(36);not null;index"`
 	ApplicationID     string    `gorm:"type:uuid;not null;index"`
 	Stage             Stage     `gorm:"type:varchar(30);not null"`
 	OccurredAt        time.Time `gorm:"not null;index"`
