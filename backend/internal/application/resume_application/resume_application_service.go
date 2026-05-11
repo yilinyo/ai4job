@@ -2,6 +2,7 @@ package resume_application
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
@@ -31,7 +32,7 @@ func (s *ResumeApplicationService) Create(ctx context.Context, userID string, re
 	application := &domainapp.ResumeApplication{
 		ID:                        uuid.NewString(),
 		UserID:                    userID,
-		JobPostingID:              req.JobPostingID,
+		JobPostingID:              normalizeOptionalJobPostingID(req.JobPostingID),
 		ResumeVersionID:           req.ResumeVersionID,
 		RepoID:                    req.RepoID,
 		CompanyName:               req.CompanyName,
@@ -94,7 +95,7 @@ func (s *ResumeApplicationService) Update(ctx context.Context, userID, id string
 	}
 
 	if req.JobPostingID != nil {
-		application.JobPostingID = req.JobPostingID
+		application.JobPostingID = normalizeOptionalJobPostingID(req.JobPostingID)
 	}
 	if req.ResumeVersionID != nil {
 		application.ResumeVersionID = *req.ResumeVersionID
@@ -176,6 +177,13 @@ func (s *ResumeApplicationService) UpdateCurrentStatus(ctx context.Context, user
 		return domainerrors.ErrBadParams
 	}
 	return s.repo.UpdateCurrentStatus(ctx, id, userID, status)
+}
+
+func normalizeOptionalJobPostingID(jobPostingID *string) *string {
+	if jobPostingID == nil || strings.TrimSpace(*jobPostingID) == "" {
+		return nil
+	}
+	return jobPostingID
 }
 
 func validStatus(status domainapp.Status) bool {
