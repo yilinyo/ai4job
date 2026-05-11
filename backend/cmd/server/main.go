@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	interviewprogressapp "github.com/yilin/ai-for-backend/internal/application/interview_progress"
+	jobpostingapp "github.com/yilin/ai-for-backend/internal/application/job_posting"
+	resumeapplicationapp "github.com/yilin/ai-for-backend/internal/application/resume_application"
 	resumerepoapp "github.com/yilin/ai-for-backend/internal/application/resume_repo"
 	resumeversionapp "github.com/yilin/ai-for-backend/internal/application/resume_version"
 	"github.com/yilin/ai-for-backend/internal/application/user"
@@ -44,12 +47,6 @@ func (a *blacklistAdapter) IsBlacklisted(ctx context.Context, jti string) (bool,
 	return a.cache.IsBlacklisted(ctx, jti)
 }
 
-type noopVersionUseChecker struct{}
-
-func (n *noopVersionUseChecker) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) {
-	return false, nil
-}
-
 func main() {
 	cfg := config.Load()
 
@@ -73,11 +70,17 @@ func main() {
 	userRepo := infraDB.NewUserRepo(db)
 	resumeRepoRepo := infraDB.NewResumeRepoRepo(db)
 	resumeVersionRepo := infraDB.NewResumeVersionRepo(db)
+	jobPostingRepo := infraDB.NewJobPostingRepo(db)
+	resumeApplicationRepo := infraDB.NewResumeApplicationRepo(db)
+	interviewProgressRepo := infraDB.NewInterviewProgressRepo(db)
 
 	// --- Application Services ---
 	userSvc := user.NewUserService(userRepo, tokenCache, jwtMgr, cfg.EmailMock)
 	resumeRepoSvc := resumerepoapp.NewResumeRepoService(resumeRepoRepo)
-	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, &noopVersionUseChecker{})
+	jobPostingSvc := jobpostingapp.NewJobPostingService(jobPostingRepo)
+	resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo, jobPostingRepo, resumeRepoRepo, resumeVersionRepo)
+	interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, resumeApplicationSvc)
+	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, resumeApplicationRepo)
 
 	// --- Middleware ---
 	authMiddleware := middleware.Auth(
@@ -89,13 +92,19 @@ func main() {
 	userHandler := handler.NewUserHandler(userSvc)
 	resumeRepoHandler := handler.NewResumeRepoHandler(resumeRepoSvc)
 	resumeVersionHandler := handler.NewResumeVersionHandler(resumeVersionSvc)
+	jobPostingHandler := handler.NewJobPostingHandler(jobPostingSvc)
+	resumeApplicationHandler := handler.NewResumeApplicationHandler(resumeApplicationSvc)
+	interviewProgressHandler := handler.NewInterviewProgressHandler(interviewProgressSvc)
 
 	// --- Router ---
 	r := router.NewRouter(router.Dependencies{
-		UserHandler:          userHandler,
-		ResumeRepoHandler:    resumeRepoHandler,
-		ResumeVersionHandler: resumeVersionHandler,
-		AuthMiddleware:       authMiddleware,
+		UserHandler:              userHandler,
+		ResumeRepoHandler:        resumeRepoHandler,
+		ResumeVersionHandler:     resumeVersionHandler,
+		JobPostingHandler:        jobPostingHandler,
+		ResumeApplicationHandler: resumeApplicationHandler,
+		InterviewProgressHandler: interviewProgressHandler,
+		AuthMiddleware:           authMiddleware,
 	})
 
 	// --- HTTP Server ---
