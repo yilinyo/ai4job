@@ -27,7 +27,7 @@ const (
 type ResumeApplication struct {
 	ID                        string    `gorm:"type:uuid;primaryKey"`
 	UserID                    string    `gorm:"type:uuid;not null;index"`
-	JobPostingID              string    `gorm:"type:uuid;index"`
+	JobPostingID              *string   `gorm:"type:uuid;index"`
 	ResumeVersionID           string    `gorm:"type:uuid;not null;index"`
 	RepoID                    string    `gorm:"type:uuid;not null;index"`
 	CompanyName               string    `gorm:"type:varchar(120);not null"`

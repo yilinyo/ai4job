@@ -1,6 +1,7 @@
 package resume_application_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -11,39 +12,126 @@ import (
 )
 
 func TestResumeApplication_Validate_AcceptsFrontendFields(t *testing.T) {
-	app := &domainapp.ResumeApplication{
-		UserID:                    "user-1",
-		JobPostingID:              "job-1",
-		ResumeVersionID:           "version-1",
-		RepoID:                    "repo-1",
-		CompanyName:               "Acme",
-		JobTitle:                  "Frontend Engineer",
-		AppliedAt:                 time.Now(),
-		CurrentStatus:             domainapp.StatusApplied,
-		ResumeMatchScore:          5,
-		InterviewPerformanceScore: 4,
-		RoleInterestScore:         5,
-		OverallScore:              9,
-	}
+	jobPostingID := "job-1"
+	app := validResumeApplication()
+	app.JobPostingID = &jobPostingID
+	app.ResumeMatchScore = 5
+	app.InterviewPerformanceScore = 4
+	app.RoleInterestScore = 5
+	app.OverallScore = 9
+
+	require.NoError(t, app.Validate())
+}
+
+func TestResumeApplication_Validate_AcceptsNilJobPostingID(t *testing.T) {
+	app := validResumeApplication()
+	app.JobPostingID = nil
 
 	require.NoError(t, app.Validate())
 }
 
 func TestResumeApplication_Validate_RejectsInvalidFrontendFields(t *testing.T) {
 	tests := []struct {
-		name string
-		app  domainapp.ResumeApplication
+		name   string
+		mutate func(*domainapp.ResumeApplication)
 	}{
-		{name: "missing user", app: domainapp.ResumeApplication{ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: domainapp.StatusApplied}},
-		{name: "missing version", app: domainapp.ResumeApplication{UserID: "u1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: domainapp.StatusApplied}},
-		{name: "missing repo", app: domainapp.ResumeApplication{UserID: "u1", ResumeVersionID: "v1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: domainapp.StatusApplied}},
-		{name: "invalid status", app: domainapp.ResumeApplication{UserID: "u1", ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: "pending"}},
-		{name: "invalid score", app: domainapp.ResumeApplication{UserID: "u1", ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: domainapp.StatusApplied, OverallScore: 11}},
+		{name: "missing user", mutate: func(app *domainapp.ResumeApplication) { app.UserID = "" }},
+		{name: "missing version", mutate: func(app *domainapp.ResumeApplication) { app.ResumeVersionID = "" }},
+		{name: "missing repo", mutate: func(app *domainapp.ResumeApplication) { app.RepoID = "" }},
+		{name: "missing company name", mutate: func(app *domainapp.ResumeApplication) { app.CompanyName = "" }},
+		{name: "missing job title", mutate: func(app *domainapp.ResumeApplication) { app.JobTitle = "" }},
+		{name: "missing applied at", mutate: func(app *domainapp.ResumeApplication) { app.AppliedAt = time.Time{} }},
+		{name: "invalid status", mutate: func(app *domainapp.ResumeApplication) { app.CurrentStatus = "pending" }},
+		{name: "invalid score", mutate: func(app *domainapp.ResumeApplication) { app.OverallScore = 11 }},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.ErrorIs(t, tt.app.Validate(), domainerrors.ErrBadParams)
+			app := validResumeApplication()
+			tt.mutate(app)
+
+			assert.ErrorIs(t, app.Validate(), domainerrors.ErrBadParams)
 		})
+	}
+}
+
+func TestResumeApplication_Validate_RejectsOverlongOptionalVarcharFields(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*domainapp.ResumeApplication)
+	}{
+		{name: "base", mutate: func(app *domainapp.ResumeApplication) { app.Base = strings.Repeat("a", 121) }},
+		{name: "salary range", mutate: func(app *domainapp.ResumeApplication) { app.SalaryRange = strings.Repeat("a", 121) }},
+		{name: "source platform", mutate: func(app *domainapp.ResumeApplication) { app.SourcePlatform = strings.Repeat("a", 121) }},
+		{name: "source url", mutate: func(app *domainapp.ResumeApplication) {
+			app.SourceURL = "https://example.com/" + strings.Repeat("a", 501)
+		}},
+		{name: "delivery channel", mutate: func(app *domainapp.ResumeApplication) { app.DeliveryChannel = strings.Repeat("a", 121) }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := validResumeApplication()
+			tt.mutate(app)
+
+			assert.ErrorIs(t, app.Validate(), domainerrors.ErrBadParams)
+		})
+	}
+}
+
+func TestResumeApplication_Validate_RejectsUnsafeSourceURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		sourceURL string
+	}{
+		{name: "javascript scheme", sourceURL: "javascript:alert(1)"},
+		{name: "non http scheme", sourceURL: "ftp://example.com/job"},
+		{name: "missing host", sourceURL: "https:///job"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := validResumeApplication()
+			app.SourceURL = tt.sourceURL
+
+			assert.ErrorIs(t, app.Validate(), domainerrors.ErrBadParams)
+		})
+	}
+}
+
+func TestResumeApplication_Validate_RejectsIndividualScoreBounds(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*domainapp.ResumeApplication)
+	}{
+		{name: "resume match score below minimum", mutate: func(app *domainapp.ResumeApplication) { app.ResumeMatchScore = -1 }},
+		{name: "resume match score above maximum", mutate: func(app *domainapp.ResumeApplication) { app.ResumeMatchScore = 6 }},
+		{name: "interview performance score below minimum", mutate: func(app *domainapp.ResumeApplication) { app.InterviewPerformanceScore = -1 }},
+		{name: "interview performance score above maximum", mutate: func(app *domainapp.ResumeApplication) { app.InterviewPerformanceScore = 6 }},
+		{name: "role interest score below minimum", mutate: func(app *domainapp.ResumeApplication) { app.RoleInterestScore = -1 }},
+		{name: "role interest score above maximum", mutate: func(app *domainapp.ResumeApplication) { app.RoleInterestScore = 6 }},
+		{name: "overall score below minimum", mutate: func(app *domainapp.ResumeApplication) { app.OverallScore = -1 }},
+		{name: "overall score above maximum", mutate: func(app *domainapp.ResumeApplication) { app.OverallScore = 11 }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := validResumeApplication()
+			tt.mutate(app)
+
+			assert.ErrorIs(t, app.Validate(), domainerrors.ErrBadParams)
+		})
+	}
+}
+
+func validResumeApplication() *domainapp.ResumeApplication {
+	return &domainapp.ResumeApplication{
+		UserID:          "user-1",
+		ResumeVersionID: "version-1",
+		RepoID:          "repo-1",
+		CompanyName:     "Acme",
+		JobTitle:        "Frontend Engineer",
+		AppliedAt:       time.Now(),
+		CurrentStatus:   domainapp.StatusApplied,
 	}
 }
