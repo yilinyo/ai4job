@@ -1,6 +1,6 @@
 CREATE TABLE resume_applications (
     id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id                     UUID         NOT NULL REFERENCES users(id),
+    user_id                     VARCHAR(36)  NOT NULL REFERENCES users(id),
     job_posting_id              UUID         REFERENCES job_postings(id),
     resume_version_id           UUID         NOT NULL REFERENCES resume_versions(id),
     repo_id                     UUID         NOT NULL REFERENCES resume_repos(id),
@@ -28,6 +28,7 @@ CREATE TABLE resume_applications (
 );
 
 CREATE INDEX idx_resume_applications_user_id ON resume_applications(user_id);
+CREATE INDEX idx_resume_applications_job_posting_id ON resume_applications(job_posting_id);
 CREATE INDEX idx_resume_applications_resume_version_id ON resume_applications(resume_version_id);
 CREATE INDEX idx_resume_applications_repo_id ON resume_applications(repo_id);
 CREATE INDEX idx_resume_applications_current_status ON resume_applications(current_status);

@@ -1,6 +1,6 @@
 CREATE TABLE job_postings (
     id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id          UUID         NOT NULL REFERENCES users(id),
+    user_id          VARCHAR(36)  NOT NULL REFERENCES users(id),
     company_name     VARCHAR(120) NOT NULL,
     company_intro    TEXT,
     job_title        VARCHAR(120) NOT NULL,

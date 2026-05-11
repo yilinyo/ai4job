@@ -1,6 +1,6 @@
 CREATE TABLE interview_progress (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id             UUID        NOT NULL REFERENCES users(id),
+    user_id             VARCHAR(36) NOT NULL REFERENCES users(id),
     application_id      UUID        NOT NULL REFERENCES resume_applications(id),
     stage               VARCHAR(30) NOT NULL,
     occurred_at         TIMESTAMPTZ NOT NULL,
