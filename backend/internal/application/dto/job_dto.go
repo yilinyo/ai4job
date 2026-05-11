@@ -22,22 +22,28 @@ type CreateJobPostingRequest struct {
 }
 
 type UpdateJobPostingRequest struct {
-	CompanyName     string           `json:"companyName" binding:"required,min=1,max=120"`
-	CompanyIntro    string           `json:"companyIntro"`
-	JobTitle        string           `json:"jobTitle" binding:"required,min=1,max=120"`
-	JobRequirements string           `json:"jobRequirements"`
-	Base            string           `json:"base" binding:"max=120"`
-	SalaryRange     string           `json:"salaryRange" binding:"max=120"`
-	SourcePlatform  string           `json:"sourcePlatform" binding:"max=120"`
-	SourceURL       string           `json:"sourceUrl" binding:"omitempty,url,max=500"`
-	Status          domainjob.Status `json:"status"`
-	Remark          string           `json:"remark"`
+	CompanyName     *string           `json:"companyName" binding:"omitempty,min=1,max=120"`
+	CompanyIntro    *string           `json:"companyIntro"`
+	JobTitle        *string           `json:"jobTitle" binding:"omitempty,min=1,max=120"`
+	JobRequirements *string           `json:"jobRequirements"`
+	Base            *string           `json:"base" binding:"omitempty,max=120"`
+	SalaryRange     *string           `json:"salaryRange" binding:"omitempty,max=120"`
+	SourcePlatform  *string           `json:"sourcePlatform" binding:"omitempty,max=120"`
+	SourceURL       *string           `json:"sourceUrl" binding:"omitempty,url,max=500"`
+	Status          *domainjob.Status `json:"status"`
+	Remark          *string           `json:"remark"`
 }
 
 type ParseJobPostingRequest struct {
-	Content        string `json:"content" binding:"required"`
-	SourcePlatform string `json:"sourcePlatform" binding:"max=120"`
-	SourceURL      string `json:"sourceUrl" binding:"omitempty,url,max=500"`
+	URL string `json:"url" binding:"required"`
+}
+
+type JobPostingQuery struct {
+	Keyword        string           `json:"keyword" form:"keyword"`
+	SourcePlatform string           `json:"sourcePlatform" form:"sourcePlatform"`
+	Status         domainjob.Status `json:"status" form:"status"`
+	Page           int              `json:"page" form:"page"`
+	PageSize       int              `json:"pageSize" form:"pageSize"`
 }
 
 type JobPostingResponse struct {
@@ -110,27 +116,36 @@ type CreateResumeApplicationRequest struct {
 }
 
 type UpdateResumeApplicationRequest struct {
-	JobPostingID              *string          `json:"jobPostingId,omitempty"`
-	ResumeVersionID           string           `json:"resumeVersionId" binding:"required"`
-	RepoID                    string           `json:"repoId" binding:"required"`
-	CompanyName               string           `json:"companyName" binding:"required,min=1,max=120"`
-	CompanyIntro              string           `json:"companyIntro"`
-	JobTitle                  string           `json:"jobTitle" binding:"required,min=1,max=120"`
-	JobRequirements           string           `json:"jobRequirements"`
-	Base                      string           `json:"base" binding:"max=120"`
-	SalaryRange               string           `json:"salaryRange" binding:"max=120"`
-	SourcePlatform            string           `json:"sourcePlatform" binding:"max=120"`
-	SourceURL                 string           `json:"sourceUrl" binding:"omitempty,url,max=500"`
-	DeliveryChannel           string           `json:"deliveryChannel" binding:"max=120"`
-	AppliedAt                 time.Time        `json:"appliedAt" binding:"required"`
-	CurrentStatus             domainapp.Status `json:"currentStatus"`
-	InterviewSummary          string           `json:"interviewSummary"`
-	InterviewNotes            string           `json:"interviewNotes"`
-	ResumeMatchScore          int              `json:"resumeMatchScore" binding:"omitempty,min=1,max=5"`
-	InterviewPerformanceScore int              `json:"interviewPerformanceScore" binding:"omitempty,min=1,max=5"`
-	RoleInterestScore         int              `json:"roleInterestScore" binding:"omitempty,min=1,max=5"`
-	OverallScore              int              `json:"overallScore" binding:"omitempty,min=1,max=10"`
-	Remark                    string           `json:"remark"`
+	JobPostingID              *string           `json:"jobPostingId,omitempty"`
+	ResumeVersionID           *string           `json:"resumeVersionId"`
+	RepoID                    *string           `json:"repoId"`
+	CompanyName               *string           `json:"companyName" binding:"omitempty,min=1,max=120"`
+	CompanyIntro              *string           `json:"companyIntro"`
+	JobTitle                  *string           `json:"jobTitle" binding:"omitempty,min=1,max=120"`
+	JobRequirements           *string           `json:"jobRequirements"`
+	Base                      *string           `json:"base" binding:"omitempty,max=120"`
+	SalaryRange               *string           `json:"salaryRange" binding:"omitempty,max=120"`
+	SourcePlatform            *string           `json:"sourcePlatform" binding:"omitempty,max=120"`
+	SourceURL                 *string           `json:"sourceUrl" binding:"omitempty,url,max=500"`
+	DeliveryChannel           *string           `json:"deliveryChannel" binding:"omitempty,max=120"`
+	AppliedAt                 *time.Time        `json:"appliedAt"`
+	CurrentStatus             *domainapp.Status `json:"currentStatus"`
+	InterviewSummary          *string           `json:"interviewSummary"`
+	InterviewNotes            *string           `json:"interviewNotes"`
+	ResumeMatchScore          *int              `json:"resumeMatchScore" binding:"omitempty,min=1,max=5"`
+	InterviewPerformanceScore *int              `json:"interviewPerformanceScore" binding:"omitempty,min=1,max=5"`
+	RoleInterestScore         *int              `json:"roleInterestScore" binding:"omitempty,min=1,max=5"`
+	OverallScore              *int              `json:"overallScore" binding:"omitempty,min=1,max=10"`
+	Remark                    *string           `json:"remark"`
+}
+
+type ResumeApplicationQuery struct {
+	ResumeVersionID string           `json:"resumeVersionId" form:"resumeVersionId"`
+	RepoID          string           `json:"repoId" form:"repoId"`
+	Keyword         string           `json:"keyword" form:"keyword"`
+	CurrentStatus   domainapp.Status `json:"currentStatus" form:"currentStatus"`
+	Page            int              `json:"page" form:"page"`
+	PageSize        int              `json:"pageSize" form:"pageSize"`
 }
 
 type ResumeApplicationResponse struct {
@@ -210,12 +225,16 @@ type CreateInterviewProgressRequest struct {
 }
 
 type UpdateInterviewProgressRequest struct {
-	ApplicationID     string                `json:"applicationId" binding:"required"`
-	Stage             domainprogress.Stage  `json:"stage" binding:"required"`
-	OccurredAt        time.Time             `json:"occurredAt" binding:"required"`
-	Result            domainprogress.Result `json:"result" binding:"required"`
-	InterviewerOrTeam string                `json:"interviewerOrTeam" binding:"max=120"`
-	Note              string                `json:"note"`
+	ApplicationID     *string                `json:"applicationId"`
+	Stage             *domainprogress.Stage  `json:"stage"`
+	OccurredAt        *time.Time             `json:"occurredAt"`
+	Result            *domainprogress.Result `json:"result"`
+	InterviewerOrTeam *string                `json:"interviewerOrTeam" binding:"omitempty,max=120"`
+	Note              *string                `json:"note"`
+}
+
+type InterviewProgressQuery struct {
+	ApplicationID string `json:"applicationId" form:"applicationId"`
 }
 
 type InterviewProgressResponse struct {
