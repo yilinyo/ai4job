@@ -24,7 +24,7 @@ func NewInterviewProgressService(repo domainprogress.Repository, apps Applicatio
 	return &InterviewProgressService{repo: repo, apps: apps}
 }
 
-func (s *InterviewProgressService) Create(ctx context.Context, userID string, req dto.CreateInterviewProgressRequest) error {
+func (s *InterviewProgressService) Create(ctx context.Context, userID string, req dto.CreateInterviewProgressRequest) (*domainprogress.InterviewProgress, error) {
 	progress := &domainprogress.InterviewProgress{
 		ID:                uuid.NewString(),
 		UserID:            userID,
@@ -36,12 +36,15 @@ func (s *InterviewProgressService) Create(ctx context.Context, userID string, re
 		Note:              req.Note,
 	}
 	if err := progress.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := s.repo.Create(ctx, progress); err != nil {
-		return err
+		return nil, err
 	}
-	return s.syncApplicationStatus(ctx, userID, progress.ApplicationID)
+	if err := s.syncApplicationStatus(ctx, userID, progress.ApplicationID); err != nil {
+		return nil, err
+	}
+	return progress, nil
 }
 
 func (s *InterviewProgressService) List(ctx context.Context, userID, applicationID string) ([]domainprogress.InterviewProgress, error) {
@@ -51,13 +54,13 @@ func (s *InterviewProgressService) List(ctx context.Context, userID, application
 	return s.repo.ListByApplicationAndUser(ctx, applicationID, userID)
 }
 
-func (s *InterviewProgressService) Update(ctx context.Context, userID, id string, req dto.UpdateInterviewProgressRequest) error {
+func (s *InterviewProgressService) Update(ctx context.Context, userID, id string, req dto.UpdateInterviewProgressRequest) (*domainprogress.InterviewProgress, error) {
 	if strings.TrimSpace(id) == "" {
-		return domainerrors.ErrBadParams
+		return nil, domainerrors.ErrBadParams
 	}
 	progress, err := s.repo.FindByIDAndUserID(ctx, id, userID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	oldApplicationID := progress.ApplicationID
 
@@ -81,17 +84,20 @@ func (s *InterviewProgressService) Update(ctx context.Context, userID, id string
 	}
 
 	if err := progress.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := s.repo.Update(ctx, progress); err != nil {
-		return err
+		return nil, err
 	}
 	if oldApplicationID != progress.ApplicationID {
 		if err := s.syncApplicationStatus(ctx, userID, oldApplicationID); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return s.syncApplicationStatus(ctx, userID, progress.ApplicationID)
+	if err := s.syncApplicationStatus(ctx, userID, progress.ApplicationID); err != nil {
+		return nil, err
+	}
+	return progress, nil
 }
 
 func (s *InterviewProgressService) Delete(ctx context.Context, userID, id string) error {

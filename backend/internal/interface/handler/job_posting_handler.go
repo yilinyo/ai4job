@@ -2,17 +2,17 @@ package handler
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 	pkgerrors "github.com/yilin/ai-for-backend/pkg/errors"
+	"github.com/yilin/ai-for-backend/pkg/pagination"
 	"github.com/yilin/ai-for-backend/pkg/response"
 )
 
 type JobPostingService interface {
-	Create(ctx context.Context, userID string, req dto.CreateJobPostingRequest) error
+	Create(ctx context.Context, userID string, req dto.CreateJobPostingRequest) (*domainjob.JobPosting, error)
 	List(ctx context.Context, userID, keyword, sourcePlatform, status string, page, pageSize int) ([]domainjob.JobPosting, int64, error)
 	Get(ctx context.Context, userID, id string) (*domainjob.JobPosting, error)
 	Update(ctx context.Context, userID, id string, req dto.UpdateJobPostingRequest) error
@@ -29,19 +29,8 @@ func NewJobPostingHandler(svc JobPostingService) *JobPostingHandler {
 }
 
 func frontendPage(c *gin.Context) (int, int) {
-	page := 1
-	pageSize := 10
-	if raw := c.Query("page"); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
-	if raw := c.Query("pageSize"); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
-			pageSize = parsed
-		}
-	}
-	return page, pageSize
+	p := pagination.FromContext(c)
+	return p.Page, p.PageSize
 }
 
 func (h *JobPostingHandler) List(c *gin.Context) {
@@ -55,7 +44,7 @@ func (h *JobPostingHandler) List(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, gin.H{"list": rows, "total": total, "page": page, "pageSize": pageSize})
+	response.Success(c, gin.H{"list": toJobPostingResponses(rows), "total": total, "page": page, "pageSize": pageSize})
 }
 
 func (h *JobPostingHandler) Get(c *gin.Context) {
@@ -68,7 +57,7 @@ func (h *JobPostingHandler) Get(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, row)
+	response.Success(c, dto.ToJobPostingResponse(row))
 }
 
 func (h *JobPostingHandler) Create(c *gin.Context) {
@@ -81,20 +70,12 @@ func (h *JobPostingHandler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.svc.Create(c.Request.Context(), userID, req); err != nil {
-		mapError(c, err)
-		return
-	}
-	rows, _, err := h.svc.List(c.Request.Context(), userID, "", "", "", 1, 1)
+	row, err := h.svc.Create(c.Request.Context(), userID, req)
 	if err != nil {
 		mapError(c, err)
 		return
 	}
-	if len(rows) == 0 {
-		response.Success(c, gin.H{})
-		return
-	}
-	response.Success(c, rows[0])
+	response.Success(c, dto.ToJobPostingResponse(row))
 }
 
 func (h *JobPostingHandler) Update(c *gin.Context) {
@@ -117,7 +98,7 @@ func (h *JobPostingHandler) Update(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, row)
+	response.Success(c, dto.ToJobPostingResponse(row))
 }
 
 func (h *JobPostingHandler) Delete(c *gin.Context) {
@@ -130,6 +111,14 @@ func (h *JobPostingHandler) Delete(c *gin.Context) {
 		return
 	}
 	response.Success(c, nil)
+}
+
+func toJobPostingResponses(rows []domainjob.JobPosting) []*dto.JobPostingResponse {
+	responses := make([]*dto.JobPostingResponse, 0, len(rows))
+	for i := range rows {
+		responses = append(responses, dto.ToJobPostingResponse(&rows[i]))
+	}
+	return responses
 }
 
 func (h *JobPostingHandler) Parse(c *gin.Context) {

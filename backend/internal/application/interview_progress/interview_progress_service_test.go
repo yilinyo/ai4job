@@ -82,9 +82,12 @@ func TestInterviewProgressService_CreateSyncsFailedResultToRejected(t *testing.T
 	}}, nil).Once()
 	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusRejected).Return(nil).Once()
 
-	err := svc.Create(context.Background(), "user-1", req)
+	got, err := svc.Create(context.Background(), "user-1", req)
 
 	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "user-1", got.UserID)
+	assert.Equal(t, req.ApplicationID, got.ApplicationID)
 	repo.AssertExpectations(t)
 	apps.AssertExpectations(t)
 }
@@ -109,9 +112,12 @@ func TestInterviewProgressService_CreateSyncsLatestNonFailedStageToMatchingAppli
 	}, nil).Once()
 	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusOffer).Return(nil).Once()
 
-	err := svc.Create(context.Background(), "user-1", req)
+	got, err := svc.Create(context.Background(), "user-1", req)
 
 	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "user-1", got.UserID)
+	assert.Equal(t, req.ApplicationID, got.ApplicationID)
 	repo.AssertExpectations(t)
 	apps.AssertExpectations(t)
 }
@@ -133,8 +139,9 @@ func TestInterviewProgressService_UpdateRejectsBlankIDBeforeRepositoryAccess(t *
 	apps := &mockApplicationStatusUpdater{}
 	svc := appsvc.NewInterviewProgressService(repo, apps)
 
-	err := svc.Update(context.Background(), "user-1", "  \t", dto.UpdateInterviewProgressRequest{})
+	got, err := svc.Update(context.Background(), "user-1", "  \t", dto.UpdateInterviewProgressRequest{})
 
+	assert.Nil(t, got)
 	assert.ErrorIs(t, err, domainerrors.ErrBadParams)
 	repo.AssertNotCalled(t, "FindByIDAndUserID", mock.Anything, mock.Anything, mock.Anything)
 }
@@ -155,8 +162,9 @@ func TestInterviewProgressService_UpdateReturnsBadParamsWhenStatusUpdaterMissing
 	repo.On("FindByIDAndUserID", mock.Anything, "progress-1", "user-1").Return(existing, nil).Once()
 	repo.On("Update", mock.Anything, existing).Return(nil).Once()
 
-	err := svc.Update(context.Background(), "user-1", "progress-1", dto.UpdateInterviewProgressRequest{})
+	got, err := svc.Update(context.Background(), "user-1", "progress-1", dto.UpdateInterviewProgressRequest{})
 
+	assert.Nil(t, got)
 	assert.ErrorIs(t, err, domainerrors.ErrBadParams)
 	repo.AssertExpectations(t)
 }
@@ -199,9 +207,12 @@ func TestInterviewProgressService_UpdatePreservesOmittedFieldsAppliesProvidedFie
 	}}, nil).Once()
 	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusSecondInterview).Return(nil).Once()
 
-	err := svc.Update(context.Background(), "user-1", "progress-1", req)
+	got, err := svc.Update(context.Background(), "user-1", "progress-1", req)
 
 	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "progress-1", got.ID)
+	assert.Equal(t, stage, got.Stage)
 	repo.AssertExpectations(t)
 	apps.AssertExpectations(t)
 }
@@ -245,9 +256,11 @@ func TestInterviewProgressService_UpdateChangingApplicationIDSyncsBothOldAndNewA
 	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusApplied).Return(nil).Once()
 	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-2", domainapp.StatusViewed).Return(nil).Once()
 
-	err := svc.Update(context.Background(), "user-1", "progress-1", req)
+	got, err := svc.Update(context.Background(), "user-1", "progress-1", req)
 
 	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "app-2", got.ApplicationID)
 	repo.AssertExpectations(t)
 	apps.AssertExpectations(t)
 }
@@ -277,9 +290,11 @@ func TestInterviewProgressService_UpdateMovingOnlyProgressAwaySyncsOldApplicatio
 	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusApplied).Return(nil).Once()
 	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-2", domainapp.StatusFinalInterview).Return(nil).Once()
 
-	err := svc.Update(context.Background(), "user-1", "progress-1", req)
+	got, err := svc.Update(context.Background(), "user-1", "progress-1", req)
 
 	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "app-2", got.ApplicationID)
 	repo.AssertExpectations(t)
 	apps.AssertExpectations(t)
 }

@@ -23,7 +23,7 @@ func NewResumeApplicationService(repo domainapp.Repository) *ResumeApplicationSe
 	return &ResumeApplicationService{repo: repo}
 }
 
-func (s *ResumeApplicationService) Create(ctx context.Context, userID string, req dto.CreateResumeApplicationRequest) error {
+func (s *ResumeApplicationService) Create(ctx context.Context, userID string, req dto.CreateResumeApplicationRequest) (*domainapp.ResumeApplication, error) {
 	status := req.CurrentStatus
 	if status == "" {
 		status = domainapp.StatusApplied
@@ -55,9 +55,12 @@ func (s *ResumeApplicationService) Create(ctx context.Context, userID string, re
 		Remark:                    req.Remark,
 	}
 	if err := application.Validate(); err != nil {
-		return err
+		return nil, err
 	}
-	return s.repo.Create(ctx, application)
+	if err := s.repo.Create(ctx, application); err != nil {
+		return nil, err
+	}
+	return application, nil
 }
 
 func (s *ResumeApplicationService) List(ctx context.Context, userID, resumeVersionID, repoID, keyword, currentStatus string, page, pageSize int) ([]domainapp.ResumeApplication, int64, error) {

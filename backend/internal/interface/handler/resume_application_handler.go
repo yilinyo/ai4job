@@ -11,7 +11,7 @@ import (
 )
 
 type ResumeApplicationService interface {
-	Create(ctx context.Context, userID string, req dto.CreateResumeApplicationRequest) error
+	Create(ctx context.Context, userID string, req dto.CreateResumeApplicationRequest) (*domainapp.ResumeApplication, error)
 	List(ctx context.Context, userID, resumeVersionID, repoID, keyword, currentStatus string, page, pageSize int) ([]domainapp.ResumeApplication, int64, error)
 	Get(ctx context.Context, userID, id string) (*domainapp.ResumeApplication, error)
 	Update(ctx context.Context, userID, id string, req dto.UpdateResumeApplicationRequest) error
@@ -37,7 +37,7 @@ func (h *ResumeApplicationHandler) List(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, gin.H{"list": rows, "total": total, "page": page, "pageSize": pageSize})
+	response.Success(c, gin.H{"list": toResumeApplicationResponses(rows), "total": total, "page": page, "pageSize": pageSize})
 }
 
 func (h *ResumeApplicationHandler) Get(c *gin.Context) {
@@ -50,7 +50,7 @@ func (h *ResumeApplicationHandler) Get(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, row)
+	response.Success(c, dto.ToResumeApplicationResponse(row))
 }
 
 func (h *ResumeApplicationHandler) Create(c *gin.Context) {
@@ -63,20 +63,12 @@ func (h *ResumeApplicationHandler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.svc.Create(c.Request.Context(), userID, req); err != nil {
-		mapError(c, err)
-		return
-	}
-	rows, _, err := h.svc.List(c.Request.Context(), userID, req.ResumeVersionID, "", "", "", 1, 1)
+	row, err := h.svc.Create(c.Request.Context(), userID, req)
 	if err != nil {
 		mapError(c, err)
 		return
 	}
-	if len(rows) == 0 {
-		response.Success(c, gin.H{})
-		return
-	}
-	response.Success(c, rows[0])
+	response.Success(c, dto.ToResumeApplicationResponse(row))
 }
 
 func (h *ResumeApplicationHandler) Update(c *gin.Context) {
@@ -99,7 +91,15 @@ func (h *ResumeApplicationHandler) Update(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, row)
+	response.Success(c, dto.ToResumeApplicationResponse(row))
+}
+
+func toResumeApplicationResponses(rows []domainapp.ResumeApplication) []*dto.ResumeApplicationResponse {
+	responses := make([]*dto.ResumeApplicationResponse, 0, len(rows))
+	for i := range rows {
+		responses = append(responses, dto.ToResumeApplicationResponse(&rows[i]))
+	}
+	return responses
 }
 
 func (h *ResumeApplicationHandler) Delete(c *gin.Context) {

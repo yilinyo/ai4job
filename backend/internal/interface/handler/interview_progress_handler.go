@@ -12,9 +12,9 @@ import (
 )
 
 type InterviewProgressService interface {
-	Create(ctx context.Context, userID string, req dto.CreateInterviewProgressRequest) error
+	Create(ctx context.Context, userID string, req dto.CreateInterviewProgressRequest) (*domainprogress.InterviewProgress, error)
 	List(ctx context.Context, userID, applicationID string) ([]domainprogress.InterviewProgress, error)
-	Update(ctx context.Context, userID, id string, req dto.UpdateInterviewProgressRequest) error
+	Update(ctx context.Context, userID, id string, req dto.UpdateInterviewProgressRequest) (*domainprogress.InterviewProgress, error)
 	Delete(ctx context.Context, userID, id string) error
 }
 
@@ -41,7 +41,7 @@ func (h *InterviewProgressHandler) List(c *gin.Context) {
 		mapError(c, err)
 		return
 	}
-	response.Success(c, gin.H{"list": rows})
+	response.Success(c, gin.H{"list": toInterviewProgressResponses(rows)})
 }
 
 func (h *InterviewProgressHandler) Create(c *gin.Context) {
@@ -54,20 +54,12 @@ func (h *InterviewProgressHandler) Create(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if err := h.svc.Create(c.Request.Context(), userID, req); err != nil {
-		mapError(c, err)
-		return
-	}
-	rows, err := h.svc.List(c.Request.Context(), userID, req.ApplicationID)
+	row, err := h.svc.Create(c.Request.Context(), userID, req)
 	if err != nil {
 		mapError(c, err)
 		return
 	}
-	if len(rows) == 0 {
-		response.Success(c, gin.H{})
-		return
-	}
-	response.Success(c, rows[len(rows)-1])
+	response.Success(c, dto.ToInterviewProgressResponse(row))
 }
 
 func (h *InterviewProgressHandler) Update(c *gin.Context) {
@@ -81,30 +73,20 @@ func (h *InterviewProgressHandler) Update(c *gin.Context) {
 		return
 	}
 	id := c.Param("id")
-	if err := h.svc.Update(c.Request.Context(), userID, id, req); err != nil {
-		mapError(c, err)
-		return
-	}
-	applicationID := c.Query("applicationId")
-	if req.ApplicationID != nil {
-		applicationID = *req.ApplicationID
-	}
-	if strings.TrimSpace(applicationID) == "" {
-		response.Success(c, gin.H{})
-		return
-	}
-	rows, err := h.svc.List(c.Request.Context(), userID, applicationID)
+	row, err := h.svc.Update(c.Request.Context(), userID, id, req)
 	if err != nil {
 		mapError(c, err)
 		return
 	}
+	response.Success(c, dto.ToInterviewProgressResponse(row))
+}
+
+func toInterviewProgressResponses(rows []domainprogress.InterviewProgress) []*dto.InterviewProgressResponse {
+	responses := make([]*dto.InterviewProgressResponse, 0, len(rows))
 	for i := range rows {
-		if rows[i].ID == id {
-			response.Success(c, rows[i])
-			return
-		}
+		responses = append(responses, dto.ToInterviewProgressResponse(&rows[i]))
 	}
-	response.Success(c, gin.H{})
+	return responses
 }
 
 func (h *InterviewProgressHandler) Delete(c *gin.Context) {

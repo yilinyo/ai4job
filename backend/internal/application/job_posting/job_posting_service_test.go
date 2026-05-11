@@ -58,7 +58,7 @@ func TestJobPostingService_CreateCopiesFieldsAndDefaultsStatus(t *testing.T) {
 	})).Return(nil)
 	svc := appsvc.NewJobPostingService(repo)
 
-	err := svc.Create(context.Background(), "u1", dto.CreateJobPostingRequest{
+	got, err := svc.Create(context.Background(), "u1", dto.CreateJobPostingRequest{
 		CompanyName:     "Acme",
 		CompanyIntro:    "intro",
 		JobTitle:        "Backend Engineer",
@@ -71,6 +71,9 @@ func TestJobPostingService_CreateCopiesFieldsAndDefaultsStatus(t *testing.T) {
 	})
 
 	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "u1", got.UserID)
+	assert.Equal(t, "Acme", got.CompanyName)
 	repo.AssertExpectations(t)
 }
 

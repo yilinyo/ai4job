@@ -89,7 +89,7 @@ func TestResumeApplicationService_CreateCopiesFieldsDefaultsStatusAndSupportsOpt
 			})).Return(nil)
 			svc := appsvc.NewResumeApplicationService(repo)
 
-			err := svc.Create(context.Background(), "u1", dto.CreateResumeApplicationRequest{
+			got, err := svc.Create(context.Background(), "u1", dto.CreateResumeApplicationRequest{
 				JobPostingID:              tt.jobPostingID,
 				ResumeVersionID:           "v1",
 				RepoID:                    "r1",
@@ -113,6 +113,9 @@ func TestResumeApplicationService_CreateCopiesFieldsDefaultsStatusAndSupportsOpt
 			})
 
 			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, "u1", got.UserID)
+			assert.Equal(t, "Acme", got.CompanyName)
 			repo.AssertExpectations(t)
 		})
 	}
@@ -127,7 +130,7 @@ func TestResumeApplicationService_CreateNormalizesBlankJobPostingIDToNil(t *test
 	})).Return(nil)
 	svc := appsvc.NewResumeApplicationService(repo)
 
-	err := svc.Create(context.Background(), "u1", dto.CreateResumeApplicationRequest{
+	got, err := svc.Create(context.Background(), "u1", dto.CreateResumeApplicationRequest{
 		JobPostingID:    &blankJobPostingID,
 		ResumeVersionID: "v1",
 		RepoID:          "r1",
@@ -137,6 +140,8 @@ func TestResumeApplicationService_CreateNormalizesBlankJobPostingIDToNil(t *test
 	})
 
 	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Nil(t, got.JobPostingID)
 	repo.AssertExpectations(t)
 }
 
@@ -252,14 +257,14 @@ func TestResumeApplicationService_UpdatePreservesOmittedFieldsAndAppliesProvided
 
 func TestResumeApplicationService_UpdateNormalizesBlankJobPostingIDToNil(t *testing.T) {
 	existing := &domainapp.ResumeApplication{
-		ID:               "a1",
-		UserID:           "u1",
-		ResumeVersionID:  "v1",
-		RepoID:           "r1",
-		CompanyName:      "Acme",
-		JobTitle:         "Backend Engineer",
-		AppliedAt:        time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
-		CurrentStatus:    domainapp.StatusApplied,
+		ID:              "a1",
+		UserID:          "u1",
+		ResumeVersionID: "v1",
+		RepoID:          "r1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+		CurrentStatus:   domainapp.StatusApplied,
 	}
 	blankJobPostingID := " \n\t "
 	repo := &mockResumeApplicationRepo{}
@@ -280,15 +285,15 @@ func TestResumeApplicationService_UpdateNormalizesBlankJobPostingIDToNil(t *test
 func TestResumeApplicationService_UpdateClearsExistingJobPostingIDWhenProvidedBlank(t *testing.T) {
 	existingJobPostingID := "job-old"
 	existing := &domainapp.ResumeApplication{
-		ID:               "a1",
-		UserID:           "u1",
-		JobPostingID:     &existingJobPostingID,
-		ResumeVersionID:  "v1",
-		RepoID:           "r1",
-		CompanyName:      "Acme",
-		JobTitle:         "Backend Engineer",
-		AppliedAt:        time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
-		CurrentStatus:    domainapp.StatusApplied,
+		ID:              "a1",
+		UserID:          "u1",
+		JobPostingID:    &existingJobPostingID,
+		ResumeVersionID: "v1",
+		RepoID:          "r1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+		CurrentStatus:   domainapp.StatusApplied,
 	}
 	blankJobPostingID := ""
 	repo := &mockResumeApplicationRepo{}

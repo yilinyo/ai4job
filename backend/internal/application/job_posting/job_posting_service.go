@@ -24,7 +24,7 @@ func NewJobPostingService(repo domainjob.Repository) *JobPostingService {
 	return &JobPostingService{repo: repo}
 }
 
-func (s *JobPostingService) Create(ctx context.Context, userID string, req dto.CreateJobPostingRequest) error {
+func (s *JobPostingService) Create(ctx context.Context, userID string, req dto.CreateJobPostingRequest) (*domainjob.JobPosting, error) {
 	status := req.Status
 	if status == "" {
 		status = domainjob.StatusPending
@@ -45,9 +45,12 @@ func (s *JobPostingService) Create(ctx context.Context, userID string, req dto.C
 		Remark:          req.Remark,
 	}
 	if err := posting.Validate(); err != nil {
-		return err
+		return nil, err
 	}
-	return s.repo.Create(ctx, posting)
+	if err := s.repo.Create(ctx, posting); err != nil {
+		return nil, err
+	}
+	return posting, nil
 }
 
 func (s *JobPostingService) List(ctx context.Context, userID, keyword, sourcePlatform, status string, page, pageSize int) ([]domainjob.JobPosting, int64, error) {
