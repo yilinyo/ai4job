@@ -25,6 +25,15 @@ func (r *ResumeVersionRepo) Create(ctx context.Context, v *domainversion.ResumeV
 	return err
 }
 
+func (r *ResumeVersionRepo) FindByID(ctx context.Context, id string) (*domainversion.ResumeVersion, error) {
+	var v domainversion.ResumeVersion
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&v).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domainerrors.ErrNotFound
+	}
+	return &v, err
+}
+
 func (r *ResumeVersionRepo) FindByIDAndRepoID(ctx context.Context, id, repoID string) (*domainversion.ResumeVersion, error) {
 	var v domainversion.ResumeVersion
 	err := r.db.WithContext(ctx).Where("id = ? AND repo_id = ?", id, repoID).First(&v).Error

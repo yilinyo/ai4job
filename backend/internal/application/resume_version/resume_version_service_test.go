@@ -34,6 +34,14 @@ func (m *mockResumeVersionRepo) Create(ctx context.Context, v *domainversion.Res
 	return m.Called(ctx, v).Error(0)
 }
 
+func (m *mockResumeVersionRepo) FindByID(ctx context.Context, id string) (*domainversion.ResumeVersion, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domainversion.ResumeVersion), args.Error(1)
+}
+
 func (m *mockResumeVersionRepo) FindByIDAndRepoID(ctx context.Context, id, repoID string) (*domainversion.ResumeVersion, error) {
 	args := m.Called(ctx, id, repoID)
 	if args.Get(0) == nil {

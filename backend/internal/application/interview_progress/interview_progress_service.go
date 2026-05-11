@@ -11,16 +11,25 @@ import (
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
+type ApplicationReader interface {
+	Get(ctx context.Context, userID, id string) (*domainapp.ResumeApplication, error)
+}
+
 type ApplicationStatusUpdater interface {
 	UpdateCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error
 }
 
-type InterviewProgressService struct {
-	repo domainprogress.Repository
-	apps ApplicationStatusUpdater
+type ApplicationService interface {
+	ApplicationReader
+	ApplicationStatusUpdater
 }
 
-func NewInterviewProgressService(repo domainprogress.Repository, apps ApplicationStatusUpdater) *InterviewProgressService {
+type InterviewProgressService struct {
+	repo domainprogress.Repository
+	apps ApplicationService
+}
+
+func NewInterviewProgressService(repo domainprogress.Repository, apps ApplicationService) *InterviewProgressService {
 	return &InterviewProgressService{repo: repo, apps: apps}
 }
 
@@ -36,6 +45,9 @@ func (s *InterviewProgressService) Create(ctx context.Context, userID string, re
 		Note:              req.Note,
 	}
 	if err := progress.Validate(); err != nil {
+		return nil, err
+	}
+	if err := s.ensureApplicationOwned(ctx, userID, progress.ApplicationID); err != nil {
 		return nil, err
 	}
 	if err := s.repo.Create(ctx, progress); err != nil {
@@ -86,6 +98,11 @@ func (s *InterviewProgressService) Update(ctx context.Context, userID, id string
 	if err := progress.Validate(); err != nil {
 		return nil, err
 	}
+	if req.ApplicationID != nil && oldApplicationID != progress.ApplicationID {
+		if err := s.ensureApplicationOwned(ctx, userID, progress.ApplicationID); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.repo.Update(ctx, progress); err != nil {
 		return nil, err
 	}
@@ -112,6 +129,14 @@ func (s *InterviewProgressService) Delete(ctx context.Context, userID, id string
 		return err
 	}
 	return s.syncApplicationStatus(ctx, userID, progress.ApplicationID)
+}
+
+func (s *InterviewProgressService) ensureApplicationOwned(ctx context.Context, userID, applicationID string) error {
+	if s.apps == nil {
+		return domainerrors.ErrBadParams
+	}
+	_, err := s.apps.Get(ctx, userID, applicationID)
+	return err
 }
 
 func (s *InterviewProgressService) syncApplicationStatus(ctx context.Context, userID, applicationID string) error {

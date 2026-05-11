@@ -4,6 +4,7 @@ import "context"
 
 type Repository interface {
 	Create(ctx context.Context, v *ResumeVersion) error
+	FindByID(ctx context.Context, id string) (*ResumeVersion, error)
 	FindByIDAndRepoID(ctx context.Context, id, repoID string) (*ResumeVersion, error)
 	ListByRepoID(ctx context.Context, repoID string) ([]ResumeVersion, error)
 	Update(ctx context.Context, v *ResumeVersion) error

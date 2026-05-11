@@ -78,7 +78,7 @@ func main() {
 	userSvc := user.NewUserService(userRepo, tokenCache, jwtMgr, cfg.EmailMock)
 	resumeRepoSvc := resumerepoapp.NewResumeRepoService(resumeRepoRepo)
 	jobPostingSvc := jobpostingapp.NewJobPostingService(jobPostingRepo)
-	resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo)
+	resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo, jobPostingRepo, resumeRepoRepo, resumeVersionRepo)
 	interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, resumeApplicationSvc)
 	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, resumeApplicationRepo)
 
