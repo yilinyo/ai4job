@@ -2,11 +2,13 @@ package job_posting
 
 import (
 	"context"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
 const (
@@ -49,6 +51,11 @@ func (s *JobPostingService) Create(ctx context.Context, userID string, req dto.C
 }
 
 func (s *JobPostingService) List(ctx context.Context, userID, keyword, sourcePlatform, status string, page, pageSize int) ([]domainjob.JobPosting, int64, error) {
+	filterStatus := domainjob.Status(status)
+	if status != "" && !validStatus(filterStatus) {
+		return nil, 0, domainerrors.ErrBadParams
+	}
+
 	if page <= 0 {
 		page = defaultPage
 	}
@@ -60,7 +67,7 @@ func (s *JobPostingService) List(ctx context.Context, userID, keyword, sourcePla
 		UserID:         userID,
 		Keyword:        keyword,
 		SourcePlatform: sourcePlatform,
-		Status:         domainjob.Status(status),
+		Status:         filterStatus,
 		Page:           page,
 		PageSize:       pageSize,
 	})
@@ -119,10 +126,38 @@ func (s *JobPostingService) Delete(ctx context.Context, userID, id string) error
 
 func (s *JobPostingService) Parse(ctx context.Context, req dto.ParseJobPostingRequest) (*dto.JobPostingResponse, error) {
 	_ = ctx
+	if !validParseURL(req.URL) {
+		return nil, domainerrors.ErrBadParams
+	}
+
 	return &dto.JobPostingResponse{
 		SourceURL:      req.URL,
 		SourcePlatform: guessSourcePlatform(req.URL),
 	}, nil
+}
+
+func validStatus(status domainjob.Status) bool {
+	switch status {
+	case domainjob.StatusPending, domainjob.StatusApplied, domainjob.StatusNotFit, domainjob.StatusClosed:
+		return true
+	default:
+		return false
+	}
+}
+
+func validParseURL(rawURL string) bool {
+	if rawURL == "" {
+		return false
+	}
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+	return parsed.Host != ""
 }
 
 func guessSourcePlatform(rawURL string) string {

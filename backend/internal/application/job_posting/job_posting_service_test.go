@@ -10,6 +10,7 @@ import (
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	appsvc "github.com/yilin/ai-for-backend/internal/application/job_posting"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
 type mockJobPostingRepo struct{ mock.Mock }
@@ -94,6 +95,18 @@ func TestJobPostingService_ListUsesFiltersAndDefaultsPagination(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
+func TestJobPostingService_ListRejectsInvalidStatusWithoutCallingRepo(t *testing.T) {
+	repo := &mockJobPostingRepo{}
+	svc := appsvc.NewJobPostingService(repo)
+
+	got, total, err := svc.List(context.Background(), "u1", "backend", "Boss", "invalid", 1, 10)
+
+	assert.Nil(t, got)
+	assert.Zero(t, total)
+	assert.ErrorIs(t, err, domainerrors.ErrBadParams)
+	repo.AssertNotCalled(t, "ListByUser", mock.Anything, mock.Anything)
+}
+
 func TestJobPostingService_UpdatePreservesOmittedFieldsAndAppliesProvidedFields(t *testing.T) {
 	repo := &mockJobPostingRepo{}
 	existing := &domainjob.JobPosting{
@@ -157,4 +170,17 @@ func TestJobPostingService_ParseReturnsSourceURLAndGuessedPlatform(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, "https://example.com/jobs/1", other.SourceURL)
 	assert.Equal(t, "其他", other.SourcePlatform)
+}
+
+func TestJobPostingService_ParseRejectsInvalidURLs(t *testing.T) {
+	svc := appsvc.NewJobPostingService(&mockJobPostingRepo{})
+
+	for _, rawURL := range []string{"", "javascript:alert(1)", "not-a-url", "https://"} {
+		t.Run(rawURL, func(t *testing.T) {
+			got, err := svc.Parse(context.Background(), dto.ParseJobPostingRequest{URL: rawURL})
+
+			assert.Nil(t, got)
+			assert.ErrorIs(t, err, domainerrors.ErrBadParams)
+		})
+	}
 }
