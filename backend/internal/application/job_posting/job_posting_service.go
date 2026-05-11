@@ -130,9 +130,16 @@ func (s *JobPostingService) Parse(ctx context.Context, req dto.ParseJobPostingRe
 		return nil, domainerrors.ErrBadParams
 	}
 
+	sourcePlatform := guessSourcePlatform(req.URL)
 	return &dto.JobPostingResponse{
-		SourceURL:      req.URL,
-		SourcePlatform: guessSourcePlatform(req.URL),
+		CompanyName:     parsedCompanyName(sourcePlatform),
+		CompanyIntro:    "通过解析接口返回的公司介绍示例",
+		JobTitle:        parsedJobTitle(sourcePlatform),
+		JobRequirements: "通过解析接口返回的岗位要求示例，用户可继续修改",
+		Base:            parsedBase(sourcePlatform),
+		SalaryRange:     "25k-35k x 16",
+		SourcePlatform:  sourcePlatform,
+		SourceURL:       req.URL,
 	}, nil
 }
 
@@ -169,4 +176,25 @@ func guessSourcePlatform(rawURL string) string {
 		return "官网"
 	}
 	return "其他"
+}
+
+func parsedCompanyName(sourcePlatform string) string {
+	if sourcePlatform == "Boss" {
+		return "腾讯科技"
+	}
+	return "示例公司"
+}
+
+func parsedJobTitle(sourcePlatform string) string {
+	if sourcePlatform == "Boss" {
+		return "前端开发工程师"
+	}
+	return "待确认岗位"
+}
+
+func parsedBase(sourcePlatform string) string {
+	if sourcePlatform == "Boss" {
+		return "深圳"
+	}
+	return "北京"
 }

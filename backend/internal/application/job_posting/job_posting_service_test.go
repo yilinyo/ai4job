@@ -153,23 +153,58 @@ func TestJobPostingService_UpdatePreservesOmittedFieldsAndAppliesProvidedFields(
 	repo.AssertExpectations(t)
 }
 
-func TestJobPostingService_ParseReturnsSourceURLAndGuessedPlatform(t *testing.T) {
+func TestJobPostingService_ParseReturnsPrefilledFields(t *testing.T) {
 	svc := appsvc.NewJobPostingService(&mockJobPostingRepo{})
 
-	boss, err := svc.Parse(context.Background(), dto.ParseJobPostingRequest{URL: "https://www.zhipin.com/job/1"})
-	require.NoError(t, err)
-	assert.Equal(t, "https://www.zhipin.com/job/1", boss.SourceURL)
-	assert.Equal(t, "Boss", boss.SourcePlatform)
+	cases := []struct {
+		name           string
+		rawURL         string
+		sourcePlatform string
+		companyName    string
+		jobTitle       string
+		base           string
+	}{
+		{
+			name:           "boss",
+			rawURL:         "https://www.zhipin.com/job/1",
+			sourcePlatform: "Boss",
+			companyName:    "腾讯科技",
+			jobTitle:       "前端开发工程师",
+			base:           "深圳",
+		},
+		{
+			name:           "bytedance jobs",
+			rawURL:         "https://jobs.bytedance.com/referral/pc/position/1",
+			sourcePlatform: "官网",
+			companyName:    "示例公司",
+			jobTitle:       "待确认岗位",
+			base:           "北京",
+		},
+		{
+			name:           "other",
+			rawURL:         "https://example.com/jobs/1",
+			sourcePlatform: "其他",
+			companyName:    "示例公司",
+			jobTitle:       "待确认岗位",
+			base:           "北京",
+		},
+	}
 
-	bytedance, err := svc.Parse(context.Background(), dto.ParseJobPostingRequest{URL: "https://jobs.bytedance.com/referral/pc/position/1"})
-	require.NoError(t, err)
-	assert.Equal(t, "https://jobs.bytedance.com/referral/pc/position/1", bytedance.SourceURL)
-	assert.Equal(t, "官网", bytedance.SourcePlatform)
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := svc.Parse(context.Background(), dto.ParseJobPostingRequest{URL: tt.rawURL})
+			require.NoError(t, err)
 
-	other, err := svc.Parse(context.Background(), dto.ParseJobPostingRequest{URL: "https://example.com/jobs/1"})
-	require.NoError(t, err)
-	assert.Equal(t, "https://example.com/jobs/1", other.SourceURL)
-	assert.Equal(t, "其他", other.SourcePlatform)
+			assert.Equal(t, tt.companyName, got.CompanyName)
+			assert.Equal(t, "通过解析接口返回的公司介绍示例", got.CompanyIntro)
+			assert.Equal(t, tt.jobTitle, got.JobTitle)
+			assert.Equal(t, "通过解析接口返回的岗位要求示例，用户可继续修改", got.JobRequirements)
+			assert.Equal(t, tt.base, got.Base)
+			assert.Equal(t, "25k-35k x 16", got.SalaryRange)
+			assert.Equal(t, tt.sourcePlatform, got.SourcePlatform)
+			assert.Equal(t, tt.rawURL, got.SourceURL)
+		})
+	}
 }
 
 func TestJobPostingService_ParseRejectsInvalidURLs(t *testing.T) {
