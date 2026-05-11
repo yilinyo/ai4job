@@ -10,6 +10,10 @@ import (
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
+func TestInterviewProgress_TableName_UsesSingularMigrationTable(t *testing.T) {
+	assert.Equal(t, "interview_progress", domainprogress.InterviewProgress{}.TableName())
+}
+
 func TestInterviewProgress_Validate_AcceptsFrontendFields(t *testing.T) {
 	progress := &domainprogress.InterviewProgress{
 		UserID:            "user-1",

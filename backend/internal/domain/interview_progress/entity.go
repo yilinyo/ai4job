@@ -43,6 +43,10 @@ type InterviewProgress struct {
 	DeletedAt         gorm.DeletedAt `gorm:"index"`
 }
 
+func (InterviewProgress) TableName() string {
+	return "interview_progress"
+}
+
 func (p *InterviewProgress) Validate() error {
 	if strings.TrimSpace(p.UserID) == "" || strings.TrimSpace(p.ApplicationID) == "" {
 		return domainerrors.ErrBadParams
