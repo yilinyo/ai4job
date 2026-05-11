@@ -52,6 +52,9 @@ func (s *InterviewProgressService) List(ctx context.Context, userID, application
 }
 
 func (s *InterviewProgressService) Update(ctx context.Context, userID, id string, req dto.UpdateInterviewProgressRequest) error {
+	if strings.TrimSpace(id) == "" {
+		return domainerrors.ErrBadParams
+	}
 	progress, err := s.repo.FindByIDAndUserID(ctx, id, userID)
 	if err != nil {
 		return err
@@ -92,6 +95,9 @@ func (s *InterviewProgressService) Update(ctx context.Context, userID, id string
 }
 
 func (s *InterviewProgressService) Delete(ctx context.Context, userID, id string) error {
+	if strings.TrimSpace(id) == "" {
+		return domainerrors.ErrBadParams
+	}
 	progress, err := s.repo.FindByIDAndUserID(ctx, id, userID)
 	if err != nil {
 		return err
@@ -103,12 +109,15 @@ func (s *InterviewProgressService) Delete(ctx context.Context, userID, id string
 }
 
 func (s *InterviewProgressService) syncApplicationStatus(ctx context.Context, userID, applicationID string) error {
+	if s.apps == nil {
+		return domainerrors.ErrBadParams
+	}
 	progresses, err := s.repo.ListByApplicationAndUser(ctx, applicationID, userID)
 	if err != nil {
 		return err
 	}
 	if len(progresses) == 0 {
-		return nil
+		return s.apps.UpdateCurrentStatus(ctx, userID, applicationID, domainapp.StatusApplied)
 	}
 
 	latest := progresses[0]
