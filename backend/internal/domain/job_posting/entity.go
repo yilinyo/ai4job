@@ -1,6 +1,7 @@
 package job_posting
 
 import (
+	"net/url"
 	"strings"
 	"time"
 
@@ -48,10 +49,31 @@ func (p *JobPosting) Validate() error {
 	if len([]rune(p.CompanyName)) > 120 || len([]rune(p.JobTitle)) > 120 {
 		return domainerrors.ErrBadParams
 	}
+	if len([]rune(p.Base)) > 120 || len([]rune(p.SalaryRange)) > 120 || len([]rune(p.SourcePlatform)) > 120 || len([]rune(p.SourceURL)) > 500 {
+		return domainerrors.ErrBadParams
+	}
+	if !validSourceURL(p.SourceURL) {
+		return domainerrors.ErrBadParams
+	}
 	if !validStatus(p.Status) {
 		return domainerrors.ErrBadParams
 	}
 	return nil
+}
+
+func validSourceURL(sourceURL string) bool {
+	if sourceURL == "" {
+		return true
+	}
+
+	parsed, err := url.Parse(sourceURL)
+	if err != nil {
+		return false
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+	return parsed.Host != ""
 }
 
 func validStatus(status Status) bool {
