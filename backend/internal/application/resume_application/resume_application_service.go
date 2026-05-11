@@ -1,0 +1,197 @@
+package resume_application
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/yilin/ai-for-backend/internal/application/dto"
+	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
+)
+
+const (
+	defaultPage     = 1
+	defaultPageSize = 10
+)
+
+type ResumeApplicationService struct {
+	repo domainapp.Repository
+}
+
+func NewResumeApplicationService(repo domainapp.Repository) *ResumeApplicationService {
+	return &ResumeApplicationService{repo: repo}
+}
+
+func (s *ResumeApplicationService) Create(ctx context.Context, userID string, req dto.CreateResumeApplicationRequest) error {
+	status := req.CurrentStatus
+	if status == "" {
+		status = domainapp.StatusApplied
+	}
+
+	application := &domainapp.ResumeApplication{
+		ID:                        uuid.NewString(),
+		UserID:                    userID,
+		JobPostingID:              req.JobPostingID,
+		ResumeVersionID:           req.ResumeVersionID,
+		RepoID:                    req.RepoID,
+		CompanyName:               req.CompanyName,
+		CompanyIntro:              req.CompanyIntro,
+		JobTitle:                  req.JobTitle,
+		JobRequirements:           req.JobRequirements,
+		Base:                      req.Base,
+		SalaryRange:               req.SalaryRange,
+		SourcePlatform:            req.SourcePlatform,
+		SourceURL:                 req.SourceURL,
+		DeliveryChannel:           req.DeliveryChannel,
+		AppliedAt:                 req.AppliedAt,
+		CurrentStatus:             status,
+		InterviewSummary:          req.InterviewSummary,
+		InterviewNotes:            req.InterviewNotes,
+		ResumeMatchScore:          req.ResumeMatchScore,
+		InterviewPerformanceScore: req.InterviewPerformanceScore,
+		RoleInterestScore:         req.RoleInterestScore,
+		OverallScore:              req.OverallScore,
+		Remark:                    req.Remark,
+	}
+	if err := application.Validate(); err != nil {
+		return err
+	}
+	return s.repo.Create(ctx, application)
+}
+
+func (s *ResumeApplicationService) List(ctx context.Context, userID, resumeVersionID, repoID, keyword, currentStatus string, page, pageSize int) ([]domainapp.ResumeApplication, int64, error) {
+	filterStatus := domainapp.Status(currentStatus)
+	if currentStatus != "" && !validStatus(filterStatus) {
+		return nil, 0, domainerrors.ErrBadParams
+	}
+
+	if page <= 0 {
+		page = defaultPage
+	}
+	if pageSize <= 0 {
+		pageSize = defaultPageSize
+	}
+
+	return s.repo.ListByUser(ctx, domainapp.ListFilter{
+		UserID:          userID,
+		ResumeVersionID: resumeVersionID,
+		RepoID:          repoID,
+		Keyword:         keyword,
+		CurrentStatus:   filterStatus,
+		Page:            page,
+		PageSize:        pageSize,
+	})
+}
+
+func (s *ResumeApplicationService) Get(ctx context.Context, userID, id string) (*domainapp.ResumeApplication, error) {
+	return s.repo.FindByIDAndUserID(ctx, id, userID)
+}
+
+func (s *ResumeApplicationService) Update(ctx context.Context, userID, id string, req dto.UpdateResumeApplicationRequest) error {
+	application, err := s.repo.FindByIDAndUserID(ctx, id, userID)
+	if err != nil {
+		return err
+	}
+
+	if req.JobPostingID != nil {
+		application.JobPostingID = req.JobPostingID
+	}
+	if req.ResumeVersionID != nil {
+		application.ResumeVersionID = *req.ResumeVersionID
+	}
+	if req.RepoID != nil {
+		application.RepoID = *req.RepoID
+	}
+	if req.CompanyName != nil {
+		application.CompanyName = *req.CompanyName
+	}
+	if req.CompanyIntro != nil {
+		application.CompanyIntro = *req.CompanyIntro
+	}
+	if req.JobTitle != nil {
+		application.JobTitle = *req.JobTitle
+	}
+	if req.JobRequirements != nil {
+		application.JobRequirements = *req.JobRequirements
+	}
+	if req.Base != nil {
+		application.Base = *req.Base
+	}
+	if req.SalaryRange != nil {
+		application.SalaryRange = *req.SalaryRange
+	}
+	if req.SourcePlatform != nil {
+		application.SourcePlatform = *req.SourcePlatform
+	}
+	if req.SourceURL != nil {
+		application.SourceURL = *req.SourceURL
+	}
+	if req.DeliveryChannel != nil {
+		application.DeliveryChannel = *req.DeliveryChannel
+	}
+	if req.AppliedAt != nil {
+		application.AppliedAt = *req.AppliedAt
+	}
+	if req.CurrentStatus != nil {
+		application.CurrentStatus = *req.CurrentStatus
+	}
+	if req.InterviewSummary != nil {
+		application.InterviewSummary = *req.InterviewSummary
+	}
+	if req.InterviewNotes != nil {
+		application.InterviewNotes = *req.InterviewNotes
+	}
+	if req.ResumeMatchScore != nil {
+		application.ResumeMatchScore = *req.ResumeMatchScore
+	}
+	if req.InterviewPerformanceScore != nil {
+		application.InterviewPerformanceScore = *req.InterviewPerformanceScore
+	}
+	if req.RoleInterestScore != nil {
+		application.RoleInterestScore = *req.RoleInterestScore
+	}
+	if req.OverallScore != nil {
+		application.OverallScore = *req.OverallScore
+	}
+	if req.Remark != nil {
+		application.Remark = *req.Remark
+	}
+
+	if err := application.Validate(); err != nil {
+		return err
+	}
+	return s.repo.Update(ctx, application)
+}
+
+func (s *ResumeApplicationService) Delete(ctx context.Context, userID, id string) error {
+	return s.repo.Delete(ctx, id, userID)
+}
+
+func (s *ResumeApplicationService) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) {
+	return s.repo.ExistsByResumeVersionID(ctx, versionID)
+}
+
+func (s *ResumeApplicationService) UpdateCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error {
+	if !validStatus(status) {
+		return domainerrors.ErrBadParams
+	}
+	return s.repo.UpdateCurrentStatus(ctx, id, userID, status)
+}
+
+func validStatus(status domainapp.Status) bool {
+	switch status {
+	case domainapp.StatusApplied,
+		domainapp.StatusViewed,
+		domainapp.StatusWrittenTest,
+		domainapp.StatusFirstInterview,
+		domainapp.StatusSecondInterview,
+		domainapp.StatusFinalInterview,
+		domainapp.StatusHRInterview,
+		domainapp.StatusOffer,
+		domainapp.StatusRejected,
+		domainapp.StatusClosed:
+		return true
+	default:
+		return false
+	}
+}
