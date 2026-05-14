@@ -116,7 +116,7 @@ func (s *stubResumeApplicationService) Delete(ctx context.Context, userID, id st
 type stubInterviewProgressService struct{}
 
 func (s *stubInterviewProgressService) Create(ctx context.Context, userID string, req dto.CreateInterviewProgressRequest) (*domainprogress.InterviewProgress, error) {
-	return &domainprogress.InterviewProgress{ID: "p1", UserID: userID, ApplicationID: req.ApplicationID, Stage: req.Stage, OccurredAt: req.OccurredAt, Result: req.Result}, nil
+	return &domainprogress.InterviewProgress{ID: "p1", UserID: userID, ApplicationID: req.ApplicationID, Stage: req.Stage, OccurredAt: req.OccurredAt.Value(), Result: req.Result}, nil
 }
 func (s *stubInterviewProgressService) List(ctx context.Context, userID, applicationID string) ([]domainprogress.InterviewProgress, error) {
 	return []domainprogress.InterviewProgress{}, nil

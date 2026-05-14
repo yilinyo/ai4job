@@ -1,12 +1,65 @@
 package dto
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
 )
+
+const dateOnlyFormat = "2006-01-02"
+const localDateTimeFormat = "2006-01-02T15:04:05"
+
+// FlexibleTime accepts both full RFC3339 timestamps and date-only strings from the frontend.
+type FlexibleTime struct {
+	time.Time
+}
+
+func (t *FlexibleTime) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		t.Time = time.Time{}
+		return nil
+	}
+
+	var raw string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		t.Time = time.Time{}
+		return nil
+	}
+
+	// Preserve compatibility with existing callers that already send RFC3339 timestamps.
+	if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+		t.Time = parsed
+		return nil
+	}
+
+	// Support local datetime strings without timezone, such as "2026-05-11T23:28:04".
+	if parsed, err := time.ParseInLocation(localDateTimeFormat, raw, time.Local); err == nil {
+		t.Time = parsed
+		return nil
+	}
+
+	// Support the current application form, which submits dates like "2026-05-11".
+	if parsed, err := time.Parse(dateOnlyFormat, raw); err == nil {
+		t.Time = parsed
+		return nil
+	}
+
+	return fmt.Errorf("invalid time format: %q", raw)
+}
+
+func (t FlexibleTime) Value() time.Time {
+	return t.Time
+}
 
 type CreateJobPostingRequest struct {
 	CompanyName     string           `json:"companyName" binding:"required,min=1,max=120"`
@@ -104,7 +157,7 @@ type CreateResumeApplicationRequest struct {
 	SourcePlatform            string           `json:"sourcePlatform" binding:"max=120"`
 	SourceURL                 string           `json:"sourceUrl" binding:"omitempty,url,max=500"`
 	DeliveryChannel           string           `json:"deliveryChannel" binding:"max=120"`
-	AppliedAt                 time.Time        `json:"appliedAt" binding:"required"`
+	AppliedAt                 FlexibleTime     `json:"appliedAt" binding:"required"`
 	CurrentStatus             domainapp.Status `json:"currentStatus"`
 	InterviewSummary          string           `json:"interviewSummary"`
 	InterviewNotes            string           `json:"interviewNotes"`
@@ -128,7 +181,7 @@ type UpdateResumeApplicationRequest struct {
 	SourcePlatform            *string           `json:"sourcePlatform" binding:"omitempty,max=120"`
 	SourceURL                 *string           `json:"sourceUrl" binding:"omitempty,url,max=500"`
 	DeliveryChannel           *string           `json:"deliveryChannel" binding:"omitempty,max=120"`
-	AppliedAt                 *time.Time        `json:"appliedAt"`
+	AppliedAt                 *FlexibleTime     `json:"appliedAt"`
 	CurrentStatus             *domainapp.Status `json:"currentStatus"`
 	InterviewSummary          *string           `json:"interviewSummary"`
 	InterviewNotes            *string           `json:"interviewNotes"`
@@ -218,7 +271,7 @@ func ToResumeApplicationResponses(applications []*domainapp.ResumeApplication) [
 type CreateInterviewProgressRequest struct {
 	ApplicationID     string                `json:"applicationId" binding:"required"`
 	Stage             domainprogress.Stage  `json:"stage" binding:"required"`
-	OccurredAt        time.Time             `json:"occurredAt" binding:"required"`
+	OccurredAt        FlexibleTime          `json:"occurredAt" binding:"required"`
 	Result            domainprogress.Result `json:"result" binding:"required"`
 	InterviewerOrTeam string                `json:"interviewerOrTeam" binding:"max=120"`
 	Note              string                `json:"note"`
@@ -227,7 +280,7 @@ type CreateInterviewProgressRequest struct {
 type UpdateInterviewProgressRequest struct {
 	ApplicationID     *string                `json:"applicationId"`
 	Stage             *domainprogress.Stage  `json:"stage"`
-	OccurredAt        *time.Time             `json:"occurredAt"`
+	OccurredAt        *FlexibleTime          `json:"occurredAt"`
 	Result            *domainprogress.Result `json:"result"`
 	InterviewerOrTeam *string                `json:"interviewerOrTeam" binding:"omitempty,max=120"`
 	Note              *string                `json:"note"`

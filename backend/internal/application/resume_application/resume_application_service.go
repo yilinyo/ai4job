@@ -62,7 +62,7 @@ func (s *ResumeApplicationService) Create(ctx context.Context, userID string, re
 		SourcePlatform:            req.SourcePlatform,
 		SourceURL:                 req.SourceURL,
 		DeliveryChannel:           req.DeliveryChannel,
-		AppliedAt:                 req.AppliedAt,
+		AppliedAt:                 req.AppliedAt.Value(),
 		CurrentStatus:             status,
 		InterviewSummary:          req.InterviewSummary,
 		InterviewNotes:            req.InterviewNotes,
@@ -155,7 +155,7 @@ func (s *ResumeApplicationService) Update(ctx context.Context, userID, id string
 		application.DeliveryChannel = *req.DeliveryChannel
 	}
 	if req.AppliedAt != nil {
-		application.AppliedAt = *req.AppliedAt
+		application.AppliedAt = req.AppliedAt.Value()
 	}
 	if req.CurrentStatus != nil {
 		application.CurrentStatus = *req.CurrentStatus

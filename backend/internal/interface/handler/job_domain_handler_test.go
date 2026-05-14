@@ -160,7 +160,13 @@ func TestResumeApplicationHandler_ListAndCreateUseDTOShape(t *testing.T) {
 	appliedAt := time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC)
 	row := domainapp.ResumeApplication{ID: "app-1", UserID: "u1", ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Backend", AppliedAt: appliedAt, CurrentStatus: domainapp.StatusApplied}
 	svc.On("List", mock.Anything, "u1", "v1", "r1", "backend", string(domainapp.StatusApplied), 1, 10).Return([]domainapp.ResumeApplication{row}, int64(1), nil).Once()
-	createReq := dto.CreateResumeApplicationRequest{ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Backend", AppliedAt: appliedAt}
+	createReq := dto.CreateResumeApplicationRequest{
+		ResumeVersionID: "v1",
+		RepoID:          "r1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend",
+		AppliedAt:       dto.FlexibleTime{Time: time.Date(2026, 5, 11, 0, 0, 0, 0, time.UTC)},
+	}
 	svc.On("Create", mock.Anything, "u1", createReq).Return(&row, nil).Once()
 	r := gin.New()
 	h := handler.NewResumeApplicationHandler(svc)
@@ -179,7 +185,7 @@ func TestResumeApplicationHandler_ListAndCreateUseDTOShape(t *testing.T) {
 	assert.Equal(t, float64(10), data["pageSize"])
 
 	w = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPost, "/applications", bytes.NewBufferString(`{"resumeVersionId":"v1","repoId":"r1","companyName":"Acme","jobTitle":"Backend","appliedAt":"2026-05-11T10:00:00Z"}`))
+	req = httptest.NewRequest(http.MethodPost, "/applications", bytes.NewBufferString(`{"resumeVersionId":"v1","repoId":"r1","companyName":"Acme","jobTitle":"Backend","appliedAt":"2026-05-11"}`))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	data = responseData(t, w)
@@ -194,7 +200,12 @@ func TestInterviewProgressHandler_ListCreateUpdateUseDTOShapeAndMissingApplicati
 	occurredAt := time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC)
 	row := domainprogress.InterviewProgress{ID: "p1", UserID: "u1", ApplicationID: "app-1", Stage: domainprogress.StageFirstInterview, OccurredAt: occurredAt, Result: domainprogress.ResultPending}
 	svc.On("List", mock.Anything, "u1", "app-1").Return([]domainprogress.InterviewProgress{row}, nil).Once()
-	createReq := dto.CreateInterviewProgressRequest{ApplicationID: "app-1", Stage: domainprogress.StageFirstInterview, OccurredAt: occurredAt, Result: domainprogress.ResultPending}
+	createReq := dto.CreateInterviewProgressRequest{
+		ApplicationID: "app-1",
+		Stage:         domainprogress.StageFirstInterview,
+		OccurredAt:    dto.FlexibleTime{Time: time.Date(2026, 5, 11, 0, 0, 0, 0, time.UTC)},
+		Result:        domainprogress.ResultPending,
+	}
 	svc.On("Create", mock.Anything, "u1", createReq).Return(&row, nil).Once()
 	stage := domainprogress.StageSecondInterview
 	updateReq := dto.UpdateInterviewProgressRequest{Stage: &stage}
@@ -223,7 +234,7 @@ func TestInterviewProgressHandler_ListCreateUpdateUseDTOShapeAndMissingApplicati
 	assert.NotContains(t, first, "ApplicationID")
 
 	w = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPost, "/progress", bytes.NewBufferString(`{"applicationId":"app-1","stage":"first_interview","occurredAt":"2026-05-11T10:00:00Z","result":"pending"}`))
+	req = httptest.NewRequest(http.MethodPost, "/progress", bytes.NewBufferString(`{"applicationId":"app-1","stage":"first_interview","occurredAt":"2026-05-11","result":"pending"}`))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	data = responseData(t, w)

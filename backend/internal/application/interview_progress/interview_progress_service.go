@@ -39,7 +39,7 @@ func (s *InterviewProgressService) Create(ctx context.Context, userID string, re
 		UserID:            userID,
 		ApplicationID:     req.ApplicationID,
 		Stage:             req.Stage,
-		OccurredAt:        req.OccurredAt,
+		OccurredAt:        req.OccurredAt.Value(),
 		Result:            req.Result,
 		InterviewerOrTeam: req.InterviewerOrTeam,
 		Note:              req.Note,
@@ -83,7 +83,7 @@ func (s *InterviewProgressService) Update(ctx context.Context, userID, id string
 		progress.Stage = *req.Stage
 	}
 	if req.OccurredAt != nil {
-		progress.OccurredAt = *req.OccurredAt
+		progress.OccurredAt = req.OccurredAt.Value()
 	}
 	if req.Result != nil {
 		progress.Result = *req.Result

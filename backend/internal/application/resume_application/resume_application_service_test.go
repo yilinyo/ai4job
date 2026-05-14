@@ -142,7 +142,7 @@ func TestResumeApplicationService_CreateCopiesFieldsDefaultsStatusAndSupportsOpt
 				SourcePlatform:            "Boss",
 				SourceURL:                 "https://www.zhipin.com/job/1",
 				DeliveryChannel:           "manual",
-				AppliedAt:                 appliedAt,
+				AppliedAt:                 dto.FlexibleTime{Time: appliedAt},
 				InterviewSummary:          "summary",
 				InterviewNotes:            "notes",
 				ResumeMatchScore:          5,
@@ -180,7 +180,7 @@ func TestResumeApplicationService_CreateNormalizesBlankJobPostingIDToNil(t *test
 		RepoID:          "r1",
 		CompanyName:     "Acme",
 		JobTitle:        "Backend Engineer",
-		AppliedAt:       appliedAt,
+		AppliedAt:       dto.FlexibleTime{Time: appliedAt},
 	})
 
 	require.NoError(t, err)
@@ -245,7 +245,7 @@ func TestResumeApplicationService_CreateRejectsUnownedOrMissingReferencesBeforeC
 				RepoID:          "r1",
 				CompanyName:     "Acme",
 				JobTitle:        "Backend Engineer",
-				AppliedAt:       appliedAt,
+				AppliedAt:       dto.FlexibleTime{Time: appliedAt},
 			})
 
 			assert.Nil(t, got)
@@ -360,7 +360,7 @@ func TestResumeApplicationService_UpdatePreservesOmittedFieldsAndAppliesProvided
 		JobPostingID:  &newJobPostingID,
 		JobTitle:      &newTitle,
 		SourceURL:     &newURL,
-		AppliedAt:     &newAppliedAt,
+		AppliedAt:     &dto.FlexibleTime{Time: newAppliedAt},
 		CurrentStatus: &newStatus,
 		OverallScore:  &newOverallScore,
 	})

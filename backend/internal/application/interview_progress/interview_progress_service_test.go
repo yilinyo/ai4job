@@ -69,7 +69,7 @@ func TestInterviewProgressService_CreateSyncsFailedResultToRejected(t *testing.T
 	req := dto.CreateInterviewProgressRequest{
 		ApplicationID:     "app-1",
 		Stage:             domainprogress.StageFirstInterview,
-		OccurredAt:        occurredAt,
+		OccurredAt:        dto.FlexibleTime{Time: occurredAt},
 		Result:            domainprogress.ResultFailed,
 		InterviewerOrTeam: "Engineering",
 		Note:              "did not pass",
@@ -108,7 +108,7 @@ func TestInterviewProgressService_CreateSyncsLatestNonFailedStageToMatchingAppli
 	req := dto.CreateInterviewProgressRequest{
 		ApplicationID: "app-1",
 		Stage:         domainprogress.StageOffer,
-		OccurredAt:    latest,
+		OccurredAt:    dto.FlexibleTime{Time: latest},
 		Result:        domainprogress.ResultPassed,
 	}
 
@@ -139,7 +139,7 @@ func TestInterviewProgressService_CreateRejectsUnownedOrMissingApplicationBefore
 	got, err := svc.Create(context.Background(), "user-1", dto.CreateInterviewProgressRequest{
 		ApplicationID: "app-1",
 		Stage:         domainprogress.StageFirstInterview,
-		OccurredAt:    time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+		OccurredAt:    dto.FlexibleTime{Time: time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC)},
 		Result:        domainprogress.ResultPending,
 	})
 
@@ -216,7 +216,7 @@ func TestInterviewProgressService_UpdatePreservesOmittedFieldsAppliesProvidedFie
 	}
 	req := dto.UpdateInterviewProgressRequest{
 		Stage:      &stage,
-		OccurredAt: &newOccurredAt,
+		OccurredAt: &dto.FlexibleTime{Time: newOccurredAt},
 		Note:       &note,
 	}
 
