@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	interviewprogressrepo "github.com/yilin/ai-for-backend/internal/domain/interview_progress/repository"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
@@ -25,11 +26,11 @@ type ApplicationService interface {
 }
 
 type InterviewProgressService struct {
-	repo domainprogress.Repository
+	repo interviewprogressrepo.Repository
 	apps ApplicationService
 }
 
-func NewInterviewProgressService(repo domainprogress.Repository, apps ApplicationService) *InterviewProgressService {
+func NewInterviewProgressService(repo interviewprogressrepo.Repository, apps ApplicationService) *InterviewProgressService {
 	return &InterviewProgressService{repo: repo, apps: apps}
 }
 

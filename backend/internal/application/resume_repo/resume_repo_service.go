@@ -6,14 +6,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
+	resumereporepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
 type ResumeRepoService struct {
-	repo domainrepo.Repository
+	repo resumereporepo.Repository
 }
 
-func NewResumeRepoService(repo domainrepo.Repository) *ResumeRepoService {
+func NewResumeRepoService(repo resumereporepo.Repository) *ResumeRepoService {
 	return &ResumeRepoService{repo: repo}
 }
 
@@ -41,7 +42,7 @@ func (s *ResumeRepoService) Create(ctx context.Context, userID string, req dto.C
 }
 
 func (s *ResumeRepoService) List(ctx context.Context, userID string, jobType domainrepo.JobType, keyword string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error) {
-	return s.repo.ListByUser(ctx, domainrepo.ListFilter{UserID: userID, JobType: jobType, Keyword: keyword, Page: page, PageSize: pageSize})
+	return s.repo.ListByUser(ctx, resumereporepo.ListFilter{UserID: userID, JobType: jobType, Keyword: keyword, Page: page, PageSize: pageSize})
 }
 
 func (s *ResumeRepoService) Get(ctx context.Context, userID, id string) (*domainrepo.ResumeRepo, error) {

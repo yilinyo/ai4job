@@ -8,6 +8,7 @@ import (
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
 	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
+	resumeversionrepo "github.com/yilin/ai-for-backend/internal/domain/resume_version/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
@@ -22,11 +23,11 @@ type ResumeRepoReader interface {
 
 type ResumeVersionService struct {
 	repoReader ResumeRepoReader
-	repo       domainversion.Repository
+	repo       resumeversionrepo.Repository
 	checker    VersionUseChecker
 }
 
-func NewResumeVersionService(repoReader ResumeRepoReader, repo domainversion.Repository, checker VersionUseChecker) *ResumeVersionService {
+func NewResumeVersionService(repoReader ResumeRepoReader, repo resumeversionrepo.Repository, checker VersionUseChecker) *ResumeVersionService {
 	return &ResumeVersionService{repoReader: repoReader, repo: repo, checker: checker}
 }
 

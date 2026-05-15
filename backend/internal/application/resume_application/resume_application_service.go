@@ -8,6 +8,7 @@ import (
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
+	resumeapplicationrepo "github.com/yilin/ai-for-backend/internal/domain/resume_application/repository"
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
 	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
@@ -31,13 +32,13 @@ type ResumeVersionReader interface {
 }
 
 type ResumeApplicationService struct {
-	repo           domainapp.Repository
+	repo           resumeapplicationrepo.Repository
 	jobPostings    JobPostingReader
 	resumeRepos    ResumeRepoReader
 	resumeVersions ResumeVersionReader
 }
 
-func NewResumeApplicationService(repo domainapp.Repository, jobPostings JobPostingReader, resumeRepos ResumeRepoReader, resumeVersions ResumeVersionReader) *ResumeApplicationService {
+func NewResumeApplicationService(repo resumeapplicationrepo.Repository, jobPostings JobPostingReader, resumeRepos ResumeRepoReader, resumeVersions ResumeVersionReader) *ResumeApplicationService {
 	return &ResumeApplicationService{repo: repo, jobPostings: jobPostings, resumeRepos: resumeRepos, resumeVersions: resumeVersions}
 }
 
@@ -97,7 +98,7 @@ func (s *ResumeApplicationService) List(ctx context.Context, userID, resumeVersi
 		pageSize = defaultPageSize
 	}
 
-	return s.repo.ListByUser(ctx, domainapp.ListFilter{
+	return s.repo.ListByUser(ctx, resumeapplicationrepo.ListFilter{
 		UserID:          userID,
 		ResumeVersionID: resumeVersionID,
 		RepoID:          repoID,

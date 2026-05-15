@@ -10,6 +10,7 @@ import (
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	appsvc "github.com/yilin/ai-for-backend/internal/application/job_posting"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	jobpostingrepo "github.com/yilin/ai-for-backend/internal/domain/job_posting/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
@@ -35,7 +36,7 @@ func (m *mockJobPostingRepo) Delete(ctx context.Context, id, userID string) erro
 	return m.Called(ctx, id, userID).Error(0)
 }
 
-func (m *mockJobPostingRepo) ListByUser(ctx context.Context, f domainjob.ListFilter) ([]domainjob.JobPosting, int64, error) {
+func (m *mockJobPostingRepo) ListByUser(ctx context.Context, f jobpostingrepo.ListFilter) ([]domainjob.JobPosting, int64, error) {
 	args := m.Called(ctx, f)
 	return args.Get(0).([]domainjob.JobPosting), args.Get(1).(int64), args.Error(2)
 }
@@ -80,7 +81,7 @@ func TestJobPostingService_CreateCopiesFieldsAndDefaultsStatus(t *testing.T) {
 func TestJobPostingService_ListUsesFiltersAndDefaultsPagination(t *testing.T) {
 	repo := &mockJobPostingRepo{}
 	rows := []domainjob.JobPosting{{ID: "j1", UserID: "u1", CompanyName: "Acme", JobTitle: "Backend", Status: domainjob.StatusPending}}
-	repo.On("ListByUser", mock.Anything, domainjob.ListFilter{
+	repo.On("ListByUser", mock.Anything, jobpostingrepo.ListFilter{
 		UserID:         "u1",
 		Keyword:        "backend",
 		SourcePlatform: "Boss",

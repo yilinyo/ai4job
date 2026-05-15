@@ -12,6 +12,7 @@ import (
 	appsvc "github.com/yilin/ai-for-backend/internal/application/resume_application"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
+	resumeapplicationrepo "github.com/yilin/ai-for-backend/internal/domain/resume_application/repository"
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
 	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
@@ -39,7 +40,7 @@ func (m *mockResumeApplicationRepo) Delete(ctx context.Context, id, userID strin
 	return m.Called(ctx, id, userID).Error(0)
 }
 
-func (m *mockResumeApplicationRepo) ListByUser(ctx context.Context, f domainapp.ListFilter) ([]domainapp.ResumeApplication, int64, error) {
+func (m *mockResumeApplicationRepo) ListByUser(ctx context.Context, f resumeapplicationrepo.ListFilter) ([]domainapp.ResumeApplication, int64, error) {
 	args := m.Called(ctx, f)
 	return args.Get(0).([]domainapp.ResumeApplication), args.Get(1).(int64), args.Error(2)
 }
@@ -261,7 +262,7 @@ func TestResumeApplicationService_CreateRejectsUnownedOrMissingReferencesBeforeC
 func TestResumeApplicationService_ListUsesFiltersAndDefaultsPagination(t *testing.T) {
 	repo := &mockResumeApplicationRepo{}
 	rows := []domainapp.ResumeApplication{{ID: "a1", UserID: "u1", ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Backend", AppliedAt: time.Now(), CurrentStatus: domainapp.StatusApplied}}
-	repo.On("ListByUser", mock.Anything, domainapp.ListFilter{
+	repo.On("ListByUser", mock.Anything, resumeapplicationrepo.ListFilter{
 		UserID:          "u1",
 		ResumeVersionID: "v1",
 		RepoID:          "r1",

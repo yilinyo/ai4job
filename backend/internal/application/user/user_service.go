@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	domainuser "github.com/yilin/ai-for-backend/internal/domain/user"
+	userrepo "github.com/yilin/ai-for-backend/internal/domain/user/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
@@ -27,13 +28,13 @@ type JWTManager interface {
 }
 
 type UserService struct {
-	repo      domainuser.Repository
+	repo      userrepo.Repository
 	cache     TokenCache
 	jwt       JWTManager
 	emailMock bool
 }
 
-func NewUserService(repo domainuser.Repository, cache TokenCache, jwt JWTManager, emailMock bool) *UserService {
+func NewUserService(repo userrepo.Repository, cache TokenCache, jwt JWTManager, emailMock bool) *UserService {
 	return &UserService{repo: repo, cache: cache, jwt: jwt, emailMock: emailMock}
 }
 

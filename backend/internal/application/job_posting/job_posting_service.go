@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	jobpostingrepo "github.com/yilin/ai-for-backend/internal/domain/job_posting/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
@@ -17,10 +18,10 @@ const (
 )
 
 type JobPostingService struct {
-	repo domainjob.Repository
+	repo jobpostingrepo.Repository
 }
 
-func NewJobPostingService(repo domainjob.Repository) *JobPostingService {
+func NewJobPostingService(repo jobpostingrepo.Repository) *JobPostingService {
 	return &JobPostingService{repo: repo}
 }
 
@@ -66,7 +67,7 @@ func (s *JobPostingService) List(ctx context.Context, userID, keyword, sourcePla
 		pageSize = defaultPageSize
 	}
 
-	return s.repo.ListByUser(ctx, domainjob.ListFilter{
+	return s.repo.ListByUser(ctx, jobpostingrepo.ListFilter{
 		UserID:         userID,
 		Keyword:        keyword,
 		SourcePlatform: sourcePlatform,

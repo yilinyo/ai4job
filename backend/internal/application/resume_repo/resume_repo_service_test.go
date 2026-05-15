@@ -10,6 +10,7 @@ import (
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	appsvc "github.com/yilin/ai-for-backend/internal/application/resume_repo"
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
+	resumereporepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
@@ -35,7 +36,7 @@ func (m *mockResumeRepoRepo) Delete(ctx context.Context, id, userID string) erro
 	return m.Called(ctx, id, userID).Error(0)
 }
 
-func (m *mockResumeRepoRepo) ListByUser(ctx context.Context, f domainrepo.ListFilter) ([]domainrepo.ResumeRepo, int64, error) {
+func (m *mockResumeRepoRepo) ListByUser(ctx context.Context, f resumereporepo.ListFilter) ([]domainrepo.ResumeRepo, int64, error) {
 	args := m.Called(ctx, f)
 	return args.Get(0).([]domainrepo.ResumeRepo), args.Get(1).(int64), args.Error(2)
 }
@@ -116,7 +117,7 @@ func TestResumeRepoService_Create_InvalidName(t *testing.T) {
 func TestResumeRepoService_List(t *testing.T) {
 	repo := &mockResumeRepoRepo{}
 	rows := []domainrepo.ResumeRepo{*validResumeRepo("r1", "u1", "Main")}
-	repo.On("ListByUser", mock.Anything, domainrepo.ListFilter{UserID: "u1", JobType: domainrepo.JobTypeCampus, Keyword: "back", Page: 2, PageSize: 20}).Return(rows, int64(1), nil)
+	repo.On("ListByUser", mock.Anything, resumereporepo.ListFilter{UserID: "u1", JobType: domainrepo.JobTypeCampus, Keyword: "back", Page: 2, PageSize: 20}).Return(rows, int64(1), nil)
 	svc := appsvc.NewResumeRepoService(repo)
 
 	got, total, err := svc.List(context.Background(), "u1", domainrepo.JobTypeCampus, "back", 2, 20)
