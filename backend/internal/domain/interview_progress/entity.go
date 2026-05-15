@@ -43,6 +43,73 @@ type InterviewProgress struct {
 	DeletedAt         gorm.DeletedAt `gorm:"index"`
 }
 
+type NewInterviewProgressParams struct {
+	ID                string
+	UserID            string
+	ApplicationID     string
+	Stage             Stage
+	OccurredAt        time.Time
+	Result            Result
+	InterviewerOrTeam string
+	Note              string
+}
+
+func NewInterviewProgress(params NewInterviewProgressParams) (*InterviewProgress, error) {
+	progress := &InterviewProgress{
+		ID:                params.ID,
+		UserID:            params.UserID,
+		ApplicationID:     params.ApplicationID,
+		Stage:             params.Stage,
+		OccurredAt:        params.OccurredAt,
+		Result:            params.Result,
+		InterviewerOrTeam: params.InterviewerOrTeam,
+		Note:              params.Note,
+	}
+	if err := progress.Validate(); err != nil {
+		return nil, err
+	}
+	return progress, nil
+}
+
+type UpdateSpec struct {
+	ApplicationID     *string
+	Stage             *Stage
+	OccurredAt        *time.Time
+	Result            *Result
+	InterviewerOrTeam *string
+	Note              *string
+}
+
+func (p *InterviewProgress) ApplyUpdate(update UpdateSpec) error {
+	if update.ApplicationID != nil {
+		p.ApplicationID = *update.ApplicationID
+	}
+	if update.Stage != nil {
+		p.Stage = *update.Stage
+	}
+	if update.OccurredAt != nil {
+		p.OccurredAt = *update.OccurredAt
+	}
+	if update.Result != nil {
+		p.Result = *update.Result
+	}
+	if update.InterviewerOrTeam != nil {
+		p.InterviewerOrTeam = *update.InterviewerOrTeam
+	}
+	if update.Note != nil {
+		p.Note = *update.Note
+	}
+	return p.Validate()
+}
+
+func (s Stage) Valid() bool {
+	return validStage(s)
+}
+
+func (r Result) Valid() bool {
+	return validResult(r)
+}
+
 func (InterviewProgress) TableName() string {
 	return "interview_progress"
 }

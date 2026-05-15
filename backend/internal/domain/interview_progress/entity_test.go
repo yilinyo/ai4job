@@ -60,6 +60,54 @@ func TestInterviewProgress_Validate_RejectsOverlongInterviewerOrTeam(t *testing.
 	assert.ErrorIs(t, progress.Validate(), domainerrors.ErrBadParams)
 }
 
+func TestNewInterviewProgressBuildsValidProgress(t *testing.T) {
+	occurredAt := time.Date(2026, 5, 15, 9, 0, 0, 0, time.UTC)
+	progress, err := domainprogress.NewInterviewProgress(domainprogress.NewInterviewProgressParams{
+		ID:                "progress-1",
+		UserID:            "user-1",
+		ApplicationID:     "app-1",
+		Stage:             domainprogress.StageFirstInterview,
+		OccurredAt:        occurredAt,
+		Result:            domainprogress.ResultPending,
+		InterviewerOrTeam: "Backend Team",
+		Note:              "note",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "progress-1", progress.ID)
+	assert.Equal(t, domainprogress.StageFirstInterview, progress.Stage)
+}
+
+func TestInterviewProgressEnumsValid(t *testing.T) {
+	assert.True(t, domainprogress.StageApplied.Valid())
+	assert.True(t, domainprogress.ResultPassed.Valid())
+	assert.False(t, domainprogress.Stage("unknown").Valid())
+	assert.False(t, domainprogress.Result("unknown").Valid())
+}
+
+func TestInterviewProgressApplyUpdateValidatesResult(t *testing.T) {
+	progress := validInterviewProgress()
+	stage := domainprogress.StageOffer
+	result := domainprogress.ResultPassed
+
+	err := progress.ApplyUpdate(domainprogress.UpdateSpec{Stage: &stage, Result: &result})
+
+	require.NoError(t, err)
+	assert.Equal(t, domainprogress.StageOffer, progress.Stage)
+	assert.Equal(t, domainprogress.ResultPassed, progress.Result)
+}
+
+func validInterviewProgress() *domainprogress.InterviewProgress {
+	return &domainprogress.InterviewProgress{
+		ID:            "progress-1",
+		UserID:        "user-1",
+		ApplicationID: "app-1",
+		Stage:         domainprogress.StageFirstInterview,
+		OccurredAt:    time.Date(2026, 5, 15, 9, 0, 0, 0, time.UTC),
+		Result:        domainprogress.ResultPending,
+	}
+}
+
 func stringOfRunes(length int) string {
 	runes := make([]rune, length)
 	for i := range runes {

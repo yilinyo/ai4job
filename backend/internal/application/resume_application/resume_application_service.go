@@ -3,6 +3,7 @@ package resume_application
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
@@ -43,12 +44,7 @@ func NewResumeApplicationService(repo resumeapplicationrepo.Repository, jobPosti
 }
 
 func (s *ResumeApplicationService) Create(ctx context.Context, userID string, req dto.CreateResumeApplicationRequest) (*domainapp.ResumeApplication, error) {
-	status := req.CurrentStatus
-	if status == "" {
-		status = domainapp.StatusApplied
-	}
-
-	application := &domainapp.ResumeApplication{
+	application, err := domainapp.NewResumeApplication(domainapp.NewResumeApplicationParams{
 		ID:                        uuid.NewString(),
 		UserID:                    userID,
 		JobPostingID:              normalizeOptionalJobPostingID(req.JobPostingID),
@@ -64,7 +60,7 @@ func (s *ResumeApplicationService) Create(ctx context.Context, userID string, re
 		SourceURL:                 req.SourceURL,
 		DeliveryChannel:           req.DeliveryChannel,
 		AppliedAt:                 req.AppliedAt.Value(),
-		CurrentStatus:             status,
+		CurrentStatus:             req.CurrentStatus,
 		InterviewSummary:          req.InterviewSummary,
 		InterviewNotes:            req.InterviewNotes,
 		ResumeMatchScore:          req.ResumeMatchScore,
@@ -72,8 +68,8 @@ func (s *ResumeApplicationService) Create(ctx context.Context, userID string, re
 		RoleInterestScore:         req.RoleInterestScore,
 		OverallScore:              req.OverallScore,
 		Remark:                    req.Remark,
-	}
-	if err := application.Validate(); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 	if err := s.ensureReferencesOwned(ctx, userID, application.JobPostingID, application.RepoID, application.ResumeVersionID); err != nil {
@@ -87,7 +83,7 @@ func (s *ResumeApplicationService) Create(ctx context.Context, userID string, re
 
 func (s *ResumeApplicationService) List(ctx context.Context, userID, resumeVersionID, repoID, keyword, currentStatus string, page, pageSize int) ([]domainapp.ResumeApplication, int64, error) {
 	filterStatus := domainapp.Status(currentStatus)
-	if currentStatus != "" && !validStatus(filterStatus) {
+	if currentStatus != "" && !filterStatus.Valid() {
 		return nil, 0, domainerrors.ErrBadParams
 	}
 
@@ -119,71 +115,40 @@ func (s *ResumeApplicationService) Update(ctx context.Context, userID, id string
 		return err
 	}
 
-	if req.JobPostingID != nil {
-		application.JobPostingID = normalizeOptionalJobPostingID(req.JobPostingID)
-	}
-	if req.ResumeVersionID != nil {
-		application.ResumeVersionID = *req.ResumeVersionID
-	}
-	if req.RepoID != nil {
-		application.RepoID = *req.RepoID
-	}
-	if req.CompanyName != nil {
-		application.CompanyName = *req.CompanyName
-	}
-	if req.CompanyIntro != nil {
-		application.CompanyIntro = *req.CompanyIntro
-	}
-	if req.JobTitle != nil {
-		application.JobTitle = *req.JobTitle
-	}
-	if req.JobRequirements != nil {
-		application.JobRequirements = *req.JobRequirements
-	}
-	if req.Base != nil {
-		application.Base = *req.Base
-	}
-	if req.SalaryRange != nil {
-		application.SalaryRange = *req.SalaryRange
-	}
-	if req.SourcePlatform != nil {
-		application.SourcePlatform = *req.SourcePlatform
-	}
-	if req.SourceURL != nil {
-		application.SourceURL = *req.SourceURL
-	}
-	if req.DeliveryChannel != nil {
-		application.DeliveryChannel = *req.DeliveryChannel
-	}
+	var appliedAt *time.Time
 	if req.AppliedAt != nil {
-		application.AppliedAt = req.AppliedAt.Value()
+		value := req.AppliedAt.Value()
+		appliedAt = &value
 	}
-	if req.CurrentStatus != nil {
-		application.CurrentStatus = *req.CurrentStatus
-	}
-	if req.InterviewSummary != nil {
-		application.InterviewSummary = *req.InterviewSummary
-	}
-	if req.InterviewNotes != nil {
-		application.InterviewNotes = *req.InterviewNotes
-	}
-	if req.ResumeMatchScore != nil {
-		application.ResumeMatchScore = *req.ResumeMatchScore
-	}
-	if req.InterviewPerformanceScore != nil {
-		application.InterviewPerformanceScore = *req.InterviewPerformanceScore
-	}
-	if req.RoleInterestScore != nil {
-		application.RoleInterestScore = *req.RoleInterestScore
-	}
-	if req.OverallScore != nil {
-		application.OverallScore = *req.OverallScore
-	}
-	if req.Remark != nil {
-		application.Remark = *req.Remark
+	var jobPostingID **string
+	if req.JobPostingID != nil {
+		value := normalizeOptionalJobPostingID(req.JobPostingID)
+		jobPostingID = &value
 	}
 
-	if err := application.Validate(); err != nil {
+	if err := application.ApplyUpdate(domainapp.UpdateSpec{
+		JobPostingID:              jobPostingID,
+		ResumeVersionID:           req.ResumeVersionID,
+		RepoID:                    req.RepoID,
+		CompanyName:               req.CompanyName,
+		CompanyIntro:              req.CompanyIntro,
+		JobTitle:                  req.JobTitle,
+		JobRequirements:           req.JobRequirements,
+		Base:                      req.Base,
+		SalaryRange:               req.SalaryRange,
+		SourcePlatform:            req.SourcePlatform,
+		SourceURL:                 req.SourceURL,
+		DeliveryChannel:           req.DeliveryChannel,
+		AppliedAt:                 appliedAt,
+		CurrentStatus:             req.CurrentStatus,
+		InterviewSummary:          req.InterviewSummary,
+		InterviewNotes:            req.InterviewNotes,
+		ResumeMatchScore:          req.ResumeMatchScore,
+		InterviewPerformanceScore: req.InterviewPerformanceScore,
+		RoleInterestScore:         req.RoleInterestScore,
+		OverallScore:              req.OverallScore,
+		Remark:                    req.Remark,
+	}); err != nil {
 		return err
 	}
 	if err := s.ensureReferencesOwned(ctx, userID, application.JobPostingID, application.RepoID, application.ResumeVersionID); err != nil {
@@ -201,10 +166,14 @@ func (s *ResumeApplicationService) ExistsByResumeVersionID(ctx context.Context, 
 }
 
 func (s *ResumeApplicationService) UpdateCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error {
-	if !validStatus(status) {
-		return domainerrors.ErrBadParams
+	application, err := s.repo.FindByIDAndUserID(ctx, id, userID)
+	if err != nil {
+		return err
 	}
-	return s.repo.UpdateCurrentStatus(ctx, id, userID, status)
+	if err := application.UpdateCurrentStatus(status); err != nil {
+		return err
+	}
+	return s.repo.UpdateCurrentStatus(ctx, id, userID, application.CurrentStatus)
 }
 
 func (s *ResumeApplicationService) ensureReferencesOwned(ctx context.Context, userID string, jobPostingID *string, repoID, resumeVersionID string) error {
@@ -240,22 +209,4 @@ func normalizeOptionalJobPostingID(jobPostingID *string) *string {
 		return nil
 	}
 	return jobPostingID
-}
-
-func validStatus(status domainapp.Status) bool {
-	switch status {
-	case domainapp.StatusApplied,
-		domainapp.StatusViewed,
-		domainapp.StatusWrittenTest,
-		domainapp.StatusFirstInterview,
-		domainapp.StatusSecondInterview,
-		domainapp.StatusFinalInterview,
-		domainapp.StatusHRInterview,
-		domainapp.StatusOffer,
-		domainapp.StatusRejected,
-		domainapp.StatusClosed:
-		return true
-	default:
-		return false
-	}
 }

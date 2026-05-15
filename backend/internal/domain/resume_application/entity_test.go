@@ -124,14 +124,59 @@ func TestResumeApplication_Validate_RejectsIndividualScoreBounds(t *testing.T) {
 	}
 }
 
-func validResumeApplication() *domainapp.ResumeApplication {
-	return &domainapp.ResumeApplication{
+func TestNewResumeApplicationDefaultsAppliedStatus(t *testing.T) {
+	appliedAt := time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC)
+	application, err := domainapp.NewResumeApplication(domainapp.NewResumeApplicationParams{
+		ID:              "app-1",
 		UserID:          "user-1",
 		ResumeVersionID: "version-1",
 		RepoID:          "repo-1",
 		CompanyName:     "Acme",
-		JobTitle:        "Frontend Engineer",
-		AppliedAt:       time.Now(),
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       appliedAt,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, domainapp.StatusApplied, application.CurrentStatus)
+}
+
+func TestResumeApplicationStatusValid(t *testing.T) {
+	assert.True(t, domainapp.StatusApplied.Valid())
+	assert.True(t, domainapp.StatusOffer.Valid())
+	assert.False(t, domainapp.Status("unknown").Valid())
+}
+
+func TestResumeApplicationApplyUpdateValidatesResult(t *testing.T) {
+	application := validResumeApplication()
+	company := "Beta"
+	status := domainapp.StatusViewed
+
+	err := application.ApplyUpdate(domainapp.UpdateSpec{CompanyName: &company, CurrentStatus: &status})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Beta", application.CompanyName)
+	assert.Equal(t, domainapp.StatusViewed, application.CurrentStatus)
+}
+
+func TestResumeApplicationUpdateCurrentStatusValidatesStatus(t *testing.T) {
+	application := validResumeApplication()
+
+	err := application.UpdateCurrentStatus(domainapp.StatusOffer)
+
+	require.NoError(t, err)
+	assert.Equal(t, domainapp.StatusOffer, application.CurrentStatus)
+	assert.Error(t, application.UpdateCurrentStatus(domainapp.Status("unknown")))
+}
+
+func validResumeApplication() *domainapp.ResumeApplication {
+	return &domainapp.ResumeApplication{
+		ID:              "app-1",
+		UserID:          "user-1",
+		ResumeVersionID: "version-1",
+		RepoID:          "repo-1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC),
 		CurrentStatus:   domainapp.StatusApplied,
 	}
 }

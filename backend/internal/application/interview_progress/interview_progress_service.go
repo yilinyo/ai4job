@@ -3,6 +3,7 @@ package interview_progress
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
@@ -35,7 +36,7 @@ func NewInterviewProgressService(repo interviewprogressrepo.Repository, apps App
 }
 
 func (s *InterviewProgressService) Create(ctx context.Context, userID string, req dto.CreateInterviewProgressRequest) (*domainprogress.InterviewProgress, error) {
-	progress := &domainprogress.InterviewProgress{
+	progress, err := domainprogress.NewInterviewProgress(domainprogress.NewInterviewProgressParams{
 		ID:                uuid.NewString(),
 		UserID:            userID,
 		ApplicationID:     req.ApplicationID,
@@ -44,8 +45,8 @@ func (s *InterviewProgressService) Create(ctx context.Context, userID string, re
 		Result:            req.Result,
 		InterviewerOrTeam: req.InterviewerOrTeam,
 		Note:              req.Note,
-	}
-	if err := progress.Validate(); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 	if err := s.ensureApplicationOwned(ctx, userID, progress.ApplicationID); err != nil {
@@ -77,26 +78,20 @@ func (s *InterviewProgressService) Update(ctx context.Context, userID, id string
 	}
 	oldApplicationID := progress.ApplicationID
 
-	if req.ApplicationID != nil {
-		progress.ApplicationID = *req.ApplicationID
-	}
-	if req.Stage != nil {
-		progress.Stage = *req.Stage
-	}
+	var occurredAt *time.Time
 	if req.OccurredAt != nil {
-		progress.OccurredAt = req.OccurredAt.Value()
-	}
-	if req.Result != nil {
-		progress.Result = *req.Result
-	}
-	if req.InterviewerOrTeam != nil {
-		progress.InterviewerOrTeam = *req.InterviewerOrTeam
-	}
-	if req.Note != nil {
-		progress.Note = *req.Note
+		value := req.OccurredAt.Value()
+		occurredAt = &value
 	}
 
-	if err := progress.Validate(); err != nil {
+	if err := progress.ApplyUpdate(domainprogress.UpdateSpec{
+		ApplicationID:     req.ApplicationID,
+		Stage:             req.Stage,
+		OccurredAt:        occurredAt,
+		Result:            req.Result,
+		InterviewerOrTeam: req.InterviewerOrTeam,
+		Note:              req.Note,
+	}); err != nil {
 		return nil, err
 	}
 	if req.ApplicationID != nil && oldApplicationID != progress.ApplicationID {

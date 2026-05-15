@@ -440,11 +440,23 @@ func TestResumeApplicationService_UpdateClearsExistingJobPostingIDWhenProvidedBl
 func TestResumeApplicationService_UpdateCurrentStatusRejectsInvalidStatusAndDelegatesValidStatus(t *testing.T) {
 	repo := &mockResumeApplicationRepo{}
 	svc := appsvc.NewResumeApplicationService(repo, nil, nil, nil)
+	application := &domainapp.ResumeApplication{
+		ID:              "a1",
+		UserID:          "u1",
+		ResumeVersionID: "v1",
+		RepoID:          "r1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+		CurrentStatus:   domainapp.StatusApplied,
+	}
 
+	repo.On("FindByIDAndUserID", mock.Anything, "a1", "u1").Return(application, nil).Once()
 	err := svc.UpdateCurrentStatus(context.Background(), "u1", "a1", domainapp.Status("invalid"))
 	assert.ErrorIs(t, err, domainerrors.ErrBadParams)
 	repo.AssertNotCalled(t, "UpdateCurrentStatus", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 
+	repo.On("FindByIDAndUserID", mock.Anything, "a1", "u1").Return(application, nil).Once()
 	repo.On("UpdateCurrentStatus", mock.Anything, "a1", "u1", domainapp.StatusOffer).Return(nil)
 	err = svc.UpdateCurrentStatus(context.Background(), "u1", "a1", domainapp.StatusOffer)
 
