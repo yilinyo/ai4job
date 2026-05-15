@@ -26,16 +26,15 @@ func (s *ResumeRepoService) Create(ctx context.Context, userID string, req dto.C
 	if exists {
 		return domainerrors.ErrDuplicate
 	}
-	r := &domainrepo.ResumeRepo{
+	r, err := domainrepo.NewResumeRepo(domainrepo.NewResumeRepoParams{
 		ID:             uuid.NewString(),
 		UserID:         userID,
 		Name:           req.Name,
 		JobType:        req.JobType,
 		TargetPosition: req.TargetPosition,
 		Description:    req.Description,
-		VersionCount:   0,
-	}
-	if err := r.Validate(); err != nil {
+	})
+	if err != nil {
 		return err
 	}
 	return s.repo.Create(ctx, r)
@@ -61,11 +60,12 @@ func (s *ResumeRepoService) Update(ctx context.Context, userID, id string, req d
 	if exists {
 		return domainerrors.ErrDuplicate
 	}
-	r.Name = req.Name
-	r.JobType = req.JobType
-	r.TargetPosition = req.TargetPosition
-	r.Description = req.Description
-	if err := r.Validate(); err != nil {
+	if err := r.ApplyUpdate(domainrepo.UpdateSpec{
+		Name:           req.Name,
+		JobType:        req.JobType,
+		TargetPosition: req.TargetPosition,
+		Description:    req.Description,
+	}); err != nil {
 		return err
 	}
 	return s.repo.Update(ctx, r)

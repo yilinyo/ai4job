@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/yilin/ai-for-backend/internal/domain/resume_repo"
 )
 
@@ -15,6 +16,46 @@ func validResumeRepo() *resume_repo.ResumeRepo {
 		TargetPosition: "Backend Engineer",
 		VersionCount:   0,
 	}
+}
+
+func TestNewResumeRepoDefaultsVersionCount(t *testing.T) {
+	repo, err := resume_repo.NewResumeRepo(resume_repo.NewResumeRepoParams{
+		ID:             "repo-1",
+		UserID:         "user-1",
+		Name:           "Backend",
+		JobType:        resume_repo.JobTypeCampus,
+		TargetPosition: "Go Engineer",
+		Description:    "desc",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, repo.VersionCount)
+	assert.Equal(t, "Backend", repo.Name)
+}
+
+func TestResumeRepoApplyUpdateValidatesResult(t *testing.T) {
+	repo := validResumeRepo()
+
+	err := repo.ApplyUpdate(resume_repo.UpdateSpec{
+		Name:           "Backend v2",
+		JobType:        resume_repo.JobTypeSocial,
+		TargetPosition: "Senior Go Engineer",
+		Description:    "updated",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Backend v2", repo.Name)
+	assert.Equal(t, resume_repo.JobTypeSocial, repo.JobType)
+	assert.Equal(t, "Senior Go Engineer", repo.TargetPosition)
+	assert.Equal(t, "updated", repo.Description)
+}
+
+func TestResumeRepoApplyUpdateRejectsInvalidResult(t *testing.T) {
+	repo := validResumeRepo()
+
+	err := repo.ApplyUpdate(resume_repo.UpdateSpec{Name: "", JobType: resume_repo.JobTypeCampus, TargetPosition: "Go Engineer"})
+
+	assert.Error(t, err)
 }
 
 func TestResumeRepo_Validate_Valid(t *testing.T) {

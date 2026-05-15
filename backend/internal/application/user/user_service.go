@@ -72,13 +72,13 @@ func (s *UserService) Register(ctx context.Context, req dto.RegisterRequest) err
 	if existsUsername {
 		return domainerrors.ErrDuplicate
 	}
-	u := &domainuser.User{
-		ID:                   uuid.NewString(),
-		Username:             req.Username,
-		Email:                req.Email,
-		EducationExperiences: []domainuser.EducationExperience{},
-	}
-	if err := u.SetPassword(req.Password); err != nil {
+	u, err := domainuser.NewUser(domainuser.NewUserParams{
+		ID:       uuid.NewString(),
+		Username: req.Username,
+		Email:    req.Email,
+		Password: req.Password,
+	})
+	if err != nil {
 		return err
 	}
 	if err := s.repo.Create(ctx, u); err != nil {
@@ -115,15 +115,16 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID string, req dto.
 	if err != nil {
 		return nil, err
 	}
-	u.RealName = req.RealName
-	u.Age = req.Age
-	u.Phone = req.Phone
-	u.JobIntention = req.JobIntention
-	u.Avatar = req.Avatar
-	u.Location = req.Location
-	u.PersonalAdvantage = req.PersonalAdvantage
-	u.EducationExperiences = req.EducationExperiences
-	u.Normalize()
+	u.UpdateProfile(domainuser.ProfileUpdate{
+		RealName:             req.RealName,
+		Age:                  req.Age,
+		Phone:                req.Phone,
+		JobIntention:         req.JobIntention,
+		Avatar:               req.Avatar,
+		Location:             req.Location,
+		PersonalAdvantage:    req.PersonalAdvantage,
+		EducationExperiences: req.EducationExperiences,
+	})
 	if err := s.repo.Update(ctx, u); err != nil {
 		return nil, err
 	}

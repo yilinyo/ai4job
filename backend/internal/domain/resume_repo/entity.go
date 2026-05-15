@@ -29,6 +29,46 @@ type ResumeRepo struct {
 	DeletedAt      gorm.DeletedAt `gorm:"index"`
 }
 
+type NewResumeRepoParams struct {
+	ID             string
+	UserID         string
+	Name           string
+	JobType        JobType
+	TargetPosition string
+	Description    string
+}
+
+func NewResumeRepo(params NewResumeRepoParams) (*ResumeRepo, error) {
+	repo := &ResumeRepo{
+		ID:             params.ID,
+		UserID:         params.UserID,
+		Name:           params.Name,
+		JobType:        params.JobType,
+		TargetPosition: params.TargetPosition,
+		Description:    params.Description,
+		VersionCount:   0,
+	}
+	if err := repo.Validate(); err != nil {
+		return nil, err
+	}
+	return repo, nil
+}
+
+type UpdateSpec struct {
+	Name           string
+	JobType        JobType
+	TargetPosition string
+	Description    string
+}
+
+func (r *ResumeRepo) ApplyUpdate(update UpdateSpec) error {
+	r.Name = update.Name
+	r.JobType = update.JobType
+	r.TargetPosition = update.TargetPosition
+	r.Description = update.Description
+	return r.Validate()
+}
+
 func (r *ResumeRepo) Validate() error {
 	if strings.TrimSpace(r.UserID) == "" {
 		return domainerrors.ErrBadParams
