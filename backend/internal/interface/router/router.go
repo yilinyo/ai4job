@@ -7,10 +7,13 @@ import (
 
 // Dependencies holds all handler and middleware dependencies for the router.
 type Dependencies struct {
-	UserHandler          *handler.UserHandler
-	ResumeRepoHandler    *handler.ResumeRepoHandler
-	ResumeVersionHandler *handler.ResumeVersionHandler
-	AuthMiddleware       gin.HandlerFunc
+	UserHandler              *handler.UserHandler
+	ResumeRepoHandler        *handler.ResumeRepoHandler
+	ResumeVersionHandler     *handler.ResumeVersionHandler
+	JobPostingHandler        *handler.JobPostingHandler
+	ResumeApplicationHandler *handler.ResumeApplicationHandler
+	InterviewProgressHandler *handler.InterviewProgressHandler
+	AuthMiddleware           gin.HandlerFunc
 }
 
 // NewRouter creates and configures the Gin engine with all routes.
@@ -39,12 +42,31 @@ func NewRouter(deps Dependencies) *gin.Engine {
 		auth.GET("/resume-repos", deps.ResumeRepoHandler.List)
 		auth.POST("/resume-repos", deps.ResumeRepoHandler.Create)
 
-		auth.GET("/resume-repos/:id/versions", deps.ResumeVersionHandler.List)
-		auth.POST("/resume-repos/:id/versions", deps.ResumeVersionHandler.Create)
-		auth.GET("/resume-repos/:id/versions/:versionId", deps.ResumeVersionHandler.Get)
-		auth.PUT("/resume-repos/:id/versions/:versionId", deps.ResumeVersionHandler.Update)
-		auth.DELETE("/resume-repos/:id/versions/:versionId", deps.ResumeVersionHandler.Delete)
-		auth.POST("/resume-repos/:id/versions/:versionId/set-default", deps.ResumeVersionHandler.SetDefault)
+		auth.GET("/resume-versions", deps.ResumeVersionHandler.List)
+		auth.POST("/resume-versions", deps.ResumeVersionHandler.Create)
+		auth.GET("/resume-versions/compare", deps.ResumeVersionHandler.Compare)
+		auth.GET("/resume-versions/:id", deps.ResumeVersionHandler.Get)
+		auth.PUT("/resume-versions/:id", deps.ResumeVersionHandler.Update)
+		auth.DELETE("/resume-versions/:id", deps.ResumeVersionHandler.Delete)
+		auth.POST("/resume-versions/:id/activate", deps.ResumeVersionHandler.Activate)
+
+		auth.GET("/job-postings", deps.JobPostingHandler.List)
+		auth.POST("/job-postings", deps.JobPostingHandler.Create)
+		auth.POST("/job-postings/parse", deps.JobPostingHandler.Parse)
+		auth.GET("/job-postings/:id", deps.JobPostingHandler.Get)
+		auth.PUT("/job-postings/:id", deps.JobPostingHandler.Update)
+		auth.DELETE("/job-postings/:id", deps.JobPostingHandler.Delete)
+
+		auth.GET("/resume-applications", deps.ResumeApplicationHandler.List)
+		auth.POST("/resume-applications", deps.ResumeApplicationHandler.Create)
+		auth.GET("/resume-applications/:id", deps.ResumeApplicationHandler.Get)
+		auth.PUT("/resume-applications/:id", deps.ResumeApplicationHandler.Update)
+		auth.DELETE("/resume-applications/:id", deps.ResumeApplicationHandler.Delete)
+
+		auth.GET("/interview-progress", deps.InterviewProgressHandler.List)
+		auth.POST("/interview-progress", deps.InterviewProgressHandler.Create)
+		auth.PUT("/interview-progress/:id", deps.InterviewProgressHandler.Update)
+		auth.DELETE("/interview-progress/:id", deps.InterviewProgressHandler.Delete)
 
 		auth.GET("/resume-repos/:id", deps.ResumeRepoHandler.Get)
 		auth.PUT("/resume-repos/:id", deps.ResumeRepoHandler.Update)
