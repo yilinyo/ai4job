@@ -55,7 +55,7 @@ func (s *ResumeVersionService) Create(ctx context.Context, userID string, req dt
 	if err != nil {
 		return err
 	}
-	v := &domainversion.ResumeVersion{
+	v, err := domainversion.NewResumeVersion(domainversion.NewResumeVersionParams{
 		ID:       uuid.NewString(),
 		RepoID:   req.RepoID,
 		Version:  fmt.Sprintf("v1.%d.0", count),
@@ -63,8 +63,8 @@ func (s *ResumeVersionService) Create(ctx context.Context, userID string, req dt
 		Content:  req.Content,
 		Remark:   req.Remark,
 		IsActive: false,
-	}
-	if err := v.ValidateForCreate(); err != nil {
+	})
+	if err != nil {
 		return err
 	}
 	if err := s.repo.Create(ctx, v); err != nil {
@@ -90,13 +90,7 @@ func (s *ResumeVersionService) Update(ctx context.Context, userID, id string, re
 		return err
 	}
 	activate := req.IsActive != nil && *req.IsActive
-	v.Title = req.Title
-	v.Content = req.Content
-	v.Remark = req.Remark
-	if req.IsActive != nil && !*req.IsActive {
-		v.IsActive = false
-	}
-	if err := v.ValidateForCreate(); err != nil {
+	if err := v.ApplyUpdate(domainversion.UpdateSpec{Title: req.Title, Content: req.Content, Remark: req.Remark, IsActive: req.IsActive}); err != nil {
 		return err
 	}
 	if err := s.repo.Update(ctx, v); err != nil {

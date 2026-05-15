@@ -26,12 +26,7 @@ func NewJobPostingService(repo jobpostingrepo.Repository) *JobPostingService {
 }
 
 func (s *JobPostingService) Create(ctx context.Context, userID string, req dto.CreateJobPostingRequest) (*domainjob.JobPosting, error) {
-	status := req.Status
-	if status == "" {
-		status = domainjob.StatusPending
-	}
-
-	posting := &domainjob.JobPosting{
+	posting, err := domainjob.NewJobPosting(domainjob.NewJobPostingParams{
 		ID:              uuid.NewString(),
 		UserID:          userID,
 		CompanyName:     req.CompanyName,
@@ -42,10 +37,10 @@ func (s *JobPostingService) Create(ctx context.Context, userID string, req dto.C
 		SalaryRange:     req.SalaryRange,
 		SourcePlatform:  req.SourcePlatform,
 		SourceURL:       req.SourceURL,
-		Status:          status,
+		Status:          req.Status,
 		Remark:          req.Remark,
-	}
-	if err := posting.Validate(); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 	if err := s.repo.Create(ctx, posting); err != nil {
@@ -56,7 +51,7 @@ func (s *JobPostingService) Create(ctx context.Context, userID string, req dto.C
 
 func (s *JobPostingService) List(ctx context.Context, userID, keyword, sourcePlatform, status string, page, pageSize int) ([]domainjob.JobPosting, int64, error) {
 	filterStatus := domainjob.Status(status)
-	if status != "" && !validStatus(filterStatus) {
+	if status != "" && !filterStatus.Valid() {
 		return nil, 0, domainerrors.ErrBadParams
 	}
 
@@ -87,38 +82,18 @@ func (s *JobPostingService) Update(ctx context.Context, userID, id string, req d
 		return err
 	}
 
-	if req.CompanyName != nil {
-		posting.CompanyName = *req.CompanyName
-	}
-	if req.CompanyIntro != nil {
-		posting.CompanyIntro = *req.CompanyIntro
-	}
-	if req.JobTitle != nil {
-		posting.JobTitle = *req.JobTitle
-	}
-	if req.JobRequirements != nil {
-		posting.JobRequirements = *req.JobRequirements
-	}
-	if req.Base != nil {
-		posting.Base = *req.Base
-	}
-	if req.SalaryRange != nil {
-		posting.SalaryRange = *req.SalaryRange
-	}
-	if req.SourcePlatform != nil {
-		posting.SourcePlatform = *req.SourcePlatform
-	}
-	if req.SourceURL != nil {
-		posting.SourceURL = *req.SourceURL
-	}
-	if req.Status != nil {
-		posting.Status = *req.Status
-	}
-	if req.Remark != nil {
-		posting.Remark = *req.Remark
-	}
-
-	if err := posting.Validate(); err != nil {
+	if err := posting.ApplyUpdate(domainjob.UpdateSpec{
+		CompanyName:     req.CompanyName,
+		CompanyIntro:    req.CompanyIntro,
+		JobTitle:        req.JobTitle,
+		JobRequirements: req.JobRequirements,
+		Base:            req.Base,
+		SalaryRange:     req.SalaryRange,
+		SourcePlatform:  req.SourcePlatform,
+		SourceURL:       req.SourceURL,
+		Status:          req.Status,
+		Remark:          req.Remark,
+	}); err != nil {
 		return err
 	}
 	return s.repo.Update(ctx, posting)
@@ -145,15 +120,6 @@ func (s *JobPostingService) Parse(ctx context.Context, req dto.ParseJobPostingRe
 		SourcePlatform:  sourcePlatform,
 		SourceURL:       req.URL,
 	}, nil
-}
-
-func validStatus(status domainjob.Status) bool {
-	switch status {
-	case domainjob.StatusPending, domainjob.StatusApplied, domainjob.StatusNotFit, domainjob.StatusClosed:
-		return true
-	default:
-		return false
-	}
 }
 
 func validParseURL(rawURL string) bool {

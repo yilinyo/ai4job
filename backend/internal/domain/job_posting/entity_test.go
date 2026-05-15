@@ -9,6 +9,45 @@ import (
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
+func TestNewJobPostingDefaultsPendingStatus(t *testing.T) {
+	posting, err := domainjob.NewJobPosting(domainjob.NewJobPostingParams{
+		ID:          "job-1",
+		UserID:      "user-1",
+		CompanyName: "Acme",
+		JobTitle:    "Backend Engineer",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, domainjob.StatusPending, posting.Status)
+}
+
+func TestJobPostingStatusValid(t *testing.T) {
+	assert.True(t, domainjob.StatusPending.Valid())
+	assert.True(t, domainjob.StatusApplied.Valid())
+	assert.False(t, domainjob.Status("unknown").Valid())
+}
+
+func TestJobPostingApplyUpdateValidatesResult(t *testing.T) {
+	posting := &domainjob.JobPosting{ID: "job-1", UserID: "user-1", CompanyName: "Acme", JobTitle: "Backend", Status: domainjob.StatusPending}
+	company := "Beta"
+	status := domainjob.StatusApplied
+
+	err := posting.ApplyUpdate(domainjob.UpdateSpec{CompanyName: &company, Status: &status})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Beta", posting.CompanyName)
+	assert.Equal(t, domainjob.StatusApplied, posting.Status)
+}
+
+func TestJobPostingApplyUpdateRejectsInvalidStatus(t *testing.T) {
+	posting := &domainjob.JobPosting{ID: "job-1", UserID: "user-1", CompanyName: "Acme", JobTitle: "Backend", Status: domainjob.StatusPending}
+	status := domainjob.Status("unknown")
+
+	err := posting.ApplyUpdate(domainjob.UpdateSpec{Status: &status})
+
+	assert.Error(t, err)
+}
+
 func TestJobPosting_Validate_AcceptsFrontendFields(t *testing.T) {
 	posting := validPosting()
 	posting.CompanyIntro = "Company intro"

@@ -36,6 +36,97 @@ type JobPosting struct {
 	DeletedAt       gorm.DeletedAt `gorm:"index"`
 }
 
+type NewJobPostingParams struct {
+	ID              string
+	UserID          string
+	CompanyName     string
+	CompanyIntro    string
+	JobTitle        string
+	JobRequirements string
+	Base            string
+	SalaryRange     string
+	SourcePlatform  string
+	SourceURL       string
+	Status          Status
+	Remark          string
+}
+
+func NewJobPosting(params NewJobPostingParams) (*JobPosting, error) {
+	status := params.Status
+	if status == "" {
+		status = StatusPending
+	}
+	posting := &JobPosting{
+		ID:              params.ID,
+		UserID:          params.UserID,
+		CompanyName:     params.CompanyName,
+		CompanyIntro:    params.CompanyIntro,
+		JobTitle:        params.JobTitle,
+		JobRequirements: params.JobRequirements,
+		Base:            params.Base,
+		SalaryRange:     params.SalaryRange,
+		SourcePlatform:  params.SourcePlatform,
+		SourceURL:       params.SourceURL,
+		Status:          status,
+		Remark:          params.Remark,
+	}
+	if err := posting.Validate(); err != nil {
+		return nil, err
+	}
+	return posting, nil
+}
+
+type UpdateSpec struct {
+	CompanyName     *string
+	CompanyIntro    *string
+	JobTitle        *string
+	JobRequirements *string
+	Base            *string
+	SalaryRange     *string
+	SourcePlatform  *string
+	SourceURL       *string
+	Status          *Status
+	Remark          *string
+}
+
+func (p *JobPosting) ApplyUpdate(update UpdateSpec) error {
+	if update.CompanyName != nil {
+		p.CompanyName = *update.CompanyName
+	}
+	if update.CompanyIntro != nil {
+		p.CompanyIntro = *update.CompanyIntro
+	}
+	if update.JobTitle != nil {
+		p.JobTitle = *update.JobTitle
+	}
+	if update.JobRequirements != nil {
+		p.JobRequirements = *update.JobRequirements
+	}
+	if update.Base != nil {
+		p.Base = *update.Base
+	}
+	if update.SalaryRange != nil {
+		p.SalaryRange = *update.SalaryRange
+	}
+	if update.SourcePlatform != nil {
+		p.SourcePlatform = *update.SourcePlatform
+	}
+	if update.SourceURL != nil {
+		p.SourceURL = *update.SourceURL
+	}
+	if update.Status != nil {
+		p.Status = *update.Status
+	}
+	if update.Remark != nil {
+		p.Remark = *update.Remark
+	}
+	return p.Validate()
+}
+
+func (s Status) Valid() bool {
+	return validStatus(s)
+}
+
 func (p *JobPosting) Validate() error {
 	if strings.TrimSpace(p.UserID) == "" {
 		return domainerrors.ErrBadParams
