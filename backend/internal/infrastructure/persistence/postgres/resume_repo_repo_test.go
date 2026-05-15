@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
+	resumereporepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo/repository"
 	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
 	infrapostgres "github.com/yilin/ai-for-backend/internal/infrastructure/persistence/postgres"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
@@ -55,7 +56,7 @@ func TestIntegrationResumeRepoRepo_CreateListAndFindByOwner(t *testing.T) {
 	assert.Equal(t, "Backend Engineer", found.TargetPosition)
 	assert.Equal(t, 0, found.VersionCount)
 
-	rows, total, err := repo.ListByUser(ctx, domainrepo.ListFilter{UserID: userID, Page: 1, PageSize: 10})
+	rows, total, err := repo.ListByUser(ctx, resumereporepo.ListFilter{UserID: userID, Page: 1, PageSize: 10})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	assert.Len(t, rows, 1)
@@ -103,7 +104,7 @@ func TestIntegrationResumeRepoRepo_ListByUserFiltersByJobType(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, testResumeRepo(uuid.NewString(), userID, "Campus", domainrepo.JobTypeCampus)))
 	require.NoError(t, repo.Create(ctx, testResumeRepo(uuid.NewString(), userID, "Social", domainrepo.JobTypeSocial)))
 
-	rows, total, err := repo.ListByUser(ctx, domainrepo.ListFilter{UserID: userID, JobType: domainrepo.JobTypeCampus, Page: 1, PageSize: 10})
+	rows, total, err := repo.ListByUser(ctx, resumereporepo.ListFilter{UserID: userID, JobType: domainrepo.JobTypeCampus, Page: 1, PageSize: 10})
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
@@ -121,7 +122,7 @@ func TestIntegrationResumeRepoRepo_ListByUserFiltersByKeyword(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, testResumeRepo(uuid.NewString(), userID, "Campus", domainrepo.JobTypeCampus)))
 	require.NoError(t, repo.Create(ctx, testResumeRepo(uuid.NewString(), userID, "Social", domainrepo.JobTypeSocial)))
 
-	rows, total, err := repo.ListByUser(ctx, domainrepo.ListFilter{UserID: userID, Keyword: "camp", Page: 1, PageSize: 10})
+	rows, total, err := repo.ListByUser(ctx, resumereporepo.ListFilter{UserID: userID, Keyword: "camp", Page: 1, PageSize: 10})
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)

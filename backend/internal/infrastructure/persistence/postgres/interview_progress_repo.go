@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	interviewprogressrepo "github.com/yilin/ai-for-backend/internal/domain/interview_progress/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -12,6 +13,8 @@ import (
 type InterviewProgressRepo struct {
 	db *gorm.DB
 }
+
+var _ interviewprogressrepo.Repository = (*InterviewProgressRepo)(nil)
 
 func NewInterviewProgressRepo(db *gorm.DB) *InterviewProgressRepo {
 	return &InterviewProgressRepo{db: db}

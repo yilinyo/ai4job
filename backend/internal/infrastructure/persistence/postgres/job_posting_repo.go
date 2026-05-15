@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	jobpostingrepo "github.com/yilin/ai-for-backend/internal/domain/job_posting/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -13,6 +14,8 @@ import (
 type JobPostingRepo struct {
 	db *gorm.DB
 }
+
+var _ jobpostingrepo.Repository = (*JobPostingRepo)(nil)
 
 func NewJobPostingRepo(db *gorm.DB) *JobPostingRepo {
 	return &JobPostingRepo{db: db}
@@ -74,7 +77,7 @@ func (r *JobPostingRepo) Delete(ctx context.Context, id, userID string) error {
 	return nil
 }
 
-func (r *JobPostingRepo) ListByUser(ctx context.Context, f domainjob.ListFilter) ([]domainjob.JobPosting, int64, error) {
+func (r *JobPostingRepo) ListByUser(ctx context.Context, f jobpostingrepo.ListFilter) ([]domainjob.JobPosting, int64, error) {
 	q := r.db.WithContext(ctx).Model(&domainjob.JobPosting{}).Where("user_id = ?", f.UserID)
 	q = applyJobPostingFilters(q, f)
 
@@ -88,7 +91,7 @@ func (r *JobPostingRepo) ListByUser(ctx context.Context, f domainjob.ListFilter)
 	return rows, total, err
 }
 
-func applyJobPostingFilters(q *gorm.DB, f domainjob.ListFilter) *gorm.DB {
+func applyJobPostingFilters(q *gorm.DB, f jobpostingrepo.ListFilter) *gorm.DB {
 	if keyword := strings.TrimSpace(f.Keyword); keyword != "" {
 		like := "%" + keyword + "%"
 		q = q.Where("company_name ILIKE ? OR job_title ILIKE ?", like, like)

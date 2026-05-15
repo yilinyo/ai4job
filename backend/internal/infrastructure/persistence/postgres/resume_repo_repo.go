@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
+	resumereporepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -12,6 +13,8 @@ import (
 type ResumeRepoRepo struct {
 	db *gorm.DB
 }
+
+var _ resumereporepo.Repository = (*ResumeRepoRepo)(nil)
 
 func NewResumeRepoRepo(db *gorm.DB) *ResumeRepoRepo {
 	return &ResumeRepoRepo{db: db}
@@ -68,7 +71,7 @@ func (r *ResumeRepoRepo) Delete(ctx context.Context, id, userID string) error {
 	return nil
 }
 
-func (r *ResumeRepoRepo) ListByUser(ctx context.Context, f domainrepo.ListFilter) ([]domainrepo.ResumeRepo, int64, error) {
+func (r *ResumeRepoRepo) ListByUser(ctx context.Context, f resumereporepo.ListFilter) ([]domainrepo.ResumeRepo, int64, error) {
 	q := r.db.WithContext(ctx).Model(&domainrepo.ResumeRepo{}).Where("user_id = ?", f.UserID)
 	if f.JobType != "" {
 		q = q.Where("job_type = ?", f.JobType)

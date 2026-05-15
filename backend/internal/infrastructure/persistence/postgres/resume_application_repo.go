@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
+	resumeapplicationrepo "github.com/yilin/ai-for-backend/internal/domain/resume_application/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -13,6 +14,8 @@ import (
 type ResumeApplicationRepo struct {
 	db *gorm.DB
 }
+
+var _ resumeapplicationrepo.Repository = (*ResumeApplicationRepo)(nil)
 
 func NewResumeApplicationRepo(db *gorm.DB) *ResumeApplicationRepo {
 	return &ResumeApplicationRepo{db: db}
@@ -85,7 +88,7 @@ func (r *ResumeApplicationRepo) Delete(ctx context.Context, id, userID string) e
 	return nil
 }
 
-func (r *ResumeApplicationRepo) ListByUser(ctx context.Context, f domainapp.ListFilter) ([]domainapp.ResumeApplication, int64, error) {
+func (r *ResumeApplicationRepo) ListByUser(ctx context.Context, f resumeapplicationrepo.ListFilter) ([]domainapp.ResumeApplication, int64, error) {
 	q := r.db.WithContext(ctx).Model(&domainapp.ResumeApplication{}).Where("user_id = ?", f.UserID)
 	q = applyResumeApplicationFilters(q, f)
 
@@ -119,7 +122,7 @@ func (r *ResumeApplicationRepo) UpdateCurrentStatus(ctx context.Context, id, use
 	return nil
 }
 
-func applyResumeApplicationFilters(q *gorm.DB, f domainapp.ListFilter) *gorm.DB {
+func applyResumeApplicationFilters(q *gorm.DB, f resumeapplicationrepo.ListFilter) *gorm.DB {
 	if resumeVersionID := strings.TrimSpace(f.ResumeVersionID); resumeVersionID != "" {
 		q = q.Where("resume_version_id = ?", resumeVersionID)
 	}

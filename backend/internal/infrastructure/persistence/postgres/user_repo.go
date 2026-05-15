@@ -8,12 +8,15 @@ import (
 	"gorm.io/gorm"
 
 	domainuser "github.com/yilin/ai-for-backend/internal/domain/user"
+	userrepo "github.com/yilin/ai-for-backend/internal/domain/user/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
 type UserRepo struct {
 	db *gorm.DB
 }
+
+var _ userrepo.Repository = (*UserRepo)(nil)
 
 func NewUserRepo(db *gorm.DB) *UserRepo {
 	return &UserRepo{db: db}

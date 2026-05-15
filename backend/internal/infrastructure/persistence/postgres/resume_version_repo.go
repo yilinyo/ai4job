@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
+	resumeversionrepo "github.com/yilin/ai-for-backend/internal/domain/resume_version/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -12,6 +13,8 @@ import (
 type ResumeVersionRepo struct {
 	db *gorm.DB
 }
+
+var _ resumeversionrepo.Repository = (*ResumeVersionRepo)(nil)
 
 func NewResumeVersionRepo(db *gorm.DB) *ResumeVersionRepo {
 	return &ResumeVersionRepo{db: db}
