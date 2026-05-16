@@ -1,10 +1,14 @@
 package dto
 
 import (
+	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	domainreview "github.com/yilin/ai-for-backend/internal/domain/flashcard_review"
@@ -160,4 +164,46 @@ func TestToInterviewQuestionDetailResponseReturnsNilForNilQuestion(t *testing.T)
 	response := ToInterviewQuestionDetailResponse(nil, 0, nil, nil, nil)
 
 	assert.Nil(t, response)
+}
+
+func TestUpdateQuestionFavoriteRequestRequiresExplicitIsFavorite(t *testing.T) {
+	var request UpdateQuestionFavoriteRequest
+	err := bindJSONRequest(&request, `{}`)
+
+	require.Error(t, err)
+}
+
+func TestUpdateQuestionFavoriteRequestAcceptsExplicitFalse(t *testing.T) {
+	var request UpdateQuestionFavoriteRequest
+	err := bindJSONRequest(&request, `{"isFavorite":false}`)
+
+	require.NoError(t, err)
+	require.NotNil(t, request.IsFavorite)
+	assert.False(t, *request.IsFavorite)
+}
+
+func TestCreateQuestionOccurrenceRequestRequiresOccurredAt(t *testing.T) {
+	var request CreateQuestionOccurrenceRequest
+	err := bindJSONRequest(&request, `{"questionId":"question-1","applicationId":"application-1"}`)
+
+	require.Error(t, err)
+}
+
+func TestCreateQuestionOccurrenceRequestAcceptsValidOccurredAt(t *testing.T) {
+	var request CreateQuestionOccurrenceRequest
+	err := bindJSONRequest(&request, `{"questionId":"question-1","applicationId":"application-1","occurredAt":"2026-05-08T10:00:00Z"}`)
+
+	require.NoError(t, err)
+	require.NotNil(t, request.OccurredAt)
+	assert.Equal(t, time.Date(2026, 5, 8, 10, 0, 0, 0, time.UTC), request.OccurredAt.Time)
+}
+
+func bindJSONRequest(target any, body string) error {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	context.Request.Header.Set("Content-Type", "application/json")
+
+	return context.ShouldBindJSON(target)
 }

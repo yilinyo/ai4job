@@ -75,7 +75,7 @@ type UpdateInterviewQuestionRequest struct {
 }
 
 type UpdateQuestionFavoriteRequest struct {
-	IsFavorite bool `json:"isFavorite"`
+	IsFavorite *bool `json:"isFavorite" binding:"required"`
 }
 
 type InterviewQuestionQuery struct {
@@ -94,7 +94,7 @@ type CreateQuestionOccurrenceRequest struct {
 	ApplicationID          string                              `json:"applicationId" binding:"required"`
 	InterviewProgressID    *string                             `json:"interviewProgressId"`
 	InterviewStageSnapshot string                              `json:"interviewStageSnapshot"`
-	OccurredAt             FlexibleTime                        `json:"occurredAt" binding:"required"`
+	OccurredAt             *FlexibleTime                       `json:"occurredAt" binding:"required"`
 	ActualQuestion         string                              `json:"actualQuestion"`
 	AnswerPerformance      *domainoccurrence.AnswerPerformance `json:"answerPerformance"`
 	Note                   string                              `json:"note"`
