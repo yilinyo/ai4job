@@ -328,6 +328,29 @@ func TestCreateOccurrenceRejectsProgressFromDifferentApplication(t *testing.T) {
 	occurrences.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 }
 
+func TestCreateFlashcardReviewRequiresTransactionRunnerWithoutWriting(t *testing.T) {
+	ctx := context.Background()
+	questions := new(mockQuestionRepo)
+	reviews := new(mockReviewRepo)
+	service := NewInterviewQuestionService(questions, new(mockOccurrenceRepo), reviews, nil, nil)
+	question := mustQuestion(t, "question-1", "user-1")
+
+	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(question, nil).Maybe()
+
+	review, gotQuestion, gotSummary, err := service.CreateFlashcardReview(ctx, "user-1", dto.CreateFlashcardReviewRequest{
+		QuestionID: "question-1",
+		Result:     domainreview.ResultMastered,
+		ReviewMode: domainreview.ReviewModeRandom,
+	})
+
+	require.ErrorIs(t, err, domainerrors.ErrBadParams)
+	require.Nil(t, review)
+	require.Empty(t, gotQuestion)
+	require.Empty(t, gotSummary)
+	questions.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
+	reviews.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+}
+
 func TestCreateFlashcardReviewCreatesHistoryAndUpdatesQuestionMasteryAndLastReviewedAt(t *testing.T) {
 	ctx := context.Background()
 	questions := new(mockQuestionRepo)
@@ -428,6 +451,21 @@ func TestGetQuestionAggregatesCountOccurrencesSummaryAndRecentReviews(t *testing
 	questions.AssertExpectations(t)
 	occurrences.AssertExpectations(t)
 	reviews.AssertExpectations(t)
+}
+
+func TestDeleteQuestionRequiresTransactionRunnerWithoutWriting(t *testing.T) {
+	ctx := context.Background()
+	questions := new(mockQuestionRepo)
+	occurrences := new(mockOccurrenceRepo)
+	reviews := new(mockReviewRepo)
+	service := NewInterviewQuestionService(questions, occurrences, reviews, nil, nil)
+
+	err := service.DeleteQuestion(ctx, "user-1", "question-1")
+
+	require.ErrorIs(t, err, domainerrors.ErrBadParams)
+	occurrences.AssertNotCalled(t, "DeleteByQuestionID", mock.Anything, mock.Anything, mock.Anything)
+	reviews.AssertNotCalled(t, "DeleteByQuestionID", mock.Anything, mock.Anything, mock.Anything)
+	questions.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestDeleteQuestionDeletesChildrenBeforeQuestionInsideTransaction(t *testing.T) {

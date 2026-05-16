@@ -71,7 +71,7 @@ func (s *InterviewQuestionService) WithTransactions(transactions TransactionRunn
 
 func (s *InterviewQuestionService) withinTransaction(ctx context.Context, fn func(context.Context) error) error {
 	if s.transactions == nil {
-		return fn(ctx)
+		return domainerrors.ErrBadParams
 	}
 	return s.transactions.WithinTransaction(ctx, fn)
 }
