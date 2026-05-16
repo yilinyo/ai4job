@@ -95,12 +95,15 @@ func TestIntegrationInterviewQuestionRepo_ListByUserFiltersTagsAndCountsOccurren
 	userID := uuid.NewString()
 	applicationID := uuid.NewString()
 
+	otherUserID := uuid.NewString()
+
 	goQuestion := testInterviewQuestion(uuid.NewString(), userID, "Go channels", []string{"go", "concurrency"})
 	sqlQuestion := testInterviewQuestion(uuid.NewString(), userID, "SQL joins", []string{"sql"})
 	require.NoError(t, questions.Create(ctx, goQuestion))
 	require.NoError(t, questions.Create(ctx, sqlQuestion))
 	require.NoError(t, occurrences.Create(ctx, testOccurrence(uuid.NewString(), userID, goQuestion.ID, applicationID, time.Now())))
 	require.NoError(t, occurrences.Create(ctx, testOccurrence(uuid.NewString(), userID, goQuestion.ID, uuid.NewString(), time.Now().Add(time.Second))))
+	require.NoError(t, occurrences.Create(ctx, testOccurrence(uuid.NewString(), otherUserID, goQuestion.ID, uuid.NewString(), time.Now().Add(2*time.Second))))
 
 	rows, total, err := questions.ListByUser(ctx, questionrepo.ListFilter{UserID: userID, Tags: []string{"go"}, Page: 1, PageSize: 10})
 
@@ -109,6 +112,47 @@ func TestIntegrationInterviewQuestionRepo_ListByUserFiltersTagsAndCountsOccurren
 	require.Len(t, rows, 1)
 	assert.Equal(t, goQuestion.ID, rows[0].Question.ID)
 	assert.Equal(t, int64(2), rows[0].OccurrenceCount)
+}
+
+func TestIntegrationInterviewQuestionRepo_CountOccurrencesIgnoresOtherUsers(t *testing.T) {
+	db := setupTestDB(t)
+	migrateInterviewQuestionTables(t, db)
+	questions := infrapostgres.NewInterviewQuestionRepo(db)
+	occurrences := infrapostgres.NewQuestionOccurrenceRepo(db)
+	ctx := context.Background()
+	userID := uuid.NewString()
+	otherUserID := uuid.NewString()
+	question := testInterviewQuestion(uuid.NewString(), userID, "Scoped count", []string{"scope"})
+	require.NoError(t, questions.Create(ctx, question))
+	require.NoError(t, occurrences.Create(ctx, testOccurrence(uuid.NewString(), userID, question.ID, uuid.NewString(), time.Now())))
+	require.NoError(t, occurrences.Create(ctx, testOccurrence(uuid.NewString(), otherUserID, question.ID, uuid.NewString(), time.Now().Add(time.Second))))
+
+	count, err := questions.CountOccurrences(ctx, question.ID, userID)
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), count)
+}
+
+func TestIntegrationInterviewQuestionRepo_ListFlashcardsIgnoresOtherUsersOccurrences(t *testing.T) {
+	db := setupTestDB(t)
+	migrateInterviewQuestionTables(t, db)
+	questions := infrapostgres.NewInterviewQuestionRepo(db)
+	occurrences := infrapostgres.NewQuestionOccurrenceRepo(db)
+	ctx := context.Background()
+	userID := uuid.NewString()
+	otherUserID := uuid.NewString()
+	question := testInterviewQuestion(uuid.NewString(), userID, "Flashcard scoped count", []string{"flashcard"})
+	require.NoError(t, questions.Create(ctx, question))
+	require.NoError(t, occurrences.Create(ctx, testOccurrence(uuid.NewString(), userID, question.ID, uuid.NewString(), time.Now())))
+	require.NoError(t, occurrences.Create(ctx, testOccurrence(uuid.NewString(), otherUserID, question.ID, uuid.NewString(), time.Now().Add(time.Second))))
+
+	rows, total, err := questions.ListFlashcards(ctx, questionrepo.FlashcardFilter{UserID: userID, Mode: domainreview.ReviewModeFrequentFirst, Limit: 10})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, rows, 1)
+	assert.Equal(t, question.ID, rows[0].Question.ID)
+	assert.Equal(t, int64(1), rows[0].OccurrenceCount)
 }
 
 func TestIntegrationInterviewQuestionRepo_UpdatePersistsMutableFields(t *testing.T) {

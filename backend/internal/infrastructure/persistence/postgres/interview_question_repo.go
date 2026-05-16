@@ -94,7 +94,7 @@ func (r *InterviewQuestionRepo) ListByUser(ctx context.Context, f questionrepo.L
 		return nil, 0, err
 	}
 
-	rows, err := r.attachOccurrenceCounts(ctx, questions)
+	rows, err := r.attachOccurrenceCounts(ctx, questions, f.UserID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -121,7 +121,7 @@ func (r *InterviewQuestionRepo) ListFlashcards(ctx context.Context, f questionre
 
 	selectSQL := "interview_questions.*, COALESCE(occurrence_counts.occurrence_count, 0) AS occurrence_count"
 	q = q.Select(selectSQL).
-		Joins("LEFT JOIN (SELECT question_id, COUNT(*) AS occurrence_count FROM question_occurrences WHERE user_id = ? AND deleted_at IS NULL GROUP BY question_id) occurrence_counts ON occurrence_counts.question_id = interview_questions.id", f.UserID)
+		Joins("LEFT JOIN (SELECT question_id, user_id, COUNT(*) AS occurrence_count FROM question_occurrences WHERE user_id = ? AND deleted_at IS NULL GROUP BY question_id, user_id) occurrence_counts ON occurrence_counts.question_id = interview_questions.id AND occurrence_counts.user_id = interview_questions.user_id", f.UserID)
 
 	q = applyFlashcardOrder(q, f.Mode)
 	if f.Limit > 0 {
@@ -168,10 +168,10 @@ func applyQuestionListFilters(q *gorm.DB, f questionrepo.ListFilter) *gorm.DB {
 }
 
 func applyFlashcardFilters(q *gorm.DB, f questionrepo.FlashcardFilter) *gorm.DB {
-	q = q.Where("user_id = ?", f.UserID)
+	q = q.Where("interview_questions.user_id = ?", f.UserID)
 	q = applyTagsAny(q, f.Tags)
 	if f.Difficulty != "" {
-		q = q.Where("difficulty = ?", f.Difficulty)
+		q = q.Where("interview_questions.difficulty = ?", f.Difficulty)
 	}
 	return q
 }
@@ -206,38 +206,14 @@ func applyFlashcardOrder(q *gorm.DB, mode domainreview.ReviewMode) *gorm.DB {
 	}
 }
 
-func (r *InterviewQuestionRepo) attachOccurrenceCounts(ctx context.Context, questions []domainquestion.InterviewQuestion) ([]questionrepo.QuestionWithOccurrenceCount, error) {
+func (r *InterviewQuestionRepo) attachOccurrenceCounts(ctx context.Context, questions []domainquestion.InterviewQuestion, userID string) ([]questionrepo.QuestionWithOccurrenceCount, error) {
 	items := make([]questionrepo.QuestionWithOccurrenceCount, 0, len(questions))
-	if len(questions) == 0 {
-		return items, nil
-	}
-
-	ids := make([]string, 0, len(questions))
 	for _, question := range questions {
-		ids = append(ids, question.ID)
-	}
-
-	type countRow struct {
-		QuestionID string
-		Count      int64
-	}
-	var counts []countRow
-	err := dbFromContext(ctx, r.db).WithContext(ctx).
-		Table("question_occurrences").
-		Select("question_id, COUNT(*) AS count").
-		Where("question_id IN ? AND deleted_at IS NULL", ids).
-		Group("question_id").
-		Scan(&counts).Error
-	if err != nil {
-		return nil, err
-	}
-
-	countsByQuestionID := make(map[string]int64, len(counts))
-	for _, row := range counts {
-		countsByQuestionID[row.QuestionID] = row.Count
-	}
-	for _, question := range questions {
-		items = append(items, questionrepo.QuestionWithOccurrenceCount{Question: question, OccurrenceCount: countsByQuestionID[question.ID]})
+		count, err := r.CountOccurrences(ctx, question.ID, userID)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, questionrepo.QuestionWithOccurrenceCount{Question: question, OccurrenceCount: count})
 	}
 	return items, nil
 }
