@@ -35,12 +35,17 @@ type ProgressReader interface {
 	FindByIDAndUserID(ctx context.Context, id, userID string) (*domainprogress.InterviewProgress, error)
 }
 
+type TransactionRunner interface {
+	WithinTransaction(ctx context.Context, fn func(context.Context) error) error
+}
+
 type InterviewQuestionService struct {
-	questions   questionrepo.Repository
-	occurrences occurrencerepo.Repository
-	reviews     reviewrepo.Repository
-	apps        ApplicationReader
-	progresses  ProgressReader
+	questions    questionrepo.Repository
+	occurrences  occurrencerepo.Repository
+	reviews      reviewrepo.Repository
+	apps         ApplicationReader
+	progresses   ProgressReader
+	transactions TransactionRunner
 }
 
 func NewInterviewQuestionService(questions questionrepo.Repository, occurrences occurrencerepo.Repository, reviews reviewrepo.Repository, apps ApplicationReader, progresses ProgressReader) *InterviewQuestionService {
@@ -51,6 +56,24 @@ func NewInterviewQuestionService(questions questionrepo.Repository, occurrences 
 		apps:        apps,
 		progresses:  progresses,
 	}
+}
+
+func NewInterviewQuestionServiceWithTransactions(questions questionrepo.Repository, occurrences occurrencerepo.Repository, reviews reviewrepo.Repository, apps ApplicationReader, progresses ProgressReader, transactions TransactionRunner) *InterviewQuestionService {
+	service := NewInterviewQuestionService(questions, occurrences, reviews, apps, progresses)
+	service.transactions = transactions
+	return service
+}
+
+func (s *InterviewQuestionService) WithTransactions(transactions TransactionRunner) *InterviewQuestionService {
+	s.transactions = transactions
+	return s
+}
+
+func (s *InterviewQuestionService) withinTransaction(ctx context.Context, fn func(context.Context) error) error {
+	if s.transactions == nil {
+		return fn(ctx)
+	}
+	return s.transactions.WithinTransaction(ctx, fn)
 }
 
 func (s *InterviewQuestionService) CreateQuestion(ctx context.Context, userID string, req dto.CreateInterviewQuestionRequest) (*domainquestion.InterviewQuestion, error) {
@@ -153,13 +176,15 @@ func (s *InterviewQuestionService) DeleteQuestion(ctx context.Context, userID, i
 	if s.questions == nil || s.occurrences == nil || s.reviews == nil {
 		return domainerrors.ErrBadParams
 	}
-	if err := s.questions.Delete(ctx, id, userID); err != nil {
-		return err
-	}
-	if err := s.occurrences.DeleteByQuestionID(ctx, id, userID); err != nil {
-		return err
-	}
-	return s.reviews.DeleteByQuestionID(ctx, id, userID)
+	return s.withinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.occurrences.DeleteByQuestionID(txCtx, id, userID); err != nil {
+			return err
+		}
+		if err := s.reviews.DeleteByQuestionID(txCtx, id, userID); err != nil {
+			return err
+		}
+		return s.questions.Delete(txCtx, id, userID)
+	})
 }
 
 func (s *InterviewQuestionService) UpdateFavorite(ctx context.Context, userID, id string, req dto.UpdateQuestionFavoriteRequest) (*domainquestion.InterviewQuestion, error) {
@@ -289,13 +314,15 @@ func (s *InterviewQuestionService) CreateFlashcardReview(ctx context.Context, us
 	if err != nil {
 		return nil, questionrepo.QuestionWithOccurrenceCount{}, domainreview.ReviewSummary{}, err
 	}
-	if err := s.reviews.Create(ctx, review); err != nil {
-		return nil, questionrepo.QuestionWithOccurrenceCount{}, domainreview.ReviewSummary{}, err
-	}
-	if err := question.ApplyReviewResult(domainquestion.ReviewResult(req.Result), reviewedAt); err != nil {
-		return nil, questionrepo.QuestionWithOccurrenceCount{}, domainreview.ReviewSummary{}, err
-	}
-	if err := s.questions.Update(ctx, question); err != nil {
+	if err := s.withinTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.reviews.Create(txCtx, review); err != nil {
+			return err
+		}
+		if err := question.ApplyReviewResult(domainquestion.ReviewResult(req.Result), reviewedAt); err != nil {
+			return err
+		}
+		return s.questions.Update(txCtx, question)
+	}); err != nil {
 		return nil, questionrepo.QuestionWithOccurrenceCount{}, domainreview.ReviewSummary{}, err
 	}
 	summary, err := s.reviews.SummaryByQuestion(ctx, req.QuestionID, userID)

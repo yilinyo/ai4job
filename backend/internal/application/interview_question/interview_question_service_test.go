@@ -128,6 +128,24 @@ func (m *mockProgressReader) FindByIDAndUserID(ctx context.Context, id, userID s
 	return progress, args.Error(1)
 }
 
+type transactionContextKey struct{}
+
+type fakeTransactionRunner struct {
+	calls int
+}
+
+func (r *fakeTransactionRunner) WithinTransaction(ctx context.Context, fn func(context.Context) error) error {
+	r.calls++
+	return fn(context.WithValue(ctx, transactionContextKey{}, true))
+}
+
+func transactionContextMatcher() interface{} {
+	return mock.MatchedBy(func(ctx context.Context) bool {
+		inTransaction, _ := ctx.Value(transactionContextKey{}).(bool)
+		return inTransaction
+	})
+}
+
 func TestCreateQuestionDoesNotRequireApplicationAndDoesNotCreateOccurrence(t *testing.T) {
 	ctx := context.Background()
 	questions := new(mockQuestionRepo)
@@ -314,17 +332,19 @@ func TestCreateFlashcardReviewCreatesHistoryAndUpdatesQuestionMasteryAndLastRevi
 	ctx := context.Background()
 	questions := new(mockQuestionRepo)
 	reviews := new(mockReviewRepo)
-	service := NewInterviewQuestionService(questions, new(mockOccurrenceRepo), reviews, nil, nil)
+	transactions := new(fakeTransactionRunner)
+	service := NewInterviewQuestionServiceWithTransactions(questions, new(mockOccurrenceRepo), reviews, nil, nil, transactions)
 	reviewedAt := dto.FlexibleTime{Time: time.Date(2026, 5, 15, 11, 0, 0, 0, time.UTC)}
 	question := mustQuestion(t, "question-1", "user-1")
 	summary := &domainreview.ReviewSummary{TotalReviews: 1, MasteredCount: 1, LastReviewedAt: &reviewedAt.Time}
 	updatedWithCount := questionrepo.QuestionWithOccurrenceCount{Question: *question, OccurrenceCount: 3}
+	txCtx := transactionContextMatcher()
 
 	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(question, nil).Once()
-	reviews.On("Create", ctx, mock.MatchedBy(func(r *domainreview.FlashcardReview) bool {
+	reviews.On("Create", txCtx, mock.MatchedBy(func(r *domainreview.FlashcardReview) bool {
 		return r.UserID == "user-1" && r.QuestionID == "question-1" && r.Result == domainreview.ResultMastered && r.ReviewMode == domainreview.ReviewModeRandom && r.ReviewedAt.Equal(reviewedAt.Value())
 	})).Return(nil).Once()
-	questions.On("Update", ctx, mock.MatchedBy(func(q *domainquestion.InterviewQuestion) bool {
+	questions.On("Update", txCtx, mock.MatchedBy(func(q *domainquestion.InterviewQuestion) bool {
 		return q.MasteryStatus == domainquestion.MasteryStatusMastered && q.LastReviewedAt != nil && q.LastReviewedAt.Equal(reviewedAt.Value())
 	})).Return(nil).Once()
 	reviews.On("SummaryByQuestion", ctx, "question-1", "user-1").Return(summary, nil).Once()
@@ -338,10 +358,44 @@ func TestCreateFlashcardReviewCreatesHistoryAndUpdatesQuestionMasteryAndLastRevi
 	})
 
 	require.NoError(t, err)
+	require.Equal(t, 1, transactions.calls)
 	require.Equal(t, domainreview.ResultMastered, review.Result)
 	require.Equal(t, domainquestion.MasteryStatusMastered, gotQuestion.Question.MasteryStatus)
 	require.Equal(t, updatedWithCount.OccurrenceCount, gotQuestion.OccurrenceCount)
 	require.Equal(t, summary, &gotSummary)
+	questions.AssertExpectations(t)
+	reviews.AssertExpectations(t)
+}
+
+func TestCreateFlashcardReviewReturnsUpdateErrorWithoutSummaryOrCountQueries(t *testing.T) {
+	ctx := context.Background()
+	questions := new(mockQuestionRepo)
+	reviews := new(mockReviewRepo)
+	transactions := new(fakeTransactionRunner)
+	service := NewInterviewQuestionServiceWithTransactions(questions, new(mockOccurrenceRepo), reviews, nil, nil, transactions)
+	reviewedAt := dto.FlexibleTime{Time: time.Date(2026, 5, 15, 11, 0, 0, 0, time.UTC)}
+	question := mustQuestion(t, "question-1", "user-1")
+	expectedErr := errors.New("question update failed")
+	txCtx := transactionContextMatcher()
+
+	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(question, nil).Once()
+	reviews.On("Create", txCtx, mock.AnythingOfType("*flashcard_review.FlashcardReview")).Return(nil).Once()
+	questions.On("Update", txCtx, mock.AnythingOfType("*interview_question.InterviewQuestion")).Return(expectedErr).Once()
+
+	review, gotQuestion, gotSummary, err := service.CreateFlashcardReview(ctx, "user-1", dto.CreateFlashcardReviewRequest{
+		QuestionID: "question-1",
+		ReviewedAt: &reviewedAt,
+		Result:     domainreview.ResultMastered,
+		ReviewMode: domainreview.ReviewModeRandom,
+	})
+
+	require.ErrorIs(t, err, expectedErr)
+	require.Nil(t, review)
+	require.Empty(t, gotQuestion)
+	require.Empty(t, gotSummary)
+	require.Equal(t, 1, transactions.calls)
+	reviews.AssertNotCalled(t, "SummaryByQuestion", mock.Anything, mock.Anything, mock.Anything)
+	questions.AssertNotCalled(t, "CountOccurrences", mock.Anything, mock.Anything, mock.Anything)
 	questions.AssertExpectations(t)
 	reviews.AssertExpectations(t)
 }
@@ -376,40 +430,46 @@ func TestGetQuestionAggregatesCountOccurrencesSummaryAndRecentReviews(t *testing
 	reviews.AssertExpectations(t)
 }
 
-func TestDeleteQuestionDeletesQuestionAndCascadesOccurrenceAndReviewSoftDeletes(t *testing.T) {
+func TestDeleteQuestionDeletesChildrenBeforeQuestionInsideTransaction(t *testing.T) {
 	ctx := context.Background()
 	questions := new(mockQuestionRepo)
 	occurrences := new(mockOccurrenceRepo)
 	reviews := new(mockReviewRepo)
-	service := NewInterviewQuestionService(questions, occurrences, reviews, nil, nil)
+	transactions := new(fakeTransactionRunner)
+	service := NewInterviewQuestionServiceWithTransactions(questions, occurrences, reviews, nil, nil, transactions)
+	txCtx := transactionContextMatcher()
 
-	questions.On("Delete", ctx, "question-1", "user-1").Return(nil).Once()
-	occurrences.On("DeleteByQuestionID", ctx, "question-1", "user-1").Return(nil).Once()
-	reviews.On("DeleteByQuestionID", ctx, "question-1", "user-1").Return(nil).Once()
+	occurrences.On("DeleteByQuestionID", txCtx, "question-1", "user-1").Return(nil).Once()
+	reviews.On("DeleteByQuestionID", txCtx, "question-1", "user-1").Return(nil).Once()
+	questions.On("Delete", txCtx, "question-1", "user-1").Return(nil).Once()
 
 	err := service.DeleteQuestion(ctx, "user-1", "question-1")
 
 	require.NoError(t, err)
-	questions.AssertExpectations(t)
+	require.Equal(t, 1, transactions.calls)
 	occurrences.AssertExpectations(t)
 	reviews.AssertExpectations(t)
+	questions.AssertExpectations(t)
 }
 
-func TestDeleteQuestionReturnsCascadeError(t *testing.T) {
+func TestDeleteQuestionReturnsCascadeErrorWithoutDeletingQuestion(t *testing.T) {
 	ctx := context.Background()
 	questions := new(mockQuestionRepo)
 	occurrences := new(mockOccurrenceRepo)
 	reviews := new(mockReviewRepo)
-	service := NewInterviewQuestionService(questions, occurrences, reviews, nil, nil)
+	transactions := new(fakeTransactionRunner)
+	service := NewInterviewQuestionServiceWithTransactions(questions, occurrences, reviews, nil, nil, transactions)
 	expectedErr := errors.New("cascade failed")
 
-	questions.On("Delete", ctx, "question-1", "user-1").Return(nil).Once()
-	occurrences.On("DeleteByQuestionID", ctx, "question-1", "user-1").Return(expectedErr).Once()
+	occurrences.On("DeleteByQuestionID", transactionContextMatcher(), "question-1", "user-1").Return(expectedErr).Once()
 
 	err := service.DeleteQuestion(ctx, "user-1", "question-1")
 
 	require.ErrorIs(t, err, expectedErr)
+	require.Equal(t, 1, transactions.calls)
 	reviews.AssertNotCalled(t, "DeleteByQuestionID", mock.Anything, mock.Anything, mock.Anything)
+	questions.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything, mock.Anything)
+	occurrences.AssertExpectations(t)
 }
 
 func mustQuestion(t *testing.T, id, userID string) *domainquestion.InterviewQuestion {
