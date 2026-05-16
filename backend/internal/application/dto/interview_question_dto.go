@@ -1,52 +1,12 @@
 package dto
 
 import (
-	"encoding/json"
-	"strings"
 	"time"
 
 	domainreview "github.com/yilin/ai-for-backend/internal/domain/flashcard_review"
 	domainquestion "github.com/yilin/ai-for-backend/internal/domain/interview_question"
 	domainoccurrence "github.com/yilin/ai-for-backend/internal/domain/question_occurrence"
 )
-
-type FlexibleTime struct {
-	time.Time
-}
-
-func (t *FlexibleTime) UnmarshalJSON(data []byte) error {
-	var value string
-	if err := json.Unmarshal(data, &value); err != nil {
-		return err
-	}
-	parsed, err := parseFlexibleTime(value)
-	if err != nil {
-		return err
-	}
-	t.Time = parsed
-	return nil
-}
-
-func (t FlexibleTime) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.Time)
-}
-
-func parseFlexibleTime(value string) (time.Time, error) {
-	value = strings.TrimSpace(value)
-	layouts := []string{
-		time.RFC3339Nano,
-		time.RFC3339,
-		"2006-01-02 15:04:05",
-		"2006-01-02 15:04",
-		"2006-01-02",
-	}
-	for _, layout := range layouts {
-		if parsed, err := time.Parse(layout, value); err == nil {
-			return parsed, nil
-		}
-	}
-	return time.Parse(time.RFC3339, value)
-}
 
 type CreateInterviewQuestionRequest struct {
 	Title          string                       `json:"title" binding:"required,max=200"`
