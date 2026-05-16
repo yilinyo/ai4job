@@ -133,3 +133,31 @@ func TestQuestionOccurrenceResponseIncludesAnswerPerformanceAsStringWhenSet(t *t
 	assert.Contains(t, fields, "answerPerformance")
 	assert.NotContains(t, fields, "AnswerPerformance")
 }
+
+func TestQuestionOccurrenceResponseOmitsEmptyOptionalFrontendFields(t *testing.T) {
+	response := &QuestionOccurrenceResponse{
+		ID:                  "occurrence-1",
+		QuestionID:          "question-1",
+		ApplicationID:       "application-1",
+		CompanyNameSnapshot: "腾讯科技",
+		JobTitleSnapshot:    "前端开发工程师",
+		OccurredAt:          time.Date(2026, 5, 8, 10, 0, 0, 0, time.UTC),
+		CreatedAt:           time.Date(2026, 5, 8, 11, 0, 0, 0, time.UTC),
+		UpdatedAt:           time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC),
+	}
+
+	payload, err := json.Marshal(response)
+	require.NoError(t, err)
+
+	var fields map[string]any
+	require.NoError(t, json.Unmarshal(payload, &fields))
+	assert.NotContains(t, fields, "interviewStageSnapshot")
+	assert.NotContains(t, fields, "actualQuestion")
+	assert.NotContains(t, fields, "note")
+}
+
+func TestToInterviewQuestionDetailResponseReturnsNilForNilQuestion(t *testing.T) {
+	response := ToInterviewQuestionDetailResponse(nil, 0, nil, nil, nil)
+
+	assert.Nil(t, response)
+}

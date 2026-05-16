@@ -151,11 +151,11 @@ type QuestionOccurrenceResponse struct {
 	InterviewProgressID    *string                             `json:"interviewProgressId,omitempty"`
 	CompanyNameSnapshot    string                              `json:"companyNameSnapshot"`
 	JobTitleSnapshot       string                              `json:"jobTitleSnapshot"`
-	InterviewStageSnapshot string                              `json:"interviewStageSnapshot"`
+	InterviewStageSnapshot string                              `json:"interviewStageSnapshot,omitempty"`
 	OccurredAt             time.Time                           `json:"occurredAt"`
-	ActualQuestion         string                              `json:"actualQuestion"`
+	ActualQuestion         string                              `json:"actualQuestion,omitempty"`
 	AnswerPerformance      *domainoccurrence.AnswerPerformance `json:"answerPerformance,omitempty"`
-	Note                   string                              `json:"note"`
+	Note                   string                              `json:"note,omitempty"`
 	CreatedAt              time.Time                           `json:"createdAt"`
 	UpdatedAt              time.Time                           `json:"updatedAt"`
 }
@@ -206,6 +206,9 @@ func ToInterviewQuestionResponse(q *domainquestion.InterviewQuestion, occurrence
 }
 
 func ToInterviewQuestionDetailResponse(q *domainquestion.InterviewQuestion, occurrenceCount int64, occurrences []*domainoccurrence.QuestionOccurrence, summary *domainreview.ReviewSummary, reviews []*domainreview.FlashcardReview) *InterviewQuestionDetailResponse {
+	if q == nil {
+		return nil
+	}
 	return &InterviewQuestionDetailResponse{
 		InterviewQuestionResponse: ToInterviewQuestionResponse(q, occurrenceCount),
 		Occurrences:               ToQuestionOccurrenceResponses(occurrences),
