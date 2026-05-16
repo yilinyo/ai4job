@@ -42,6 +42,50 @@ type User struct {
 	DeletedAt            gorm.DeletedAt `gorm:"index"`
 }
 
+type NewUserParams struct {
+	ID       string
+	Username string
+	Email    string
+	Password string
+}
+
+func NewUser(params NewUserParams) (*User, error) {
+	u := &User{
+		ID:                   params.ID,
+		Username:             params.Username,
+		Email:                params.Email,
+		EducationExperiences: []EducationExperience{},
+	}
+	if err := u.SetPassword(params.Password); err != nil {
+		return nil, err
+	}
+	u.Normalize()
+	return u, nil
+}
+
+type ProfileUpdate struct {
+	RealName             string
+	Age                  int
+	Phone                string
+	JobIntention         string
+	Avatar               string
+	Location             string
+	PersonalAdvantage    string
+	EducationExperiences []EducationExperience
+}
+
+func (u *User) UpdateProfile(update ProfileUpdate) {
+	u.RealName = update.RealName
+	u.Age = update.Age
+	u.Phone = update.Phone
+	u.JobIntention = update.JobIntention
+	u.Avatar = update.Avatar
+	u.Location = update.Location
+	u.PersonalAdvantage = update.PersonalAdvantage
+	u.EducationExperiences = update.EducationExperiences
+	u.Normalize()
+}
+
 func (u *User) Normalize() {
 	if u == nil {
 		return

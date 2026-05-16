@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
+	resumereporepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -12,6 +13,8 @@ import (
 type ResumeRepoRepo struct {
 	db *gorm.DB
 }
+
+var _ resumereporepo.Repository = (*ResumeRepoRepo)(nil)
 
 func NewResumeRepoRepo(db *gorm.DB) *ResumeRepoRepo {
 	return &ResumeRepoRepo{db: db}
@@ -39,8 +42,11 @@ func (r *ResumeRepoRepo) Update(ctx context.Context, rr *domainrepo.ResumeRepo) 
 		Model(&domainrepo.ResumeRepo{}).
 		Where("id = ? AND user_id = ?", rr.ID, rr.UserID).
 		Updates(map[string]any{
-			"name":        rr.Name,
-			"description": rr.Description,
+			"name":            rr.Name,
+			"job_type":        rr.JobType,
+			"target_position": rr.TargetPosition,
+			"description":     rr.Description,
+			"version_count":   rr.VersionCount,
 		})
 	if result.Error != nil {
 		if isUniqueViolation(result.Error) {
@@ -65,8 +71,15 @@ func (r *ResumeRepoRepo) Delete(ctx context.Context, id, userID string) error {
 	return nil
 }
 
-func (r *ResumeRepoRepo) ListByUser(ctx context.Context, f domainrepo.ListFilter) ([]domainrepo.ResumeRepo, int64, error) {
+func (r *ResumeRepoRepo) ListByUser(ctx context.Context, f resumereporepo.ListFilter) ([]domainrepo.ResumeRepo, int64, error) {
 	q := r.db.WithContext(ctx).Model(&domainrepo.ResumeRepo{}).Where("user_id = ?", f.UserID)
+	if f.JobType != "" {
+		q = q.Where("job_type = ?", f.JobType)
+	}
+	if f.Keyword != "" {
+		keyword := "%" + f.Keyword + "%"
+		q = q.Where("name ILIKE ? OR target_position ILIKE ?", keyword, keyword)
+	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -84,4 +97,18 @@ func (r *ResumeRepoRepo) ExistsByUserAndName(ctx context.Context, userID, name, 
 	var count int64
 	err := q.Count(&count).Error
 	return count > 0, err
+}
+
+func (r *ResumeRepoRepo) IncrementVersionCount(ctx context.Context, id string, delta int) error {
+	result := r.db.WithContext(ctx).
+		Model(&domainrepo.ResumeRepo{}).
+		Where("id = ?", id).
+		Update("version_count", gorm.Expr("GREATEST(version_count + ?, 0)", delta))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domainerrors.ErrNotFound
+	}
+	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
+	domainuser "github.com/yilin/ai-for-backend/internal/domain/user"
 	"github.com/yilin/ai-for-backend/internal/interface/handler"
 	pkgerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
@@ -68,6 +69,20 @@ func responseCode(t *testing.T, w *httptest.ResponseRecorder) int {
 	return resp.Code
 }
 
+func responseMap(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
+	t.Helper()
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	return resp
+}
+
+func assertNoJSONKeys(t *testing.T, data map[string]any, keys ...string) {
+	t.Helper()
+	for _, key := range keys {
+		assert.NotContains(t, data, key)
+	}
+}
+
 func newRouter(h *handler.UserHandler) *gin.Engine {
 	r := gin.New()
 	r.POST("/email-code", h.SendEmailCode)
@@ -75,6 +90,10 @@ func newRouter(h *handler.UserHandler) *gin.Engine {
 	r.GET("/profile", func(c *gin.Context) {
 		c.Set("userID", "u1")
 		h.GetProfile(c)
+	})
+	r.PUT("/profile", func(c *gin.Context) {
+		c.Set("userID", "u1")
+		h.UpdateProfile(c)
 	})
 	return r
 }
@@ -116,7 +135,15 @@ func TestUserHandler_SendEmailCode_BadBody(t *testing.T) {
 func TestUserHandler_Login_Success(t *testing.T) {
 	svc := &mockUserService{}
 	svc.On("Login", mock.Anything, dto.LoginRequest{Username: "alice", Password: "pass123"}).
-		Return(&dto.LoginResponse{Token: "tok"}, nil)
+		Return(&dto.LoginResponse{
+			Token: "tok",
+			UserInfo: &dto.UserInfoResponse{
+				ID:                   "u1",
+				Username:             "alice",
+				Email:                "alice@example.com",
+				EducationExperiences: []domainuser.EducationExperience{},
+			},
+		}, nil)
 
 	h := handler.NewUserHandler(svc)
 	r := newRouter(h)
@@ -128,6 +155,14 @@ func TestUserHandler_Login_Success(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, pkgerrors.CodeSuccess, responseCode(t, w))
+	resp := responseMap(t, w)
+	data := resp["data"].(map[string]any)
+	userInfo := data["userInfo"].(map[string]any)
+	assert.Equal(t, "tok", data["token"])
+	assert.Equal(t, "u1", userInfo["id"])
+	assert.Equal(t, "alice", userInfo["username"])
+	assert.Contains(t, userInfo, "educationExperiences")
+	assertNoJSONKeys(t, userInfo, "Password", "CreatedAt", "UpdatedAt", "DeletedAt")
 	svc.AssertExpectations(t)
 }
 
@@ -161,5 +196,41 @@ func TestUserHandler_GetProfile_Success(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, pkgerrors.CodeSuccess, responseCode(t, w))
+	resp := responseMap(t, w)
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, "u1", data["id"])
+	assert.Equal(t, "alice", data["username"])
+	assert.Contains(t, data, "educationExperiences")
+	assertNoJSONKeys(t, data, "Password", "CreatedAt", "UpdatedAt", "DeletedAt")
+	svc.AssertExpectations(t)
+}
+
+func TestUserHandler_UpdateProfile_SuccessReturnsDTOFields(t *testing.T) {
+	svc := &mockUserService{}
+	reqDTO := dto.UpdateProfileRequest{RealName: "Alice"}
+	svc.On("UpdateProfile", mock.Anything, "u1", reqDTO).
+		Return(&dto.UserInfoResponse{
+			ID:                   "u1",
+			Username:             "alice",
+			RealName:             "Alice",
+			EducationExperiences: []domainuser.EducationExperience{},
+		}, nil)
+
+	h := handler.NewUserHandler(svc)
+	r := newRouter(h)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPut, "/profile", bytes.NewBufferString(`{"realName":"Alice"}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, pkgerrors.CodeSuccess, responseCode(t, w))
+	resp := responseMap(t, w)
+	data := resp["data"].(map[string]any)
+	assert.Equal(t, "u1", data["id"])
+	assert.Equal(t, "alice", data["username"])
+	assert.Equal(t, "Alice", data["realName"])
+	assert.Contains(t, data, "educationExperiences")
+	assertNoJSONKeys(t, data, "Password", "CreatedAt", "UpdatedAt", "DeletedAt")
 	svc.AssertExpectations(t)
 }

@@ -2,11 +2,13 @@ package resume_version
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
 	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
+	resumeversionrepo "github.com/yilin/ai-for-backend/internal/domain/resume_version/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
@@ -16,15 +18,16 @@ type VersionUseChecker interface {
 
 type ResumeRepoReader interface {
 	Get(ctx context.Context, userID, id string) (*domainrepo.ResumeRepo, error)
+	IncrementVersionCount(ctx context.Context, id string, delta int) error
 }
 
 type ResumeVersionService struct {
 	repoReader ResumeRepoReader
-	repo       domainversion.Repository
+	repo       resumeversionrepo.Repository
 	checker    VersionUseChecker
 }
 
-func NewResumeVersionService(repoReader ResumeRepoReader, repo domainversion.Repository, checker VersionUseChecker) *ResumeVersionService {
+func NewResumeVersionService(repoReader ResumeRepoReader, repo resumeversionrepo.Repository, checker VersionUseChecker) *ResumeVersionService {
 	return &ResumeVersionService{repoReader: repoReader, repo: repo, checker: checker}
 }
 
@@ -33,25 +36,41 @@ func (s *ResumeVersionService) ensureRepoOwned(ctx context.Context, userID, repo
 	return err
 }
 
-func (s *ResumeVersionService) Create(ctx context.Context, userID, repoID string, req dto.CreateResumeVersionRequest) error {
-	if err := s.ensureRepoOwned(ctx, userID, repoID); err != nil {
+func (s *ResumeVersionService) ensureVersionOwned(ctx context.Context, userID, id string) (*domainversion.ResumeVersion, error) {
+	v, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.ensureRepoOwned(ctx, userID, v.RepoID); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (s *ResumeVersionService) Create(ctx context.Context, userID string, req dto.CreateResumeVersionRequest) error {
+	if err := s.ensureRepoOwned(ctx, userID, req.RepoID); err != nil {
 		return err
 	}
-	maxNum, err := s.repo.MaxVersionNum(ctx, repoID)
+	count, err := s.repo.CountByRepoID(ctx, req.RepoID)
 	if err != nil {
 		return err
 	}
-	v := &domainversion.ResumeVersion{ID: uuid.NewString(), RepoID: repoID, Title: req.Title, Content: req.Content, VersionNum: maxNum + 1}
-	if err := v.ValidateForCreate(); err != nil {
+	v, err := domainversion.NewResumeVersion(domainversion.NewResumeVersionParams{
+		ID:       uuid.NewString(),
+		RepoID:   req.RepoID,
+		Version:  fmt.Sprintf("v1.%d.0", count),
+		Title:    req.Title,
+		Content:  req.Content,
+		Remark:   req.Remark,
+		IsActive: false,
+	})
+	if err != nil {
 		return err
 	}
 	if err := s.repo.Create(ctx, v); err != nil {
 		return err
 	}
-	if req.IsDefault {
-		return s.repo.SetDefaultByID(ctx, repoID, v.ID)
-	}
-	return nil
+	return s.repoReader.IncrementVersionCount(ctx, req.RepoID, 1)
 }
 
 func (s *ResumeVersionService) List(ctx context.Context, userID, repoID string) ([]domainversion.ResumeVersion, error) {
@@ -61,34 +80,31 @@ func (s *ResumeVersionService) List(ctx context.Context, userID, repoID string) 
 	return s.repo.ListByRepoID(ctx, repoID)
 }
 
-func (s *ResumeVersionService) Get(ctx context.Context, userID, repoID, id string) (*domainversion.ResumeVersion, error) {
-	if err := s.ensureRepoOwned(ctx, userID, repoID); err != nil {
-		return nil, err
-	}
-	return s.repo.FindByIDAndRepoID(ctx, id, repoID)
+func (s *ResumeVersionService) Get(ctx context.Context, userID, id string) (*domainversion.ResumeVersion, error) {
+	return s.ensureVersionOwned(ctx, userID, id)
 }
 
-func (s *ResumeVersionService) Update(ctx context.Context, userID, repoID, id string, req dto.UpdateResumeVersionRequest) error {
-	if err := s.ensureRepoOwned(ctx, userID, repoID); err != nil {
-		return err
-	}
-	v, err := s.repo.FindByIDAndRepoID(ctx, id, repoID)
+func (s *ResumeVersionService) Update(ctx context.Context, userID, id string, req dto.UpdateResumeVersionRequest) error {
+	v, err := s.ensureVersionOwned(ctx, userID, id)
 	if err != nil {
 		return err
 	}
-	v.Title = req.Title
-	v.Content = req.Content
-	if err := v.ValidateForCreate(); err != nil {
+	activate := req.IsActive != nil && *req.IsActive
+	if err := v.ApplyUpdate(domainversion.UpdateSpec{Title: req.Title, Content: req.Content, Remark: req.Remark, IsActive: req.IsActive}); err != nil {
 		return err
 	}
-	return s.repo.Update(ctx, v)
+	if err := s.repo.Update(ctx, v); err != nil {
+		return err
+	}
+	if activate {
+		return s.repo.SetActiveByID(ctx, v.RepoID, id)
+	}
+	return nil
 }
 
-func (s *ResumeVersionService) Delete(ctx context.Context, userID, repoID, id string) error {
-	if err := s.ensureRepoOwned(ctx, userID, repoID); err != nil {
-		return err
-	}
-	if _, err := s.repo.FindByIDAndRepoID(ctx, id, repoID); err != nil {
+func (s *ResumeVersionService) Delete(ctx context.Context, userID, id string) error {
+	v, err := s.ensureVersionOwned(ctx, userID, id)
+	if err != nil {
 		return err
 	}
 	inUse, err := s.checker.ExistsByResumeVersionID(ctx, id)
@@ -98,12 +114,16 @@ func (s *ResumeVersionService) Delete(ctx context.Context, userID, repoID, id st
 	if inUse {
 		return domainerrors.ErrVersionInUse
 	}
-	return s.repo.Delete(ctx, id, repoID)
-}
-
-func (s *ResumeVersionService) SetDefault(ctx context.Context, userID, repoID, id string) error {
-	if err := s.ensureRepoOwned(ctx, userID, repoID); err != nil {
+	if err := s.repo.Delete(ctx, id, v.RepoID); err != nil {
 		return err
 	}
-	return s.repo.SetDefaultByID(ctx, repoID, id)
+	return s.repoReader.IncrementVersionCount(ctx, v.RepoID, -1)
+}
+
+func (s *ResumeVersionService) Activate(ctx context.Context, userID, id string) error {
+	v, err := s.ensureVersionOwned(ctx, userID, id)
+	if err != nil {
+		return err
+	}
+	return s.repo.SetActiveByID(ctx, v.RepoID, id)
 }

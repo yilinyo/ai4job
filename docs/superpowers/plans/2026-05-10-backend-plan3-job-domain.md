@@ -1,124 +1,255 @@
-# Backend Plan 3: Job Domain Implementation Plan
+# Backend Plan 3: Frontend-Aligned Job Domain Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the Job domain so authenticated users can track job postings, link submitted resume versions to jobs, and manage interview progress rounds.
+**Goal:** Implement the backend job-domain APIs so they match the existing frontend job posting, resume application, and interview progress interfaces exactly.
 
-**Architecture:** Continue the 4-layer DDD architecture from Plans 1-2: Interface (Gin handlers) → Application (use cases) → Domain (entities + repository interfaces) → Infrastructure (GORM/PostgreSQL repositories). All operations are scoped by `userID` from auth middleware, with repository interfaces defined in the domain layer and implemented in infrastructure.
+**Architecture:** Keep the current backend DDD layering: domain entities define persisted state and validation, application DTOs translate between Go and frontend JSON, services enforce user ownership and cross-aggregate rules, GORM repositories persist snake_case PostgreSQL columns, and Gin handlers expose the frontend API contract. The frontend is the source of truth for route paths, JSON names, query parameters, status enums, and response shapes; do not change frontend files for this plan.
 
-**Tech Stack:** Go 1.25, Gin, GORM + PostgreSQL 16, google/uuid, golang-migrate, testify, mockery v2, testcontainers-go
+**Tech Stack:** Go, Gin, GORM, PostgreSQL migrations, google/uuid, testify/mock, existing `pkg/response`, existing pagination conventions.
+
+---
+
+## Frontend Contract to Preserve
+
+The backend must adapt to these existing frontend files:
+
+- `frontend/src/models/job-posting.ts`
+- `frontend/src/api/job-postings.ts`
+- `frontend/mock/job-postings.ts`
+- `frontend/src/models/resume-application.ts`
+- `frontend/src/api/resume-applications.ts`
+- `frontend/mock/resume-applications.ts`
+- `frontend/src/models/interview-progress.ts`
+- `frontend/src/api/interview-progress.ts`
+- `frontend/mock/interview-progress.ts`
+
+### JobPosting API
+
+Routes:
+
+```text
+GET    /api/job-postings
+GET    /api/job-postings/:id
+POST   /api/job-postings
+PUT    /api/job-postings/:id
+DELETE /api/job-postings/:id
+POST   /api/job-postings/parse
+```
+
+JSON fields:
+
+```text
+id, companyName, companyIntro, jobTitle, jobRequirements, base, salaryRange,
+sourcePlatform, sourceUrl, status, remark, createdAt, updatedAt
+```
+
+Query fields:
+
+```text
+keyword, sourcePlatform, status, page, pageSize
+```
+
+Status values:
+
+```text
+pending, applied, not_fit, closed
+```
+
+### ResumeApplication API
+
+Routes:
+
+```text
+GET    /api/resume-applications
+GET    /api/resume-applications/:id
+POST   /api/resume-applications
+PUT    /api/resume-applications/:id
+DELETE /api/resume-applications/:id
+```
+
+JSON fields:
+
+```text
+id, jobPostingId, resumeVersionId, repoId, companyName, companyIntro, jobTitle,
+jobRequirements, base, salaryRange, sourcePlatform, sourceUrl, deliveryChannel,
+appliedAt, currentStatus, interviewSummary, interviewNotes, resumeMatchScore,
+interviewPerformanceScore, roleInterestScore, overallScore, remark, createdAt, updatedAt
+```
+
+Query fields:
+
+```text
+resumeVersionId, repoId, keyword, currentStatus, page, pageSize
+```
+
+Status values:
+
+```text
+applied, viewed, written_test, first_interview, second_interview,
+final_interview, hr_interview, offer, rejected, closed
+```
+
+### InterviewProgress API
+
+Routes:
+
+```text
+GET    /api/interview-progress?applicationId=...
+POST   /api/interview-progress
+PUT    /api/interview-progress/:id
+DELETE /api/interview-progress/:id
+```
+
+JSON fields:
+
+```text
+id, applicationId, stage, occurredAt, result, interviewerOrTeam, note, createdAt, updatedAt
+```
+
+Stage values match application statuses. Result values:
+
+```text
+passed, pending, failed
+```
+
+Behavior:
+
+- Creating, updating, or deleting interview progress recalculates the parent application's `currentStatus` from the latest progress by `occurredAt`.
+- If the latest progress has `result === failed`, the application status becomes `rejected`.
+- Otherwise the application status becomes the latest progress `stage`.
 
 ---
 
 ## File Map
 
+Create these files:
+
+```text
+backend/internal/domain/job_posting/entity.go
+backend/internal/domain/job_posting/repository.go
+backend/internal/domain/job_posting/entity_test.go
+backend/internal/domain/resume_application/entity.go
+backend/internal/domain/resume_application/repository.go
+backend/internal/domain/resume_application/entity_test.go
+backend/internal/domain/interview_progress/entity.go
+backend/internal/domain/interview_progress/repository.go
+backend/internal/domain/interview_progress/entity_test.go
+backend/internal/application/dto/job_dto.go
+backend/internal/application/job_posting/job_posting_service.go
+backend/internal/application/job_posting/job_posting_service_test.go
+backend/internal/application/resume_application/resume_application_service.go
+backend/internal/application/resume_application/resume_application_service_test.go
+backend/internal/application/interview_progress/interview_progress_service.go
+backend/internal/application/interview_progress/interview_progress_service_test.go
+backend/internal/infrastructure/persistence/postgres/job_posting_repo.go
+backend/internal/infrastructure/persistence/postgres/job_posting_repo_test.go
+backend/internal/infrastructure/persistence/postgres/resume_application_repo.go
+backend/internal/infrastructure/persistence/postgres/resume_application_repo_test.go
+backend/internal/infrastructure/persistence/postgres/interview_progress_repo.go
+backend/internal/infrastructure/persistence/postgres/interview_progress_repo_test.go
+backend/internal/interface/handler/job_posting_handler.go
+backend/internal/interface/handler/job_posting_handler_test.go
+backend/internal/interface/handler/resume_application_handler.go
+backend/internal/interface/handler/resume_application_handler_test.go
+backend/internal/interface/handler/interview_progress_handler.go
+backend/internal/interface/handler/interview_progress_handler_test.go
+backend/migrations/000004_create_job_postings.up.sql
+backend/migrations/000004_create_job_postings.down.sql
+backend/migrations/000005_create_resume_applications.up.sql
+backend/migrations/000005_create_resume_applications.down.sql
+backend/migrations/000006_create_interview_progress.up.sql
+backend/migrations/000006_create_interview_progress.down.sql
 ```
-backend/
-├── internal/
-│   ├── interface/
-│   │   ├── handler/job_posting_handler.go
-│   │   ├── handler/job_posting_handler_test.go
-│   │   ├── handler/resume_application_handler.go
-│   │   ├── handler/resume_application_handler_test.go
-│   │   ├── handler/interview_progress_handler.go
-│   │   ├── handler/interview_progress_handler_test.go
-│   │   └── router/router.go                 # update: add job domain routes
-│   ├── application/
-│   │   ├── dto/job_dto.go
-│   │   ├── job_posting/job_posting_service.go
-│   │   ├── job_posting/job_posting_service_test.go
-│   │   ├── resume_application/resume_application_service.go
-│   │   ├── resume_application/resume_application_service_test.go
-│   │   ├── interview_progress/interview_progress_service.go
-│   │   └── interview_progress/interview_progress_service_test.go
-│   ├── domain/
-│   │   ├── job_posting/
-│   │   │   ├── entity.go
-│   │   │   ├── repository.go
-│   │   │   └── entity_test.go
-│   │   ├── resume_application/
-│   │   │   ├── entity.go
-│   │   │   ├── repository.go
-│   │   │   └── entity_test.go
-│   │   └── interview_progress/
-│   │       ├── entity.go
-│   │       ├── repository.go
-│   │       └── entity_test.go
-│   └── infrastructure/
-│       └── persistence/postgres/
-│           ├── job_posting_repo.go
-│           ├── job_posting_repo_test.go
-│           ├── resume_application_repo.go
-│           ├── resume_application_repo_test.go
-│           ├── interview_progress_repo.go
-│           └── interview_progress_repo_test.go
-├── migrations/
-│   ├── 000004_create_job_postings.up.sql
-│   ├── 000004_create_job_postings.down.sql
-│   ├── 000005_create_resume_applications.up.sql
-│   ├── 000005_create_resume_applications.down.sql
-│   ├── 000006_create_interview_progress.up.sql
-│   └── 000006_create_interview_progress.down.sql
-└── cmd/server/main.go                         # update: wire repos/services/handlers
+
+Modify these files:
+
+```text
+backend/internal/interface/router/router.go
+backend/internal/interface/router/router_test.go
+backend/cmd/server/main.go
 ```
+
+Do not modify frontend files.
 
 ---
 
-## Task 1: JobPosting Domain Entity and Repository Interface
+### Task 1: Add frontend-aligned JobPosting domain
 
 **Files:**
 - Create: `backend/internal/domain/job_posting/entity.go`
 - Create: `backend/internal/domain/job_posting/repository.go`
 - Create: `backend/internal/domain/job_posting/entity_test.go`
 
-- [ ] **Step 1: Write the failing entity tests**
+- [ ] **Step 1: Write failing JobPosting entity tests**
+
+Create `backend/internal/domain/job_posting/entity_test.go`:
 
 ```go
-// internal/domain/job_posting/entity_test.go
 package job_posting_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	"github.com/stretchr/testify/require"
+	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
-func TestJobPosting_Validate_Valid(t *testing.T) {
-	p := &job_posting.JobPosting{
-		UserID:   "user-1",
-		Company:  "Acme",
-		Position: "Backend Engineer",
-		JobType:  job_posting.JobTypeSocial,
-		Status:   job_posting.StatusCollecting,
+func TestJobPosting_Validate_AcceptsFrontendFields(t *testing.T) {
+	posting := &domainjob.JobPosting{
+		UserID:          "user-1",
+		CompanyName:     "Acme",
+		CompanyIntro:    "Company intro",
+		JobTitle:        "Frontend Engineer",
+		JobRequirements: "Vue and TypeScript",
+		Base:            "Shenzhen",
+		SalaryRange:     "25k-35k x 16",
+		SourcePlatform:  "Boss",
+		SourceURL:       "https://example.com/job/1",
+		Status:          domainjob.StatusPending,
+		Remark:          "priority",
 	}
-	assert.NoError(t, p.Validate())
+
+	require.NoError(t, posting.Validate())
 }
 
-func TestJobPosting_Validate_EmptyUserID(t *testing.T) {
-	p := &job_posting.JobPosting{Company: "Acme", Position: "Backend", JobType: job_posting.JobTypeSocial, Status: job_posting.StatusCollecting}
-	assert.Error(t, p.Validate())
-}
+func TestJobPosting_Validate_RejectsMissingRequiredFrontendFields(t *testing.T) {
+	tests := []struct {
+		name    string
+		posting domainjob.JobPosting
+	}{
+		{name: "missing user", posting: domainjob.JobPosting{CompanyName: "Acme", JobTitle: "Frontend", Status: domainjob.StatusPending}},
+		{name: "missing companyName", posting: domainjob.JobPosting{UserID: "user-1", JobTitle: "Frontend", Status: domainjob.StatusPending}},
+		{name: "missing jobTitle", posting: domainjob.JobPosting{UserID: "user-1", CompanyName: "Acme", Status: domainjob.StatusPending}},
+		{name: "invalid status", posting: domainjob.JobPosting{UserID: "user-1", CompanyName: "Acme", JobTitle: "Frontend", Status: "collecting"}},
+	}
 
-func TestJobPosting_Validate_InvalidStatus(t *testing.T) {
-	p := &job_posting.JobPosting{UserID: "user-1", Company: "Acme", Position: "Backend", JobType: job_posting.JobTypeSocial, Status: "unknown"}
-	assert.Error(t, p.Validate())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.posting.Validate()
+			assert.ErrorIs(t, err, domainerrors.ErrBadParams)
+		})
+	}
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run:
 
 ```bash
-cd /Users/yilin/project/ai-for/backend
-go test ./internal/domain/job_posting/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/domain/job_posting -count=1
 ```
 
-Expected: FAIL with package/file not found.
+Expected: FAIL because package `internal/domain/job_posting` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: Implement JobPosting entity**
+
+Create `backend/internal/domain/job_posting/entity.go`:
 
 ```go
-// internal/domain/job_posting/entity.go
 package job_posting
 
 import (
@@ -129,65 +260,55 @@ import (
 	"gorm.io/gorm"
 )
 
-type JobType string
-
-const (
-	JobTypeCampus     JobType = "campus"
-	JobTypeSocial     JobType = "social"
-	JobTypeInternship JobType = "internship"
-)
-
 type Status string
 
 const (
-	StatusCollecting   Status = "collecting"
-	StatusApplying     Status = "applying"
-	StatusInterviewing Status = "interviewing"
-	StatusOffered      Status = "offered"
-	StatusRejected     Status = "rejected"
-	StatusWithdrawn    Status = "withdrawn"
+	StatusPending Status = "pending"
+	StatusApplied Status = "applied"
+	StatusNotFit  Status = "not_fit"
+	StatusClosed  Status = "closed"
 )
 
 type JobPosting struct {
-	ID          string         `gorm:"type:uuid;primaryKey"`
-	UserID      string         `gorm:"type:uuid;not null;index"`
-	Company     string         `gorm:"type:varchar(120);not null"`
-	Position    string         `gorm:"type:varchar(120);not null"`
-	JobType     JobType        `gorm:"type:varchar(20);not null"`
-	Location    string         `gorm:"type:varchar(120)"`
-	Salary      string         `gorm:"type:varchar(120)"`
-	Description string         `gorm:"type:text"`
-	Source      string         `gorm:"type:varchar(120)"`
-	URL         string         `gorm:"type:varchar(500)"`
-	Status      Status         `gorm:"type:varchar(20);not null"`
-	Notes       string         `gorm:"type:text"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	ID              string `gorm:"type:uuid;primaryKey"`
+	UserID          string `gorm:"type:uuid;not null;index"`
+	CompanyName     string `gorm:"type:varchar(120);not null"`
+	CompanyIntro    string `gorm:"type:text"`
+	JobTitle        string `gorm:"type:varchar(120);not null"`
+	JobRequirements string `gorm:"type:text"`
+	Base            string `gorm:"type:varchar(120)"`
+	SalaryRange     string `gorm:"type:varchar(120)"`
+	SourcePlatform  string `gorm:"type:varchar(120);index"`
+	SourceURL       string `gorm:"type:varchar(500)"`
+	Status          Status `gorm:"type:varchar(20);not null;index"`
+	Remark          string `gorm:"type:text"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       gorm.DeletedAt `gorm:"index"`
 }
 
 func (p *JobPosting) Validate() error {
-	if strings.TrimSpace(p.UserID) == "" || strings.TrimSpace(p.Company) == "" || strings.TrimSpace(p.Position) == "" {
+	if strings.TrimSpace(p.UserID) == "" {
 		return domainerrors.ErrBadParams
 	}
-	if !validJobType(p.JobType) || !validStatus(p.Status) {
+	if strings.TrimSpace(p.CompanyName) == "" {
+		return domainerrors.ErrBadParams
+	}
+	if strings.TrimSpace(p.JobTitle) == "" {
+		return domainerrors.ErrBadParams
+	}
+	if len([]rune(p.CompanyName)) > 120 || len([]rune(p.JobTitle)) > 120 {
+		return domainerrors.ErrBadParams
+	}
+	if !validStatus(p.Status) {
 		return domainerrors.ErrBadParams
 	}
 	return nil
 }
 
-func validJobType(t JobType) bool {
-	switch t {
-	case JobTypeCampus, JobTypeSocial, JobTypeInternship:
-		return true
-	default:
-		return false
-	}
-}
-
-func validStatus(s Status) bool {
-	switch s {
-	case StatusCollecting, StatusApplying, StatusInterviewing, StatusOffered, StatusRejected, StatusWithdrawn:
+func validStatus(status Status) bool {
+	switch status {
+	case StatusPending, StatusApplied, StatusNotFit, StatusClosed:
 		return true
 	default:
 		return false
@@ -195,18 +316,22 @@ func validStatus(s Status) bool {
 }
 ```
 
+- [ ] **Step 4: Implement JobPosting repository interface**
+
+Create `backend/internal/domain/job_posting/repository.go`:
+
 ```go
-// internal/domain/job_posting/repository.go
 package job_posting
 
 import "context"
 
 type ListFilter struct {
-	UserID   string
-	Status   string
-	JobType  string
-	Page     int
-	PageSize int
+	UserID         string
+	Keyword        string
+	SourcePlatform string
+	Status         Status
+	Page           int
+	PageSize       int
 }
 
 type Repository interface {
@@ -218,34 +343,36 @@ type Repository interface {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run JobPosting domain tests**
+
+Run:
 
 ```bash
-go test ./internal/domain/job_posting/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/domain/job_posting -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add internal/domain/job_posting/
-git commit -m "feat: add job posting domain entity and repository interface"
+cd /Users/yilin/project/ai-for/backend && git add internal/domain/job_posting && git commit -m "feat: add frontend-aligned job posting domain"
 ```
 
 ---
 
-## Task 2: ResumeApplication Domain Entity and Repository Interface
+### Task 2: Add frontend-aligned ResumeApplication domain
 
 **Files:**
 - Create: `backend/internal/domain/resume_application/entity.go`
 - Create: `backend/internal/domain/resume_application/repository.go`
 - Create: `backend/internal/domain/resume_application/entity_test.go`
 
-- [ ] **Step 1: Write the failing entity tests**
+- [ ] **Step 1: Write failing ResumeApplication entity tests**
+
+Create `backend/internal/domain/resume_application/entity_test.go`:
 
 ```go
-// internal/domain/resume_application/entity_test.go
 package resume_application_test
 
 import (
@@ -253,32 +380,65 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yilin/ai-for-backend/internal/domain/resume_application"
+	"github.com/stretchr/testify/require"
+	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
-func TestResumeApplication_Validate_Valid(t *testing.T) {
-	a := &resume_application.ResumeApplication{UserID: "u1", JobPostingID: "j1", ResumeVersionID: "v1", AppliedAt: time.Now()}
-	assert.NoError(t, a.Validate())
+func TestResumeApplication_Validate_AcceptsFrontendFields(t *testing.T) {
+	app := &domainapp.ResumeApplication{
+		UserID:                    "user-1",
+		JobPostingID:              "job-1",
+		ResumeVersionID:           "version-1",
+		RepoID:                    "repo-1",
+		CompanyName:               "Acme",
+		JobTitle:                  "Frontend Engineer",
+		AppliedAt:                 time.Now(),
+		CurrentStatus:             domainapp.StatusApplied,
+		ResumeMatchScore:          5,
+		InterviewPerformanceScore: 4,
+		RoleInterestScore:         5,
+		OverallScore:              9,
+	}
+
+	require.NoError(t, app.Validate())
 }
 
-func TestResumeApplication_Validate_MissingVersion(t *testing.T) {
-	a := &resume_application.ResumeApplication{UserID: "u1", JobPostingID: "j1"}
-	assert.Error(t, a.Validate())
+func TestResumeApplication_Validate_RejectsInvalidFrontendFields(t *testing.T) {
+	tests := []struct {
+		name string
+		app  domainapp.ResumeApplication
+	}{
+		{name: "missing user", app: domainapp.ResumeApplication{ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: domainapp.StatusApplied}},
+		{name: "missing version", app: domainapp.ResumeApplication{UserID: "u1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: domainapp.StatusApplied}},
+		{name: "missing repo", app: domainapp.ResumeApplication{UserID: "u1", ResumeVersionID: "v1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: domainapp.StatusApplied}},
+		{name: "invalid status", app: domainapp.ResumeApplication{UserID: "u1", ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: "pending"}},
+		{name: "invalid score", app: domainapp.ResumeApplication{UserID: "u1", ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: time.Now(), CurrentStatus: domainapp.StatusApplied, OverallScore: 11}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.ErrorIs(t, tt.app.Validate(), domainerrors.ErrBadParams)
+		})
+	}
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run:
 
 ```bash
-go test ./internal/domain/resume_application/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/domain/resume_application -count=1
 ```
 
-Expected: FAIL with package/file not found.
+Expected: FAIL because package `internal/domain/resume_application` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: Implement ResumeApplication entity**
+
+Create `backend/internal/domain/resume_application/entity.go`:
 
 ```go
-// internal/domain/resume_application/entity.go
 package resume_application
 
 import (
@@ -286,107 +446,207 @@ import (
 	"time"
 
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
+	"gorm.io/gorm"
+)
+
+type Status string
+
+const (
+	StatusApplied         Status = "applied"
+	StatusViewed          Status = "viewed"
+	StatusWrittenTest     Status = "written_test"
+	StatusFirstInterview  Status = "first_interview"
+	StatusSecondInterview Status = "second_interview"
+	StatusFinalInterview  Status = "final_interview"
+	StatusHRInterview     Status = "hr_interview"
+	StatusOffer           Status = "offer"
+	StatusRejected        Status = "rejected"
+	StatusClosed          Status = "closed"
 )
 
 type ResumeApplication struct {
-	ID              string    `gorm:"type:uuid;primaryKey"`
-	UserID          string    `gorm:"type:uuid;not null;index"`
-	JobPostingID    string    `gorm:"type:uuid;not null;index"`
-	ResumeVersionID string    `gorm:"type:uuid;not null;index"`
-	AppliedAt       time.Time `gorm:"not null"`
-	Notes           string    `gorm:"type:text"`
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                        string `gorm:"type:uuid;primaryKey"`
+	UserID                    string `gorm:"type:uuid;not null;index"`
+	JobPostingID              string `gorm:"type:uuid;index"`
+	ResumeVersionID           string `gorm:"type:uuid;not null;index"`
+	RepoID                    string `gorm:"type:uuid;not null;index"`
+	CompanyName               string `gorm:"type:varchar(120);not null"`
+	CompanyIntro              string `gorm:"type:text"`
+	JobTitle                  string `gorm:"type:varchar(120);not null"`
+	JobRequirements           string `gorm:"type:text"`
+	Base                      string `gorm:"type:varchar(120)"`
+	SalaryRange               string `gorm:"type:varchar(120)"`
+	SourcePlatform            string `gorm:"type:varchar(120)"`
+	SourceURL                 string `gorm:"type:varchar(500)"`
+	DeliveryChannel           string `gorm:"type:varchar(120)"`
+	AppliedAt                 time.Time `gorm:"not null;index"`
+	CurrentStatus             Status    `gorm:"type:varchar(30);not null;index"`
+	InterviewSummary          string    `gorm:"type:text"`
+	InterviewNotes            string    `gorm:"type:text"`
+	ResumeMatchScore          int
+	InterviewPerformanceScore int
+	RoleInterestScore         int
+	OverallScore              int
+	Remark                    string `gorm:"type:text"`
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
+	DeletedAt                 gorm.DeletedAt `gorm:"index"`
 }
 
 func (a *ResumeApplication) Validate() error {
-	if strings.TrimSpace(a.UserID) == "" || strings.TrimSpace(a.JobPostingID) == "" || strings.TrimSpace(a.ResumeVersionID) == "" {
+	if strings.TrimSpace(a.UserID) == "" || strings.TrimSpace(a.ResumeVersionID) == "" || strings.TrimSpace(a.RepoID) == "" {
+		return domainerrors.ErrBadParams
+	}
+	if strings.TrimSpace(a.CompanyName) == "" || strings.TrimSpace(a.JobTitle) == "" {
+		return domainerrors.ErrBadParams
+	}
+	if a.AppliedAt.IsZero() {
+		return domainerrors.ErrBadParams
+	}
+	if !validStatus(a.CurrentStatus) {
+		return domainerrors.ErrBadParams
+	}
+	if !validOptionalScore(a.ResumeMatchScore, 1, 5) || !validOptionalScore(a.InterviewPerformanceScore, 1, 5) || !validOptionalScore(a.RoleInterestScore, 1, 5) || !validOptionalScore(a.OverallScore, 1, 10) {
 		return domainerrors.ErrBadParams
 	}
 	return nil
 }
+
+func validStatus(status Status) bool {
+	switch status {
+	case StatusApplied, StatusViewed, StatusWrittenTest, StatusFirstInterview, StatusSecondInterview, StatusFinalInterview, StatusHRInterview, StatusOffer, StatusRejected, StatusClosed:
+		return true
+	default:
+		return false
+	}
+}
+
+func validOptionalScore(score, min, max int) bool {
+	return score == 0 || (score >= min && score <= max)
+}
 ```
 
+- [ ] **Step 4: Implement ResumeApplication repository interface**
+
+Create `backend/internal/domain/resume_application/repository.go`:
+
 ```go
-// internal/domain/resume_application/repository.go
 package resume_application
 
 import "context"
 
+type ListFilter struct {
+	UserID          string
+	ResumeVersionID string
+	RepoID          string
+	Keyword         string
+	CurrentStatus   Status
+	Page            int
+	PageSize        int
+}
+
 type Repository interface {
 	Create(ctx context.Context, a *ResumeApplication) error
-	FindByIDAndJobAndUser(ctx context.Context, id, jobPostingID, userID string) (*ResumeApplication, error)
-	ListByJobAndUser(ctx context.Context, jobPostingID, userID string) ([]ResumeApplication, error)
-	Delete(ctx context.Context, id, jobPostingID, userID string) error
+	FindByIDAndUserID(ctx context.Context, id, userID string) (*ResumeApplication, error)
+	Update(ctx context.Context, a *ResumeApplication) error
+	Delete(ctx context.Context, id, userID string) error
+	ListByUser(ctx context.Context, f ListFilter) ([]ResumeApplication, int64, error)
 	ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error)
+	UpdateCurrentStatus(ctx context.Context, id, userID string, status Status) error
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run ResumeApplication domain tests**
+
+Run:
 
 ```bash
-go test ./internal/domain/resume_application/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/domain/resume_application -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add internal/domain/resume_application/
-git commit -m "feat: add resume application domain entity and repository interface"
+cd /Users/yilin/project/ai-for/backend && git add internal/domain/resume_application && git commit -m "feat: add frontend-aligned resume application domain"
 ```
 
 ---
 
-## Task 3: InterviewProgress Domain Entity and Repository Interface
+### Task 3: Add frontend-aligned InterviewProgress domain
 
 **Files:**
 - Create: `backend/internal/domain/interview_progress/entity.go`
 - Create: `backend/internal/domain/interview_progress/repository.go`
 - Create: `backend/internal/domain/interview_progress/entity_test.go`
 
-- [ ] **Step 1: Write the failing entity tests**
+- [ ] **Step 1: Write failing InterviewProgress entity tests**
+
+Create `backend/internal/domain/interview_progress/entity_test.go`:
 
 ```go
-// internal/domain/interview_progress/entity_test.go
 package interview_progress_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	"github.com/stretchr/testify/require"
+	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
-func TestInterviewProgress_Validate_Valid(t *testing.T) {
-	p := &interview_progress.InterviewProgress{UserID: "u1", JobPostingID: "j1", Round: 1, InterviewType: interview_progress.TypeTechnical, Result: interview_progress.ResultPending}
-	assert.NoError(t, p.Validate())
+func TestInterviewProgress_Validate_AcceptsFrontendFields(t *testing.T) {
+	progress := &domainprogress.InterviewProgress{
+		UserID:            "user-1",
+		ApplicationID:     "application-1",
+		Stage:             domainprogress.StageFirstInterview,
+		OccurredAt:        time.Now(),
+		Result:            domainprogress.ResultPassed,
+		InterviewerOrTeam: "Frontend team",
+		Note:              "Asked Vue questions",
+	}
+
+	require.NoError(t, progress.Validate())
 }
 
-func TestInterviewProgress_Validate_InvalidRound(t *testing.T) {
-	p := &interview_progress.InterviewProgress{UserID: "u1", JobPostingID: "j1", Round: 0, InterviewType: interview_progress.TypeTechnical, Result: interview_progress.ResultPending}
-	assert.Error(t, p.Validate())
-}
+func TestInterviewProgress_Validate_RejectsInvalidFrontendFields(t *testing.T) {
+	tests := []struct {
+		name     string
+		progress domainprogress.InterviewProgress
+	}{
+		{name: "missing user", progress: domainprogress.InterviewProgress{ApplicationID: "a1", Stage: domainprogress.StageApplied, OccurredAt: time.Now(), Result: domainprogress.ResultPassed}},
+		{name: "missing application", progress: domainprogress.InterviewProgress{UserID: "u1", Stage: domainprogress.StageApplied, OccurredAt: time.Now(), Result: domainprogress.ResultPassed}},
+		{name: "missing occurredAt", progress: domainprogress.InterviewProgress{UserID: "u1", ApplicationID: "a1", Stage: domainprogress.StageApplied, Result: domainprogress.ResultPassed}},
+		{name: "invalid stage", progress: domainprogress.InterviewProgress{UserID: "u1", ApplicationID: "a1", Stage: "phone", OccurredAt: time.Now(), Result: domainprogress.ResultPassed}},
+		{name: "invalid result", progress: domainprogress.InterviewProgress{UserID: "u1", ApplicationID: "a1", Stage: domainprogress.StageApplied, OccurredAt: time.Now(), Result: "cancelled"}},
+	}
 
-func TestInterviewProgress_Validate_InvalidResult(t *testing.T) {
-	p := &interview_progress.InterviewProgress{UserID: "u1", JobPostingID: "j1", Round: 1, InterviewType: interview_progress.TypeTechnical, Result: "unknown"}
-	assert.Error(t, p.Validate())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.ErrorIs(t, tt.progress.Validate(), domainerrors.ErrBadParams)
+		})
+	}
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run:
 
 ```bash
-go test ./internal/domain/interview_progress/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/domain/interview_progress -count=1
 ```
 
-Expected: FAIL with package/file not found.
+Expected: FAIL because package `internal/domain/interview_progress` does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: Implement InterviewProgress entity**
+
+Create `backend/internal/domain/interview_progress/entity.go`:
 
 ```go
-// internal/domain/interview_progress/entity.go
 package interview_progress
 
 import (
@@ -394,62 +654,69 @@ import (
 	"time"
 
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
+	"gorm.io/gorm"
 )
 
-type InterviewType string
-
-const (
-	TypePhone     InterviewType = "phone"
-	TypeHR        InterviewType = "hr"
-	TypeTechnical InterviewType = "technical"
-	TypeFinal     InterviewType = "final"
-)
+type Stage string
 
 type Result string
 
 const (
-	ResultPending   Result = "pending"
-	ResultPassed    Result = "passed"
-	ResultFailed    Result = "failed"
-	ResultCancelled Result = "cancelled"
+	StageApplied         Stage = "applied"
+	StageViewed          Stage = "viewed"
+	StageWrittenTest     Stage = "written_test"
+	StageFirstInterview  Stage = "first_interview"
+	StageSecondInterview Stage = "second_interview"
+	StageFinalInterview  Stage = "final_interview"
+	StageHRInterview     Stage = "hr_interview"
+	StageOffer           Stage = "offer"
+	StageRejected        Stage = "rejected"
+	StageClosed          Stage = "closed"
+
+	ResultPassed  Result = "passed"
+	ResultPending Result = "pending"
+	ResultFailed  Result = "failed"
 )
 
 type InterviewProgress struct {
-	ID                  string     `gorm:"type:uuid;primaryKey"`
-	UserID              string     `gorm:"type:uuid;not null;index"`
-	JobPostingID        string     `gorm:"type:uuid;not null;index"`
-	Round               int        `gorm:"not null"`
-	InterviewType       InterviewType `gorm:"type:varchar(20);not null"`
-	ScheduledAt         *time.Time
-	CompletedAt         *time.Time
-	Result              Result     `gorm:"type:varchar(20);not null"`
-	Notes               string     `gorm:"type:text"`
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID                string `gorm:"type:uuid;primaryKey"`
+	UserID            string `gorm:"type:uuid;not null;index"`
+	ApplicationID     string `gorm:"type:uuid;not null;index"`
+	Stage             Stage  `gorm:"type:varchar(30);not null"`
+	OccurredAt        time.Time `gorm:"not null;index"`
+	Result            Result    `gorm:"type:varchar(20);not null"`
+	InterviewerOrTeam string    `gorm:"type:varchar(120)"`
+	Note              string    `gorm:"type:text"`
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         gorm.DeletedAt `gorm:"index"`
 }
 
 func (p *InterviewProgress) Validate() error {
-	if strings.TrimSpace(p.UserID) == "" || strings.TrimSpace(p.JobPostingID) == "" || p.Round < 1 {
+	if strings.TrimSpace(p.UserID) == "" || strings.TrimSpace(p.ApplicationID) == "" {
 		return domainerrors.ErrBadParams
 	}
-	if !validInterviewType(p.InterviewType) || !validResult(p.Result) {
+	if p.OccurredAt.IsZero() {
+		return domainerrors.ErrBadParams
+	}
+	if !validStage(p.Stage) || !validResult(p.Result) {
 		return domainerrors.ErrBadParams
 	}
 	return nil
 }
 
-func validInterviewType(t InterviewType) bool {
-	switch t {
-	case TypePhone, TypeHR, TypeTechnical, TypeFinal:
+func validStage(stage Stage) bool {
+	switch stage {
+	case StageApplied, StageViewed, StageWrittenTest, StageFirstInterview, StageSecondInterview, StageFinalInterview, StageHRInterview, StageOffer, StageRejected, StageClosed:
 		return true
 	default:
 		return false
 	}
 }
 
-func validResult(r Result) bool {
-	switch r {
-	case ResultPending, ResultPassed, ResultFailed, ResultCancelled:
+func validResult(result Result) bool {
+	switch result {
+	case ResultPassed, ResultPending, ResultFailed:
 		return true
 	default:
 		return false
@@ -457,39 +724,44 @@ func validResult(r Result) bool {
 }
 ```
 
+- [ ] **Step 4: Implement InterviewProgress repository interface**
+
+Create `backend/internal/domain/interview_progress/repository.go`:
+
 ```go
-// internal/domain/interview_progress/repository.go
 package interview_progress
 
 import "context"
 
 type Repository interface {
 	Create(ctx context.Context, p *InterviewProgress) error
-	FindByIDAndJobAndUser(ctx context.Context, id, jobPostingID, userID string) (*InterviewProgress, error)
-	ListByJobAndUser(ctx context.Context, jobPostingID, userID string) ([]InterviewProgress, error)
+	FindByIDAndUserID(ctx context.Context, id, userID string) (*InterviewProgress, error)
 	Update(ctx context.Context, p *InterviewProgress) error
-	Delete(ctx context.Context, id, jobPostingID, userID string) error
+	Delete(ctx context.Context, id, userID string) error
+	ListByApplicationAndUser(ctx context.Context, applicationID, userID string) ([]InterviewProgress, error)
+	DeleteByApplicationID(ctx context.Context, applicationID, userID string) error
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run InterviewProgress domain tests**
+
+Run:
 
 ```bash
-go test ./internal/domain/interview_progress/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/domain/interview_progress -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add internal/domain/interview_progress/
-git commit -m "feat: add interview progress domain entity and repository interface"
+cd /Users/yilin/project/ai-for/backend && git add internal/domain/interview_progress && git commit -m "feat: add frontend-aligned interview progress domain"
 ```
 
 ---
 
-## Task 4: Database Migrations for Job Domain
+### Task 4: Add job-domain migrations with frontend-aligned columns
 
 **Files:**
 - Create: `backend/migrations/000004_create_job_postings.up.sql`
@@ -499,364 +771,123 @@ git commit -m "feat: add interview progress domain entity and repository interfa
 - Create: `backend/migrations/000006_create_interview_progress.up.sql`
 - Create: `backend/migrations/000006_create_interview_progress.down.sql`
 
-- [ ] **Step 1: Create migration SQL files**
+- [ ] **Step 1: Create job posting migration**
+
+Create `backend/migrations/000004_create_job_postings.up.sql`:
 
 ```sql
--- migrations/000004_create_job_postings.up.sql
 CREATE TABLE job_postings (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id     UUID         NOT NULL REFERENCES users(id),
-    company     VARCHAR(120) NOT NULL,
-    position    VARCHAR(120) NOT NULL,
-    job_type    VARCHAR(20)  NOT NULL,
-    location    VARCHAR(120),
-    salary      VARCHAR(120),
-    description TEXT,
-    source      VARCHAR(120),
-    url         VARCHAR(500),
-    status      VARCHAR(20)  NOT NULL DEFAULT 'collecting',
-    notes       TEXT,
-    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    deleted_at  TIMESTAMPTZ
+    id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id          UUID         NOT NULL REFERENCES users(id),
+    company_name     VARCHAR(120) NOT NULL,
+    company_intro    TEXT,
+    job_title        VARCHAR(120) NOT NULL,
+    job_requirements TEXT,
+    base             VARCHAR(120),
+    salary_range     VARCHAR(120),
+    source_platform  VARCHAR(120),
+    source_url       VARCHAR(500),
+    status           VARCHAR(20)  NOT NULL DEFAULT 'pending',
+    remark           TEXT,
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    deleted_at       TIMESTAMPTZ
 );
 
 CREATE INDEX idx_job_postings_user_id ON job_postings(user_id);
-CREATE INDEX idx_job_postings_status ON job_postings(status);
-CREATE INDEX idx_job_postings_job_type ON job_postings(job_type);
+CREATE INDEX idx_job_postings_user_status ON job_postings(user_id, status);
+CREATE INDEX idx_job_postings_user_source_platform ON job_postings(user_id, source_platform);
 ```
 
+Create `backend/migrations/000004_create_job_postings.down.sql`:
+
 ```sql
--- migrations/000004_create_job_postings.down.sql
 DROP TABLE IF EXISTS job_postings;
 ```
 
+- [ ] **Step 2: Create resume application migration**
+
+Create `backend/migrations/000005_create_resume_applications.up.sql`:
+
 ```sql
--- migrations/000005_create_resume_applications.up.sql
 CREATE TABLE resume_applications (
-    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id           UUID        NOT NULL REFERENCES users(id),
-    job_posting_id    UUID        NOT NULL REFERENCES job_postings(id),
-    resume_version_id UUID        NOT NULL REFERENCES resume_versions(id),
-    applied_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    notes             TEXT,
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id                     UUID         NOT NULL REFERENCES users(id),
+    job_posting_id              UUID         REFERENCES job_postings(id),
+    resume_version_id           UUID         NOT NULL REFERENCES resume_versions(id),
+    repo_id                     UUID         NOT NULL REFERENCES resume_repos(id),
+    company_name                VARCHAR(120) NOT NULL,
+    company_intro               TEXT,
+    job_title                   VARCHAR(120) NOT NULL,
+    job_requirements            TEXT,
+    base                        VARCHAR(120),
+    salary_range                VARCHAR(120),
+    source_platform             VARCHAR(120),
+    source_url                  VARCHAR(500),
+    delivery_channel            VARCHAR(120),
+    applied_at                  TIMESTAMPTZ  NOT NULL,
+    current_status              VARCHAR(30)  NOT NULL DEFAULT 'applied',
+    interview_summary           TEXT,
+    interview_notes             TEXT,
+    resume_match_score          INT          NOT NULL DEFAULT 0,
+    interview_performance_score INT          NOT NULL DEFAULT 0,
+    role_interest_score         INT          NOT NULL DEFAULT 0,
+    overall_score               INT          NOT NULL DEFAULT 0,
+    remark                      TEXT,
+    created_at                  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at                  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    deleted_at                  TIMESTAMPTZ
 );
 
 CREATE INDEX idx_resume_applications_user_id ON resume_applications(user_id);
-CREATE INDEX idx_resume_applications_job_posting_id ON resume_applications(job_posting_id);
 CREATE INDEX idx_resume_applications_resume_version_id ON resume_applications(resume_version_id);
+CREATE INDEX idx_resume_applications_repo_id ON resume_applications(repo_id);
+CREATE INDEX idx_resume_applications_current_status ON resume_applications(current_status);
+CREATE INDEX idx_resume_applications_applied_at ON resume_applications(applied_at);
 ```
 
+Create `backend/migrations/000005_create_resume_applications.down.sql`:
+
 ```sql
--- migrations/000005_create_resume_applications.down.sql
 DROP TABLE IF EXISTS resume_applications;
 ```
 
+- [ ] **Step 3: Create interview progress migration**
+
+Create `backend/migrations/000006_create_interview_progress.up.sql`:
+
 ```sql
--- migrations/000006_create_interview_progress.up.sql
 CREATE TABLE interview_progress (
-    id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id        UUID        NOT NULL REFERENCES users(id),
-    job_posting_id UUID        NOT NULL REFERENCES job_postings(id),
-    round          INT         NOT NULL,
-    interview_type VARCHAR(20) NOT NULL,
-    scheduled_at   TIMESTAMPTZ,
-    completed_at   TIMESTAMPTZ,
-    result         VARCHAR(20) NOT NULL DEFAULT 'pending',
-    notes          TEXT,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id             UUID        NOT NULL REFERENCES users(id),
+    application_id      UUID        NOT NULL REFERENCES resume_applications(id),
+    stage               VARCHAR(30) NOT NULL,
+    occurred_at         TIMESTAMPTZ NOT NULL,
+    result              VARCHAR(20) NOT NULL,
+    interviewer_or_team VARCHAR(120),
+    note                TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at          TIMESTAMPTZ
 );
 
 CREATE INDEX idx_interview_progress_user_id ON interview_progress(user_id);
-CREATE INDEX idx_interview_progress_job_posting_id ON interview_progress(job_posting_id);
+CREATE INDEX idx_interview_progress_application_id ON interview_progress(application_id);
+CREATE INDEX idx_interview_progress_occurred_at ON interview_progress(occurred_at);
 ```
 
+Create `backend/migrations/000006_create_interview_progress.down.sql`:
+
 ```sql
--- migrations/000006_create_interview_progress.down.sql
 DROP TABLE IF EXISTS interview_progress;
 ```
 
-- [ ] **Step 2: Run migrations**
+- [ ] **Step 4: Run migration-related tests or compile check**
+
+Run:
 
 ```bash
-cd /Users/yilin/project/ai-for/backend
-make migrate-up
-```
-
-Expected: migrations apply with no error.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add migrations/000004_* migrations/000005_* migrations/000006_*
-git commit -m "feat: add job domain migrations"
-```
-
----
-
-## Task 5: PostgreSQL Repository Implementations and Integration Tests
-
-**Files:**
-- Create: `backend/internal/infrastructure/persistence/postgres/job_posting_repo.go`
-- Create: `backend/internal/infrastructure/persistence/postgres/job_posting_repo_test.go`
-- Create: `backend/internal/infrastructure/persistence/postgres/resume_application_repo.go`
-- Create: `backend/internal/infrastructure/persistence/postgres/resume_application_repo_test.go`
-- Create: `backend/internal/infrastructure/persistence/postgres/interview_progress_repo.go`
-- Create: `backend/internal/infrastructure/persistence/postgres/interview_progress_repo_test.go`
-
-- [ ] **Step 1: Write failing integration tests**
-
-```go
-// internal/infrastructure/persistence/postgres/job_posting_repo_test.go
-package postgres_test
-
-import (
-	"context"
-	"testing"
-
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
-	infrapostgres "github.com/yilin/ai-for-backend/internal/infrastructure/persistence/postgres"
-)
-
-func TestIntegrationJobPostingRepo_CreateListAndUpdateStatus(t *testing.T) {
-	db := setupTestDB(t)
-	repo := infrapostgres.NewJobPostingRepo(db)
-	ctx := context.Background()
-	userID := uuid.NewString()
-
-	p := &domainjob.JobPosting{ID: uuid.NewString(), UserID: userID, Company: "Acme", Position: "Backend", JobType: domainjob.JobTypeSocial, Status: domainjob.StatusCollecting}
-	require.NoError(t, repo.Create(ctx, p))
-
-	rows, total, err := repo.ListByUser(ctx, domainjob.ListFilter{UserID: userID, Status: "collecting", Page: 1, PageSize: 10})
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), total)
-	assert.Len(t, rows, 1)
-
-	found, err := repo.FindByIDAndUserID(ctx, p.ID, userID)
-	require.NoError(t, err)
-	found.Status = domainjob.StatusApplying
-	require.NoError(t, repo.Update(ctx, found))
-}
-```
-
-```go
-// internal/infrastructure/persistence/postgres/resume_application_repo_test.go
-package postgres_test
-
-import (
-	"context"
-	"testing"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
-	infrapostgres "github.com/yilin/ai-for-backend/internal/infrastructure/persistence/postgres"
-)
-
-func TestIntegrationResumeApplicationRepo_ExistsByResumeVersionID(t *testing.T) {
-	db := setupTestDB(t)
-	repo := infrapostgres.NewResumeApplicationRepo(db)
-	ctx := context.Background()
-	versionID := uuid.NewString()
-
-	a := &domainapp.ResumeApplication{ID: uuid.NewString(), UserID: uuid.NewString(), JobPostingID: uuid.NewString(), ResumeVersionID: versionID, AppliedAt: time.Now()}
-	require.NoError(t, repo.Create(ctx, a))
-
-	exists, err := repo.ExistsByResumeVersionID(ctx, versionID)
-	require.NoError(t, err)
-	assert.True(t, exists)
-}
-```
-
-```go
-// internal/infrastructure/persistence/postgres/interview_progress_repo_test.go
-package postgres_test
-
-import (
-	"context"
-	"testing"
-
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
-	infrapostgres "github.com/yilin/ai-for-backend/internal/infrastructure/persistence/postgres"
-)
-
-func TestIntegrationInterviewProgressRepo_CreateAndList(t *testing.T) {
-	db := setupTestDB(t)
-	repo := infrapostgres.NewInterviewProgressRepo(db)
-	ctx := context.Background()
-	userID := uuid.NewString()
-	jobID := uuid.NewString()
-
-	p := &domainprogress.InterviewProgress{ID: uuid.NewString(), UserID: userID, JobPostingID: jobID, Round: 1, InterviewType: domainprogress.TypeTechnical, Result: domainprogress.ResultPending}
-	require.NoError(t, repo.Create(ctx, p))
-
-	rows, err := repo.ListByJobAndUser(ctx, jobID, userID)
-	require.NoError(t, err)
-	assert.Len(t, rows, 1)
-}
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-```bash
-go test ./internal/infrastructure/persistence/postgres/... -run "JobPosting|ResumeApplication|InterviewProgress" -v
-```
-
-Expected: FAIL with missing constructors/repositories.
-
-- [ ] **Step 3: Implement repositories**
-
-```go
-// internal/infrastructure/persistence/postgres/job_posting_repo.go
-package postgres
-
-import (
-	"context"
-	"errors"
-
-	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
-	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
-	"gorm.io/gorm"
-)
-
-type JobPostingRepo struct{ db *gorm.DB }
-
-func NewJobPostingRepo(db *gorm.DB) *JobPostingRepo { return &JobPostingRepo{db: db} }
-
-func (r *JobPostingRepo) Create(ctx context.Context, p *domainjob.JobPosting) error {
-	return r.db.WithContext(ctx).Create(p).Error
-}
-
-func (r *JobPostingRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainjob.JobPosting, error) {
-	var p domainjob.JobPosting
-	err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&p).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) { return nil, domainerrors.ErrNotFound }
-	return &p, err
-}
-
-func (r *JobPostingRepo) Update(ctx context.Context, p *domainjob.JobPosting) error {
-	return r.db.WithContext(ctx).Save(p).Error
-}
-
-func (r *JobPostingRepo) Delete(ctx context.Context, id, userID string) error {
-	return r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&domainjob.JobPosting{}).Error
-}
-
-func (r *JobPostingRepo) ListByUser(ctx context.Context, f domainjob.ListFilter) ([]domainjob.JobPosting, int64, error) {
-	q := r.db.WithContext(ctx).Model(&domainjob.JobPosting{}).Where("user_id = ?", f.UserID)
-	if f.Status != "" { q = q.Where("status = ?", f.Status) }
-	if f.JobType != "" { q = q.Where("job_type = ?", f.JobType) }
-	var total int64
-	if err := q.Count(&total).Error; err != nil { return nil, 0, err }
-	var rows []domainjob.JobPosting
-	err := q.Order("updated_at DESC").Offset((f.Page - 1) * f.PageSize).Limit(f.PageSize).Find(&rows).Error
-	return rows, total, err
-}
-```
-
-```go
-// internal/infrastructure/persistence/postgres/resume_application_repo.go
-package postgres
-
-import (
-	"context"
-	"errors"
-
-	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
-	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
-	"gorm.io/gorm"
-)
-
-type ResumeApplicationRepo struct{ db *gorm.DB }
-
-func NewResumeApplicationRepo(db *gorm.DB) *ResumeApplicationRepo { return &ResumeApplicationRepo{db: db} }
-
-func (r *ResumeApplicationRepo) Create(ctx context.Context, a *domainapp.ResumeApplication) error {
-	return r.db.WithContext(ctx).Create(a).Error
-}
-
-func (r *ResumeApplicationRepo) FindByIDAndJobAndUser(ctx context.Context, id, jobPostingID, userID string) (*domainapp.ResumeApplication, error) {
-	var a domainapp.ResumeApplication
-	err := r.db.WithContext(ctx).Where("id = ? AND job_posting_id = ? AND user_id = ?", id, jobPostingID, userID).First(&a).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) { return nil, domainerrors.ErrNotFound }
-	return &a, err
-}
-
-func (r *ResumeApplicationRepo) ListByJobAndUser(ctx context.Context, jobPostingID, userID string) ([]domainapp.ResumeApplication, error) {
-	var rows []domainapp.ResumeApplication
-	err := r.db.WithContext(ctx).Where("job_posting_id = ? AND user_id = ?", jobPostingID, userID).Order("applied_at DESC").Find(&rows).Error
-	return rows, err
-}
-
-func (r *ResumeApplicationRepo) Delete(ctx context.Context, id, jobPostingID, userID string) error {
-	return r.db.WithContext(ctx).Where("id = ? AND job_posting_id = ? AND user_id = ?", id, jobPostingID, userID).Delete(&domainapp.ResumeApplication{}).Error
-}
-
-func (r *ResumeApplicationRepo) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) {
-	var count int64
-	err := r.db.WithContext(ctx).Model(&domainapp.ResumeApplication{}).Where("resume_version_id = ?", versionID).Count(&count).Error
-	return count > 0, err
-}
-```
-
-```go
-// internal/infrastructure/persistence/postgres/interview_progress_repo.go
-package postgres
-
-import (
-	"context"
-	"errors"
-
-	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
-	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
-	"gorm.io/gorm"
-)
-
-type InterviewProgressRepo struct{ db *gorm.DB }
-
-func NewInterviewProgressRepo(db *gorm.DB) *InterviewProgressRepo { return &InterviewProgressRepo{db: db} }
-
-func (r *InterviewProgressRepo) Create(ctx context.Context, p *domainprogress.InterviewProgress) error {
-	return r.db.WithContext(ctx).Create(p).Error
-}
-
-func (r *InterviewProgressRepo) FindByIDAndJobAndUser(ctx context.Context, id, jobPostingID, userID string) (*domainprogress.InterviewProgress, error) {
-	var p domainprogress.InterviewProgress
-	err := r.db.WithContext(ctx).Where("id = ? AND job_posting_id = ? AND user_id = ?", id, jobPostingID, userID).First(&p).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) { return nil, domainerrors.ErrNotFound }
-	return &p, err
-}
-
-func (r *InterviewProgressRepo) ListByJobAndUser(ctx context.Context, jobPostingID, userID string) ([]domainprogress.InterviewProgress, error) {
-	var rows []domainprogress.InterviewProgress
-	err := r.db.WithContext(ctx).Where("job_posting_id = ? AND user_id = ?", jobPostingID, userID).Order("round ASC").Find(&rows).Error
-	return rows, err
-}
-
-func (r *InterviewProgressRepo) Update(ctx context.Context, p *domainprogress.InterviewProgress) error {
-	return r.db.WithContext(ctx).Save(p).Error
-}
-
-func (r *InterviewProgressRepo) Delete(ctx context.Context, id, jobPostingID, userID string) error {
-	return r.db.WithContext(ctx).Where("id = ? AND job_posting_id = ? AND user_id = ?", id, jobPostingID, userID).Delete(&domainprogress.InterviewProgress{}).Error
-}
-```
-
-- [ ] **Step 4: Run tests to verify they pass**
-
-```bash
-go test ./internal/infrastructure/persistence/postgres/... -run "JobPosting|ResumeApplication|InterviewProgress" -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/domain/job_posting ./internal/domain/resume_application ./internal/domain/interview_progress -count=1
 ```
 
 Expected: PASS.
@@ -864,98 +895,207 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/infrastructure/persistence/postgres/job_posting_repo* internal/infrastructure/persistence/postgres/resume_application_repo* internal/infrastructure/persistence/postgres/interview_progress_repo*
-git commit -m "feat: add postgres repositories for job domain"
+cd /Users/yilin/project/ai-for/backend && git add migrations/000004_* migrations/000005_* migrations/000006_* && git commit -m "feat: add frontend-aligned job domain migrations"
 ```
 
 ---
 
-## Task 6: Application DTOs
+### Task 5: Add application DTOs matching frontend JSON
 
 **Files:**
 - Create: `backend/internal/application/dto/job_dto.go`
 
 - [ ] **Step 1: Create DTO file**
 
+Create `backend/internal/application/dto/job_dto.go`:
+
 ```go
-// internal/application/dto/job_dto.go
 package dto
 
-import "time"
+import (
+	"time"
+
+	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
+)
 
 type CreateJobPostingRequest struct {
-	Company     string `json:"company" binding:"required"`
-	Position    string `json:"position" binding:"required"`
-	JobType     string `json:"jobType" binding:"required"`
-	Location    string `json:"location"`
-	Salary      string `json:"salary"`
-	Description string `json:"description"`
-	Source      string `json:"source"`
-	URL         string `json:"url"`
-	Status      string `json:"status"`
-	Notes       string `json:"notes"`
+	CompanyName     string           `json:"companyName" binding:"required,min=1,max=120"`
+	CompanyIntro    string           `json:"companyIntro"`
+	JobTitle        string           `json:"jobTitle" binding:"required,min=1,max=120"`
+	JobRequirements string           `json:"jobRequirements"`
+	Base            string           `json:"base"`
+	SalaryRange     string           `json:"salaryRange"`
+	SourcePlatform  string           `json:"sourcePlatform"`
+	SourceURL       string           `json:"sourceUrl"`
+	Status          domainjob.Status `json:"status" binding:"required"`
+	Remark          string           `json:"remark"`
 }
 
-type UpdateJobPostingRequest struct {
-	Company     string `json:"company" binding:"required"`
-	Position    string `json:"position" binding:"required"`
-	JobType     string `json:"jobType" binding:"required"`
-	Location    string `json:"location"`
-	Salary      string `json:"salary"`
-	Description string `json:"description"`
-	Source      string `json:"source"`
-	URL         string `json:"url"`
-	Status      string `json:"status" binding:"required"`
-	Notes       string `json:"notes"`
+type UpdateJobPostingRequest = CreateJobPostingRequest
+
+type ParseJobPostingRequest struct {
+	URL string `json:"url" binding:"required"`
 }
 
-type UpdateJobPostingStatusRequest struct {
-	Status string `json:"status" binding:"required"`
+type JobPostingResponse struct {
+	ID              string           `json:"id"`
+	CompanyName     string           `json:"companyName"`
+	CompanyIntro    string           `json:"companyIntro"`
+	JobTitle        string           `json:"jobTitle"`
+	JobRequirements string           `json:"jobRequirements"`
+	Base            string           `json:"base"`
+	SalaryRange     string           `json:"salaryRange"`
+	SourcePlatform  string           `json:"sourcePlatform"`
+	SourceURL       string           `json:"sourceUrl"`
+	Status          domainjob.Status `json:"status"`
+	Remark          string           `json:"remark"`
+	CreatedAt       time.Time        `json:"createdAt"`
+	UpdatedAt       time.Time        `json:"updatedAt"`
 }
 
 type CreateResumeApplicationRequest struct {
-	ResumeVersionID string     `json:"resumeVersionId" binding:"required"`
-	AppliedAt       *time.Time `json:"appliedAt"`
-	Notes           string     `json:"notes"`
+	JobPostingID              string           `json:"jobPostingId"`
+	ResumeVersionID           string           `json:"resumeVersionId" binding:"required"`
+	RepoID                    string           `json:"repoId" binding:"required"`
+	CompanyName               string           `json:"companyName" binding:"required,min=1,max=120"`
+	CompanyIntro              string           `json:"companyIntro"`
+	JobTitle                  string           `json:"jobTitle" binding:"required,min=1,max=120"`
+	JobRequirements           string           `json:"jobRequirements"`
+	Base                      string           `json:"base"`
+	SalaryRange               string           `json:"salaryRange"`
+	SourcePlatform            string           `json:"sourcePlatform"`
+	SourceURL                 string           `json:"sourceUrl"`
+	DeliveryChannel           string           `json:"deliveryChannel"`
+	AppliedAt                 time.Time        `json:"appliedAt" binding:"required"`
+	CurrentStatus             domainapp.Status `json:"currentStatus" binding:"required"`
+	InterviewSummary          string           `json:"interviewSummary"`
+	InterviewNotes            string           `json:"interviewNotes"`
+	ResumeMatchScore          int              `json:"resumeMatchScore"`
+	InterviewPerformanceScore int              `json:"interviewPerformanceScore"`
+	RoleInterestScore         int              `json:"roleInterestScore"`
+	OverallScore              int              `json:"overallScore"`
+	Remark                    string           `json:"remark"`
+}
+
+type UpdateResumeApplicationRequest = CreateResumeApplicationRequest
+
+type ResumeApplicationResponse struct {
+	ID                        string           `json:"id"`
+	JobPostingID              string           `json:"jobPostingId"`
+	ResumeVersionID           string           `json:"resumeVersionId"`
+	RepoID                    string           `json:"repoId"`
+	CompanyName               string           `json:"companyName"`
+	CompanyIntro              string           `json:"companyIntro"`
+	JobTitle                  string           `json:"jobTitle"`
+	JobRequirements           string           `json:"jobRequirements"`
+	Base                      string           `json:"base"`
+	SalaryRange               string           `json:"salaryRange"`
+	SourcePlatform            string           `json:"sourcePlatform"`
+	SourceURL                 string           `json:"sourceUrl"`
+	DeliveryChannel           string           `json:"deliveryChannel"`
+	AppliedAt                 time.Time        `json:"appliedAt"`
+	CurrentStatus             domainapp.Status `json:"currentStatus"`
+	InterviewSummary          string           `json:"interviewSummary"`
+	InterviewNotes            string           `json:"interviewNotes"`
+	ResumeMatchScore          int              `json:"resumeMatchScore"`
+	InterviewPerformanceScore int              `json:"interviewPerformanceScore"`
+	RoleInterestScore         int              `json:"roleInterestScore"`
+	OverallScore              int              `json:"overallScore"`
+	Remark                    string           `json:"remark"`
+	CreatedAt                 time.Time        `json:"createdAt"`
+	UpdatedAt                 time.Time        `json:"updatedAt"`
 }
 
 type CreateInterviewProgressRequest struct {
-	Round         int        `json:"round" binding:"required,min=1"`
-	InterviewType string     `json:"interviewType" binding:"required"`
-	ScheduledAt   *time.Time `json:"scheduledAt"`
-	CompletedAt   *time.Time `json:"completedAt"`
-	Result        string     `json:"result"`
-	Notes         string     `json:"notes"`
+	ApplicationID     string                `json:"applicationId" binding:"required"`
+	Stage             domainprogress.Stage  `json:"stage" binding:"required"`
+	OccurredAt        time.Time             `json:"occurredAt" binding:"required"`
+	Result            domainprogress.Result `json:"result" binding:"required"`
+	InterviewerOrTeam string                `json:"interviewerOrTeam"`
+	Note              string                `json:"note"`
 }
 
-type UpdateInterviewProgressRequest struct {
-	Round         int        `json:"round" binding:"required,min=1"`
-	InterviewType string     `json:"interviewType" binding:"required"`
-	ScheduledAt   *time.Time `json:"scheduledAt"`
-	CompletedAt   *time.Time `json:"completedAt"`
-	Result        string     `json:"result" binding:"required"`
-	Notes         string     `json:"notes"`
+type UpdateInterviewProgressRequest = CreateInterviewProgressRequest
+
+type InterviewProgressResponse struct {
+	ID                string                `json:"id"`
+	ApplicationID     string                `json:"applicationId"`
+	Stage             domainprogress.Stage  `json:"stage"`
+	OccurredAt        time.Time             `json:"occurredAt"`
+	Result            domainprogress.Result `json:"result"`
+	InterviewerOrTeam string                `json:"interviewerOrTeam"`
+	Note              string                `json:"note"`
+	CreatedAt         time.Time             `json:"createdAt"`
+	UpdatedAt         time.Time             `json:"updatedAt"`
+}
+
+func ToJobPostingResponse(p *domainjob.JobPosting) *JobPostingResponse {
+	if p == nil {
+		return nil
+	}
+	return &JobPostingResponse{ID: p.ID, CompanyName: p.CompanyName, CompanyIntro: p.CompanyIntro, JobTitle: p.JobTitle, JobRequirements: p.JobRequirements, Base: p.Base, SalaryRange: p.SalaryRange, SourcePlatform: p.SourcePlatform, SourceURL: p.SourceURL, Status: p.Status, Remark: p.Remark, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt}
+}
+
+func ToJobPostingResponses(rows []domainjob.JobPosting) []JobPostingResponse {
+	out := make([]JobPostingResponse, 0, len(rows))
+	for i := range rows {
+		out = append(out, *ToJobPostingResponse(&rows[i]))
+	}
+	return out
+}
+
+func ToResumeApplicationResponse(a *domainapp.ResumeApplication) *ResumeApplicationResponse {
+	if a == nil {
+		return nil
+	}
+	return &ResumeApplicationResponse{ID: a.ID, JobPostingID: a.JobPostingID, ResumeVersionID: a.ResumeVersionID, RepoID: a.RepoID, CompanyName: a.CompanyName, CompanyIntro: a.CompanyIntro, JobTitle: a.JobTitle, JobRequirements: a.JobRequirements, Base: a.Base, SalaryRange: a.SalaryRange, SourcePlatform: a.SourcePlatform, SourceURL: a.SourceURL, DeliveryChannel: a.DeliveryChannel, AppliedAt: a.AppliedAt, CurrentStatus: a.CurrentStatus, InterviewSummary: a.InterviewSummary, InterviewNotes: a.InterviewNotes, ResumeMatchScore: a.ResumeMatchScore, InterviewPerformanceScore: a.InterviewPerformanceScore, RoleInterestScore: a.RoleInterestScore, OverallScore: a.OverallScore, Remark: a.Remark, CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt}
+}
+
+func ToResumeApplicationResponses(rows []domainapp.ResumeApplication) []ResumeApplicationResponse {
+	out := make([]ResumeApplicationResponse, 0, len(rows))
+	for i := range rows {
+		out = append(out, *ToResumeApplicationResponse(&rows[i]))
+	}
+	return out
+}
+
+func ToInterviewProgressResponse(p *domainprogress.InterviewProgress) *InterviewProgressResponse {
+	if p == nil {
+		return nil
+	}
+	return &InterviewProgressResponse{ID: p.ID, ApplicationID: p.ApplicationID, Stage: p.Stage, OccurredAt: p.OccurredAt, Result: p.Result, InterviewerOrTeam: p.InterviewerOrTeam, Note: p.Note, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt}
+}
+
+func ToInterviewProgressResponses(rows []domainprogress.InterviewProgress) []InterviewProgressResponse {
+	out := make([]InterviewProgressResponse, 0, len(rows))
+	for i := range rows {
+		out = append(out, *ToInterviewProgressResponse(&rows[i]))
+	}
+	return out
 }
 ```
 
 - [ ] **Step 2: Run compile check**
 
+Run:
+
 ```bash
-go test ./internal/application/... -run '^$'
+cd /Users/yilin/project/ai-for/backend && go test ./internal/application/dto -run '^$' -count=1
 ```
 
-Expected: PASS or unrelated existing test failures only.
+Expected: PASS.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add internal/application/dto/job_dto.go
-git commit -m "feat: add job domain DTOs"
+cd /Users/yilin/project/ai-for/backend && git add internal/application/dto/job_dto.go && git commit -m "feat: add frontend-aligned job domain DTOs"
 ```
 
 ---
 
-## Task 7: JobPosting Application Service
+### Task 6: Implement JobPosting service
 
 **Files:**
 - Create: `backend/internal/application/job_posting/job_posting_service.go`
@@ -963,15 +1103,15 @@ git commit -m "feat: add job domain DTOs"
 
 - [ ] **Step 1: Write failing service tests**
 
+Create `backend/internal/application/job_posting/job_posting_service_test.go`:
+
 ```go
-// internal/application/job_posting/job_posting_service_test.go
 package job_posting_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
@@ -979,53 +1119,54 @@ import (
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 )
 
-type mockJobRepo struct{ mock.Mock }
+type mockJobPostingRepo struct{ mock.Mock }
 
-func (m *mockJobRepo) Create(ctx context.Context, p *domainjob.JobPosting) error { return m.Called(ctx, p).Error(0) }
-func (m *mockJobRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainjob.JobPosting, error) {
-	a := m.Called(ctx, id, userID)
-	if a.Get(0) == nil { return nil, a.Error(1) }
-	return a.Get(0).(*domainjob.JobPosting), a.Error(1)
-}
-func (m *mockJobRepo) Update(ctx context.Context, p *domainjob.JobPosting) error { return m.Called(ctx, p).Error(0) }
-func (m *mockJobRepo) Delete(ctx context.Context, id, userID string) error { return m.Called(ctx, id, userID).Error(0) }
-func (m *mockJobRepo) ListByUser(ctx context.Context, f domainjob.ListFilter) ([]domainjob.JobPosting, int64, error) {
-	a := m.Called(ctx, f)
-	return a.Get(0).([]domainjob.JobPosting), a.Get(1).(int64), a.Error(2)
-}
+func (m *mockJobPostingRepo) Create(ctx context.Context, p *domainjob.JobPosting) error { return m.Called(ctx, p).Error(0) }
+func (m *mockJobPostingRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainjob.JobPosting, error) { args := m.Called(ctx, id, userID); if args.Get(0) == nil { return nil, args.Error(1) }; return args.Get(0).(*domainjob.JobPosting), args.Error(1) }
+func (m *mockJobPostingRepo) Update(ctx context.Context, p *domainjob.JobPosting) error { return m.Called(ctx, p).Error(0) }
+func (m *mockJobPostingRepo) Delete(ctx context.Context, id, userID string) error { return m.Called(ctx, id, userID).Error(0) }
+func (m *mockJobPostingRepo) ListByUser(ctx context.Context, f domainjob.ListFilter) ([]domainjob.JobPosting, int64, error) { args := m.Called(ctx, f); return args.Get(0).([]domainjob.JobPosting), args.Get(1).(int64), args.Error(2) }
 
-func TestJobPostingService_Create_DefaultStatus(t *testing.T) {
-	repo := &mockJobRepo{}
+func TestJobPostingService_Create_CopiesFrontendFields(t *testing.T) {
+	repo := &mockJobPostingRepo{}
 	repo.On("Create", mock.Anything, mock.MatchedBy(func(p *domainjob.JobPosting) bool {
-		return p.UserID == "u1" && p.Company == "Acme" && p.Status == domainjob.StatusCollecting
+		return p.ID != "" && p.UserID == "u1" && p.CompanyName == "Acme" && p.JobTitle == "Frontend" && p.SourcePlatform == "Boss" && p.SourceURL == "https://example.com" && p.Status == domainjob.StatusPending && p.Remark == "priority"
 	})).Return(nil)
 	svc := appsvc.NewJobPostingService(repo)
-	err := svc.Create(context.Background(), "u1", dto.CreateJobPostingRequest{Company: "Acme", Position: "Backend", JobType: "social"})
+
+	err := svc.Create(context.Background(), "u1", dto.CreateJobPostingRequest{CompanyName: "Acme", JobTitle: "Frontend", SourcePlatform: "Boss", SourceURL: "https://example.com", Status: domainjob.StatusPending, Remark: "priority"})
+
 	require.NoError(t, err)
+	repo.AssertExpectations(t)
 }
 
-func TestJobPostingService_UpdateStatus(t *testing.T) {
-	repo := &mockJobRepo{}
-	existing := &domainjob.JobPosting{ID: "j1", UserID: "u1", Company: "Acme", Position: "Backend", JobType: domainjob.JobTypeSocial, Status: domainjob.StatusCollecting}
-	repo.On("FindByIDAndUserID", mock.Anything, "j1", "u1").Return(existing, nil)
-	repo.On("Update", mock.Anything, mock.MatchedBy(func(p *domainjob.JobPosting) bool { return p.Status == domainjob.StatusApplying })).Return(nil)
+func TestJobPostingService_List_UsesFrontendFilters(t *testing.T) {
+	repo := &mockJobPostingRepo{}
+	repo.On("ListByUser", mock.Anything, domainjob.ListFilter{UserID: "u1", Keyword: "acme", SourcePlatform: "Boss", Status: domainjob.StatusApplied, Page: 2, PageSize: 9}).Return([]domainjob.JobPosting{}, int64(0), nil)
 	svc := appsvc.NewJobPostingService(repo)
-	assert.NoError(t, svc.UpdateStatus(context.Background(), "u1", "j1", dto.UpdateJobPostingStatusRequest{Status: "applying"}))
+
+	_, _, err := svc.List(context.Background(), "u1", "acme", "Boss", "applied", 2, 9)
+
+	require.NoError(t, err)
+	repo.AssertExpectations(t)
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run service tests to verify failure**
+
+Run:
 
 ```bash
-go test ./internal/application/job_posting/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/application/job_posting -count=1
 ```
 
-Expected: FAIL with package/file not found.
+Expected: FAIL because service package does not exist.
 
-- [ ] **Step 3: Implement service**
+- [ ] **Step 3: Implement JobPosting service**
+
+Create `backend/internal/application/job_posting/job_posting_service.go`:
 
 ```go
-// internal/application/job_posting/job_posting_service.go
 package job_posting
 
 import (
@@ -1041,15 +1182,16 @@ type JobPostingService struct{ repo domainjob.Repository }
 func NewJobPostingService(repo domainjob.Repository) *JobPostingService { return &JobPostingService{repo: repo} }
 
 func (s *JobPostingService) Create(ctx context.Context, userID string, req dto.CreateJobPostingRequest) error {
-	status := domainjob.Status(req.Status)
-	if status == "" { status = domainjob.StatusCollecting }
-	p := &domainjob.JobPosting{ID: uuid.NewString(), UserID: userID, Company: req.Company, Position: req.Position, JobType: domainjob.JobType(req.JobType), Location: req.Location, Salary: req.Salary, Description: req.Description, Source: req.Source, URL: req.URL, Status: status, Notes: req.Notes}
+	p := &domainjob.JobPosting{ID: uuid.NewString(), UserID: userID, CompanyName: req.CompanyName, CompanyIntro: req.CompanyIntro, JobTitle: req.JobTitle, JobRequirements: req.JobRequirements, Base: req.Base, SalaryRange: req.SalaryRange, SourcePlatform: req.SourcePlatform, SourceURL: req.SourceURL, Status: req.Status, Remark: req.Remark}
+	if p.Status == "" { p.Status = domainjob.StatusPending }
 	if err := p.Validate(); err != nil { return err }
 	return s.repo.Create(ctx, p)
 }
 
-func (s *JobPostingService) List(ctx context.Context, userID, status, jobType string, page, pageSize int) ([]domainjob.JobPosting, int64, error) {
-	return s.repo.ListByUser(ctx, domainjob.ListFilter{UserID: userID, Status: status, JobType: jobType, Page: page, PageSize: pageSize})
+func (s *JobPostingService) List(ctx context.Context, userID, keyword, sourcePlatform, status string, page, pageSize int) ([]domainjob.JobPosting, int64, error) {
+	if page <= 0 { page = 1 }
+	if pageSize <= 0 { pageSize = 10 }
+	return s.repo.ListByUser(ctx, domainjob.ListFilter{UserID: userID, Keyword: keyword, SourcePlatform: sourcePlatform, Status: domainjob.Status(status), Page: page, PageSize: pageSize})
 }
 
 func (s *JobPostingService) Get(ctx context.Context, userID, id string) (*domainjob.JobPosting, error) {
@@ -1059,17 +1201,9 @@ func (s *JobPostingService) Get(ctx context.Context, userID, id string) (*domain
 func (s *JobPostingService) Update(ctx context.Context, userID, id string, req dto.UpdateJobPostingRequest) error {
 	p, err := s.repo.FindByIDAndUserID(ctx, id, userID)
 	if err != nil { return err }
-	p.Company, p.Position, p.JobType = req.Company, req.Position, domainjob.JobType(req.JobType)
-	p.Location, p.Salary, p.Description = req.Location, req.Salary, req.Description
-	p.Source, p.URL, p.Status, p.Notes = req.Source, req.URL, domainjob.Status(req.Status), req.Notes
-	if err := p.Validate(); err != nil { return err }
-	return s.repo.Update(ctx, p)
-}
-
-func (s *JobPostingService) UpdateStatus(ctx context.Context, userID, id string, req dto.UpdateJobPostingStatusRequest) error {
-	p, err := s.repo.FindByIDAndUserID(ctx, id, userID)
-	if err != nil { return err }
-	p.Status = domainjob.Status(req.Status)
+	p.CompanyName, p.CompanyIntro, p.JobTitle, p.JobRequirements = req.CompanyName, req.CompanyIntro, req.JobTitle, req.JobRequirements
+	p.Base, p.SalaryRange, p.SourcePlatform, p.SourceURL = req.Base, req.SalaryRange, req.SourcePlatform, req.SourceURL
+	p.Status, p.Remark = req.Status, req.Remark
 	if err := p.Validate(); err != nil { return err }
 	return s.repo.Update(ctx, p)
 }
@@ -1077,12 +1211,31 @@ func (s *JobPostingService) UpdateStatus(ctx context.Context, userID, id string,
 func (s *JobPostingService) Delete(ctx context.Context, userID, id string) error {
 	return s.repo.Delete(ctx, id, userID)
 }
+
+func (s *JobPostingService) Parse(ctx context.Context, req dto.ParseJobPostingRequest) (*dto.JobPostingResponse, error) {
+	platform := "其他"
+	if contains(req.URL, "zhipin") { platform = "Boss" }
+	return &dto.JobPostingResponse{CompanyName: "示例公司", JobTitle: "待确认岗位", JobRequirements: "通过解析接口返回的岗位要求示例，用户可继续修改", Base: "北京", SalaryRange: "25k-35k x 16", SourcePlatform: platform, SourceURL: req.URL, Status: domainjob.StatusPending}, nil
+}
+
+func contains(s, substr string) bool {
+	return len(substr) == 0 || (len(s) >= len(substr) && index(s, substr) >= 0)
+}
+
+func index(s, substr string) int {
+	for i := 0; i+len(substr) <= len(s); i++ {
+		if s[i:i+len(substr)] == substr { return i }
+	}
+	return -1
+}
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: Run service tests**
+
+Run:
 
 ```bash
-go test ./internal/application/job_posting/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/application/job_posting -count=1
 ```
 
 Expected: PASS.
@@ -1090,13 +1243,12 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/application/job_posting/
-git commit -m "feat: add job posting application service"
+cd /Users/yilin/project/ai-for/backend && git add internal/application/job_posting && git commit -m "feat: add job posting service"
 ```
 
 ---
 
-## Task 8: ResumeApplication Application Service
+### Task 7: Implement ResumeApplication service
 
 **Files:**
 - Create: `backend/internal/application/resume_application/resume_application_service.go`
@@ -1104,111 +1256,127 @@ git commit -m "feat: add job posting application service"
 
 - [ ] **Step 1: Write failing service tests**
 
+Create `backend/internal/application/resume_application/resume_application_service_test.go`:
+
 ```go
-// internal/application/resume_application/resume_application_service_test.go
 package resume_application_test
 
 import (
 	"context"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	appsvc "github.com/yilin/ai-for-backend/internal/application/resume_application"
-	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
-	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
 )
 
-type mockAppRepo struct{ mock.Mock }
-func (m *mockAppRepo) Create(ctx context.Context, a *domainapp.ResumeApplication) error { return m.Called(ctx, a).Error(0) }
-func (m *mockAppRepo) FindByIDAndJobAndUser(ctx context.Context, id, jobID, userID string) (*domainapp.ResumeApplication, error) { a := m.Called(ctx, id, jobID, userID); if a.Get(0)==nil { return nil, a.Error(1) }; return a.Get(0).(*domainapp.ResumeApplication), a.Error(1) }
-func (m *mockAppRepo) ListByJobAndUser(ctx context.Context, jobID, userID string) ([]domainapp.ResumeApplication, error) { a := m.Called(ctx, jobID, userID); return a.Get(0).([]domainapp.ResumeApplication), a.Error(1) }
-func (m *mockAppRepo) Delete(ctx context.Context, id, jobID, userID string) error { return m.Called(ctx, id, jobID, userID).Error(0) }
-func (m *mockAppRepo) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) { a := m.Called(ctx, versionID); return a.Bool(0), a.Error(1) }
+type mockApplicationRepo struct{ mock.Mock }
 
-type mockJobFinder struct{ mock.Mock }
-func (m *mockJobFinder) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainjob.JobPosting, error) { a := m.Called(ctx, id, userID); if a.Get(0)==nil { return nil, a.Error(1) }; return a.Get(0).(*domainjob.JobPosting), a.Error(1) }
+func (m *mockApplicationRepo) Create(ctx context.Context, a *domainapp.ResumeApplication) error { return m.Called(ctx, a).Error(0) }
+func (m *mockApplicationRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainapp.ResumeApplication, error) { args := m.Called(ctx, id, userID); if args.Get(0) == nil { return nil, args.Error(1) }; return args.Get(0).(*domainapp.ResumeApplication), args.Error(1) }
+func (m *mockApplicationRepo) Update(ctx context.Context, a *domainapp.ResumeApplication) error { return m.Called(ctx, a).Error(0) }
+func (m *mockApplicationRepo) Delete(ctx context.Context, id, userID string) error { return m.Called(ctx, id, userID).Error(0) }
+func (m *mockApplicationRepo) ListByUser(ctx context.Context, f domainapp.ListFilter) ([]domainapp.ResumeApplication, int64, error) { args := m.Called(ctx, f); return args.Get(0).([]domainapp.ResumeApplication), args.Get(1).(int64), args.Error(2) }
+func (m *mockApplicationRepo) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) { args := m.Called(ctx, versionID); return args.Bool(0), args.Error(1) }
+func (m *mockApplicationRepo) UpdateCurrentStatus(ctx context.Context, id, userID string, status domainapp.Status) error { return m.Called(ctx, id, userID, status).Error(0) }
 
-type mockVersionFinder struct{ mock.Mock }
-func (m *mockVersionFinder) FindByID(ctx context.Context, id string) (*domainversion.ResumeVersion, error) { a := m.Called(ctx, id); if a.Get(0)==nil { return nil, a.Error(1) }; return a.Get(0).(*domainversion.ResumeVersion), a.Error(1) }
+func TestResumeApplicationService_Create_CopiesFrontendFields(t *testing.T) {
+	repo := &mockApplicationRepo{}
+	appliedAt := time.Now()
+	repo.On("Create", mock.Anything, mock.MatchedBy(func(a *domainapp.ResumeApplication) bool {
+		return a.ID != "" && a.UserID == "u1" && a.JobPostingID == "j1" && a.ResumeVersionID == "v1" && a.RepoID == "r1" && a.CompanyName == "Acme" && a.CurrentStatus == domainapp.StatusApplied && a.OverallScore == 8
+	})).Return(nil)
+	svc := appsvc.NewResumeApplicationService(repo)
 
-func TestResumeApplicationService_Create_ChecksJobAndVersion(t *testing.T) {
-	apps := &mockAppRepo{}
-	jobs := &mockJobFinder{}
-	versions := &mockVersionFinder{}
-	jobs.On("FindByIDAndUserID", mock.Anything, "j1", "u1").Return(&domainjob.JobPosting{ID:"j1", UserID:"u1"}, nil)
-	versions.On("FindByID", mock.Anything, "v1").Return(&domainversion.ResumeVersion{ID:"v1"}, nil)
-	apps.On("Create", mock.Anything, mock.AnythingOfType("*resume_application.ResumeApplication")).Return(nil)
-	svc := appsvc.NewResumeApplicationService(apps, jobs, versions)
-	assert.NoError(t, svc.Create(context.Background(), "u1", "j1", dto.CreateResumeApplicationRequest{ResumeVersionID:"v1"}))
+	err := svc.Create(context.Background(), "u1", dto.CreateResumeApplicationRequest{JobPostingID: "j1", ResumeVersionID: "v1", RepoID: "r1", CompanyName: "Acme", JobTitle: "Frontend", AppliedAt: appliedAt, CurrentStatus: domainapp.StatusApplied, OverallScore: 8})
+
+	require.NoError(t, err)
+	repo.AssertExpectations(t)
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run service tests to verify failure**
+
+Run:
 
 ```bash
-go test ./internal/application/resume_application/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/application/resume_application -count=1
 ```
 
-Expected: FAIL with package/file not found.
+Expected: FAIL because service package does not exist.
 
-- [ ] **Step 3: Implement service**
+- [ ] **Step 3: Implement ResumeApplication service**
+
+Create `backend/internal/application/resume_application/resume_application_service.go`:
 
 ```go
-// internal/application/resume_application/resume_application_service.go
 package resume_application
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
-	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
-	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
 )
 
-type JobFinder interface { FindByIDAndUserID(ctx context.Context, id, userID string) (*domainjob.JobPosting, error) }
-type VersionFinder interface { FindByID(ctx context.Context, id string) (*domainversion.ResumeVersion, error) }
+type ResumeApplicationService struct{ repo domainapp.Repository }
 
-type ResumeApplicationService struct {
-	repo domainapp.Repository
-	jobs JobFinder
-	versions VersionFinder
-}
+func NewResumeApplicationService(repo domainapp.Repository) *ResumeApplicationService { return &ResumeApplicationService{repo: repo} }
 
-func NewResumeApplicationService(repo domainapp.Repository, jobs JobFinder, versions VersionFinder) *ResumeApplicationService {
-	return &ResumeApplicationService{repo: repo, jobs: jobs, versions: versions}
-}
-
-func (s *ResumeApplicationService) Create(ctx context.Context, userID, jobID string, req dto.CreateResumeApplicationRequest) error {
-	if _, err := s.jobs.FindByIDAndUserID(ctx, jobID, userID); err != nil { return err }
-	if _, err := s.versions.FindByID(ctx, req.ResumeVersionID); err != nil { return err }
-	appliedAt := time.Now()
-	if req.AppliedAt != nil { appliedAt = *req.AppliedAt }
-	a := &domainapp.ResumeApplication{ID: uuid.NewString(), UserID: userID, JobPostingID: jobID, ResumeVersionID: req.ResumeVersionID, AppliedAt: appliedAt, Notes: req.Notes}
+func (s *ResumeApplicationService) Create(ctx context.Context, userID string, req dto.CreateResumeApplicationRequest) error {
+	a := &domainapp.ResumeApplication{ID: uuid.NewString(), UserID: userID, JobPostingID: req.JobPostingID, ResumeVersionID: req.ResumeVersionID, RepoID: req.RepoID, CompanyName: req.CompanyName, CompanyIntro: req.CompanyIntro, JobTitle: req.JobTitle, JobRequirements: req.JobRequirements, Base: req.Base, SalaryRange: req.SalaryRange, SourcePlatform: req.SourcePlatform, SourceURL: req.SourceURL, DeliveryChannel: req.DeliveryChannel, AppliedAt: req.AppliedAt, CurrentStatus: req.CurrentStatus, InterviewSummary: req.InterviewSummary, InterviewNotes: req.InterviewNotes, ResumeMatchScore: req.ResumeMatchScore, InterviewPerformanceScore: req.InterviewPerformanceScore, RoleInterestScore: req.RoleInterestScore, OverallScore: req.OverallScore, Remark: req.Remark}
+	if a.CurrentStatus == "" { a.CurrentStatus = domainapp.StatusApplied }
 	if err := a.Validate(); err != nil { return err }
 	return s.repo.Create(ctx, a)
 }
 
-func (s *ResumeApplicationService) List(ctx context.Context, userID, jobID string) ([]domainapp.ResumeApplication, error) {
-	if _, err := s.jobs.FindByIDAndUserID(ctx, jobID, userID); err != nil { return nil, err }
-	return s.repo.ListByJobAndUser(ctx, jobID, userID)
+func (s *ResumeApplicationService) List(ctx context.Context, userID, resumeVersionID, repoID, keyword, currentStatus string, page, pageSize int) ([]domainapp.ResumeApplication, int64, error) {
+	if page <= 0 { page = 1 }
+	if pageSize <= 0 { pageSize = 10 }
+	return s.repo.ListByUser(ctx, domainapp.ListFilter{UserID: userID, ResumeVersionID: resumeVersionID, RepoID: repoID, Keyword: keyword, CurrentStatus: domainapp.Status(currentStatus), Page: page, PageSize: pageSize})
 }
 
-func (s *ResumeApplicationService) Delete(ctx context.Context, userID, jobID, id string) error {
-	if _, err := s.jobs.FindByIDAndUserID(ctx, jobID, userID); err != nil { return err }
-	return s.repo.Delete(ctx, id, jobID, userID)
+func (s *ResumeApplicationService) Get(ctx context.Context, userID, id string) (*domainapp.ResumeApplication, error) {
+	return s.repo.FindByIDAndUserID(ctx, id, userID)
+}
+
+func (s *ResumeApplicationService) Update(ctx context.Context, userID, id string, req dto.UpdateResumeApplicationRequest) error {
+	a, err := s.repo.FindByIDAndUserID(ctx, id, userID)
+	if err != nil { return err }
+	a.JobPostingID, a.ResumeVersionID, a.RepoID = req.JobPostingID, req.ResumeVersionID, req.RepoID
+	a.CompanyName, a.CompanyIntro, a.JobTitle, a.JobRequirements = req.CompanyName, req.CompanyIntro, req.JobTitle, req.JobRequirements
+	a.Base, a.SalaryRange, a.SourcePlatform, a.SourceURL, a.DeliveryChannel = req.Base, req.SalaryRange, req.SourcePlatform, req.SourceURL, req.DeliveryChannel
+	a.AppliedAt, a.CurrentStatus = req.AppliedAt, req.CurrentStatus
+	a.InterviewSummary, a.InterviewNotes = req.InterviewSummary, req.InterviewNotes
+	a.ResumeMatchScore, a.InterviewPerformanceScore, a.RoleInterestScore, a.OverallScore = req.ResumeMatchScore, req.InterviewPerformanceScore, req.RoleInterestScore, req.OverallScore
+	a.Remark = req.Remark
+	if err := a.Validate(); err != nil { return err }
+	return s.repo.Update(ctx, a)
+}
+
+func (s *ResumeApplicationService) Delete(ctx context.Context, userID, id string) error {
+	return s.repo.Delete(ctx, id, userID)
+}
+
+func (s *ResumeApplicationService) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) {
+	return s.repo.ExistsByResumeVersionID(ctx, versionID)
+}
+
+func (s *ResumeApplicationService) UpdateCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error {
+	return s.repo.UpdateCurrentStatus(ctx, id, userID, status)
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: Run service tests**
+
+Run:
 
 ```bash
-go test ./internal/application/resume_application/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/application/resume_application -count=1
 ```
 
 Expected: PASS.
@@ -1216,13 +1384,12 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/application/resume_application/
-git commit -m "feat: add resume application service"
+cd /Users/yilin/project/ai-for/backend && git add internal/application/resume_application && git commit -m "feat: add resume application service"
 ```
 
 ---
 
-## Task 9: InterviewProgress Application Service
+### Task 8: Implement InterviewProgress service with application status sync
 
 **Files:**
 - Create: `backend/internal/application/interview_progress/interview_progress_service.go`
@@ -1230,107 +1397,139 @@ git commit -m "feat: add resume application service"
 
 - [ ] **Step 1: Write failing service tests**
 
+Create `backend/internal/application/interview_progress/interview_progress_service_test.go`:
+
 ```go
-// internal/application/interview_progress/interview_progress_service_test.go
 package interview_progress_test
 
 import (
 	"context"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	appsvc "github.com/yilin/ai-for-backend/internal/application/interview_progress"
-	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
 )
 
 type mockProgressRepo struct{ mock.Mock }
 func (m *mockProgressRepo) Create(ctx context.Context, p *domainprogress.InterviewProgress) error { return m.Called(ctx, p).Error(0) }
-func (m *mockProgressRepo) FindByIDAndJobAndUser(ctx context.Context, id, jobID, userID string) (*domainprogress.InterviewProgress, error) { a := m.Called(ctx, id, jobID, userID); if a.Get(0)==nil { return nil, a.Error(1) }; return a.Get(0).(*domainprogress.InterviewProgress), a.Error(1) }
-func (m *mockProgressRepo) ListByJobAndUser(ctx context.Context, jobID, userID string) ([]domainprogress.InterviewProgress, error) { a := m.Called(ctx, jobID, userID); return a.Get(0).([]domainprogress.InterviewProgress), a.Error(1) }
+func (m *mockProgressRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainprogress.InterviewProgress, error) { args := m.Called(ctx, id, userID); if args.Get(0) == nil { return nil, args.Error(1) }; return args.Get(0).(*domainprogress.InterviewProgress), args.Error(1) }
 func (m *mockProgressRepo) Update(ctx context.Context, p *domainprogress.InterviewProgress) error { return m.Called(ctx, p).Error(0) }
-func (m *mockProgressRepo) Delete(ctx context.Context, id, jobID, userID string) error { return m.Called(ctx, id, jobID, userID).Error(0) }
+func (m *mockProgressRepo) Delete(ctx context.Context, id, userID string) error { return m.Called(ctx, id, userID).Error(0) }
+func (m *mockProgressRepo) ListByApplicationAndUser(ctx context.Context, applicationID, userID string) ([]domainprogress.InterviewProgress, error) { args := m.Called(ctx, applicationID, userID); return args.Get(0).([]domainprogress.InterviewProgress), args.Error(1) }
+func (m *mockProgressRepo) DeleteByApplicationID(ctx context.Context, applicationID, userID string) error { return m.Called(ctx, applicationID, userID).Error(0) }
 
-type mockProgressJobFinder struct{ mock.Mock }
-func (m *mockProgressJobFinder) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainjob.JobPosting, error) { a := m.Called(ctx, id, userID); if a.Get(0)==nil { return nil, a.Error(1) }; return a.Get(0).(*domainjob.JobPosting), a.Error(1) }
+type mockStatusUpdater struct{ mock.Mock }
+func (m *mockStatusUpdater) UpdateCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error { return m.Called(ctx, userID, id, status).Error(0) }
 
-func TestInterviewProgressService_Create_DefaultResult(t *testing.T) {
+func TestInterviewProgressService_Create_SyncsFailedToRejected(t *testing.T) {
 	repo := &mockProgressRepo{}
-	jobs := &mockProgressJobFinder{}
-	jobs.On("FindByIDAndUserID", mock.Anything, "j1", "u1").Return(&domainjob.JobPosting{ID:"j1", UserID:"u1"}, nil)
-	repo.On("Create", mock.Anything, mock.MatchedBy(func(p *domainprogress.InterviewProgress) bool { return p.Result == domainprogress.ResultPending })).Return(nil)
-	svc := appsvc.NewInterviewProgressService(repo, jobs)
-	assert.NoError(t, svc.Create(context.Background(), "u1", "j1", dto.CreateInterviewProgressRequest{Round:1, InterviewType:"technical"}))
+	apps := &mockStatusUpdater{}
+	now := time.Now()
+	repo.On("Create", mock.Anything, mock.AnythingOfType("*interview_progress.InterviewProgress")).Return(nil)
+	repo.On("ListByApplicationAndUser", mock.Anything, "a1", "u1").Return([]domainprogress.InterviewProgress{{ApplicationID: "a1", Stage: domainprogress.StageFirstInterview, Result: domainprogress.ResultFailed, OccurredAt: now}}, nil)
+	apps.On("UpdateCurrentStatus", mock.Anything, "u1", "a1", domainapp.StatusRejected).Return(nil)
+	svc := appsvc.NewInterviewProgressService(repo, apps)
+
+	err := svc.Create(context.Background(), "u1", dto.CreateInterviewProgressRequest{ApplicationID: "a1", Stage: domainprogress.StageFirstInterview, Result: domainprogress.ResultFailed, OccurredAt: now})
+
+	require.NoError(t, err)
+	repo.AssertExpectations(t)
+	apps.AssertExpectations(t)
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run service tests to verify failure**
+
+Run:
 
 ```bash
-go test ./internal/application/interview_progress/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/application/interview_progress -count=1
 ```
 
-Expected: FAIL with package/file not found.
+Expected: FAIL because service package does not exist.
 
-- [ ] **Step 3: Implement service**
+- [ ] **Step 3: Implement InterviewProgress service**
+
+Create `backend/internal/application/interview_progress/interview_progress_service.go`:
 
 ```go
-// internal/application/interview_progress/interview_progress_service.go
 package interview_progress
 
 import (
 	"context"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
-	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
 )
 
-type JobFinder interface { FindByIDAndUserID(ctx context.Context, id, userID string) (*domainjob.JobPosting, error) }
+type ApplicationStatusUpdater interface {
+	UpdateCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error
+}
 
 type InterviewProgressService struct {
 	repo domainprogress.Repository
-	jobs JobFinder
+	apps ApplicationStatusUpdater
 }
 
-func NewInterviewProgressService(repo domainprogress.Repository, jobs JobFinder) *InterviewProgressService {
-	return &InterviewProgressService{repo: repo, jobs: jobs}
+func NewInterviewProgressService(repo domainprogress.Repository, apps ApplicationStatusUpdater) *InterviewProgressService {
+	return &InterviewProgressService{repo: repo, apps: apps}
 }
 
-func (s *InterviewProgressService) Create(ctx context.Context, userID, jobID string, req dto.CreateInterviewProgressRequest) error {
-	if _, err := s.jobs.FindByIDAndUserID(ctx, jobID, userID); err != nil { return err }
-	result := domainprogress.Result(req.Result)
-	if result == "" { result = domainprogress.ResultPending }
-	p := &domainprogress.InterviewProgress{ID: uuid.NewString(), UserID: userID, JobPostingID: jobID, Round: req.Round, InterviewType: domainprogress.InterviewType(req.InterviewType), ScheduledAt: req.ScheduledAt, CompletedAt: req.CompletedAt, Result: result, Notes: req.Notes}
+func (s *InterviewProgressService) Create(ctx context.Context, userID string, req dto.CreateInterviewProgressRequest) error {
+	p := &domainprogress.InterviewProgress{ID: uuid.NewString(), UserID: userID, ApplicationID: req.ApplicationID, Stage: req.Stage, OccurredAt: req.OccurredAt, Result: req.Result, InterviewerOrTeam: req.InterviewerOrTeam, Note: req.Note}
 	if err := p.Validate(); err != nil { return err }
-	return s.repo.Create(ctx, p)
+	if err := s.repo.Create(ctx, p); err != nil { return err }
+	return s.syncApplicationStatus(ctx, userID, req.ApplicationID)
 }
 
-func (s *InterviewProgressService) List(ctx context.Context, userID, jobID string) ([]domainprogress.InterviewProgress, error) {
-	if _, err := s.jobs.FindByIDAndUserID(ctx, jobID, userID); err != nil { return nil, err }
-	return s.repo.ListByJobAndUser(ctx, jobID, userID)
+func (s *InterviewProgressService) List(ctx context.Context, userID, applicationID string) ([]domainprogress.InterviewProgress, error) {
+	return s.repo.ListByApplicationAndUser(ctx, applicationID, userID)
 }
 
-func (s *InterviewProgressService) Update(ctx context.Context, userID, jobID, id string, req dto.UpdateInterviewProgressRequest) error {
-	p, err := s.repo.FindByIDAndJobAndUser(ctx, id, jobID, userID)
+func (s *InterviewProgressService) Update(ctx context.Context, userID, id string, req dto.UpdateInterviewProgressRequest) error {
+	p, err := s.repo.FindByIDAndUserID(ctx, id, userID)
 	if err != nil { return err }
-	p.Round, p.InterviewType, p.ScheduledAt, p.CompletedAt, p.Result, p.Notes = req.Round, domainprogress.InterviewType(req.InterviewType), req.ScheduledAt, req.CompletedAt, domainprogress.Result(req.Result), req.Notes
+	p.ApplicationID, p.Stage, p.OccurredAt, p.Result = req.ApplicationID, req.Stage, req.OccurredAt, req.Result
+	p.InterviewerOrTeam, p.Note = req.InterviewerOrTeam, req.Note
 	if err := p.Validate(); err != nil { return err }
-	return s.repo.Update(ctx, p)
+	if err := s.repo.Update(ctx, p); err != nil { return err }
+	return s.syncApplicationStatus(ctx, userID, p.ApplicationID)
 }
 
-func (s *InterviewProgressService) Delete(ctx context.Context, userID, jobID, id string) error {
-	return s.repo.Delete(ctx, id, jobID, userID)
+func (s *InterviewProgressService) Delete(ctx context.Context, userID, id string) error {
+	p, err := s.repo.FindByIDAndUserID(ctx, id, userID)
+	if err != nil { return err }
+	if err := s.repo.Delete(ctx, id, userID); err != nil { return err }
+	return s.syncApplicationStatus(ctx, userID, p.ApplicationID)
+}
+
+func (s *InterviewProgressService) syncApplicationStatus(ctx context.Context, userID, applicationID string) error {
+	rows, err := s.repo.ListByApplicationAndUser(ctx, applicationID, userID)
+	if err != nil { return err }
+	if len(rows) == 0 { return nil }
+	sort.Slice(rows, func(i, j int) bool { return rows[i].OccurredAt.Before(rows[j].OccurredAt) })
+	latest := rows[len(rows)-1]
+	if latest.Result == domainprogress.ResultFailed {
+		return s.apps.UpdateCurrentStatus(ctx, userID, applicationID, domainapp.StatusRejected)
+	}
+	return s.apps.UpdateCurrentStatus(ctx, userID, applicationID, domainapp.Status(latest.Stage))
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: Run service tests**
+
+Run:
 
 ```bash
-go test ./internal/application/interview_progress/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/application/interview_progress -count=1
 ```
 
 Expected: PASS.
@@ -1338,181 +1537,187 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/application/interview_progress/
-git commit -m "feat: add interview progress service"
+cd /Users/yilin/project/ai-for/backend && git add internal/application/interview_progress && git commit -m "feat: add interview progress service"
 ```
 
 ---
 
-## Task 10: Interface Handlers
+### Task 9: Implement PostgreSQL repositories
+
+**Files:**
+- Create: `backend/internal/infrastructure/persistence/postgres/job_posting_repo.go`
+- Create: `backend/internal/infrastructure/persistence/postgres/resume_application_repo.go`
+- Create: `backend/internal/infrastructure/persistence/postgres/interview_progress_repo.go`
+
+- [ ] **Step 1: Implement JobPosting repository**
+
+Create `backend/internal/infrastructure/persistence/postgres/job_posting_repo.go`:
+
+```go
+package postgres
+
+import (
+	"context"
+	"errors"
+
+	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
+	"gorm.io/gorm"
+)
+
+type JobPostingRepo struct{ db *gorm.DB }
+func NewJobPostingRepo(db *gorm.DB) *JobPostingRepo { return &JobPostingRepo{db: db} }
+func (r *JobPostingRepo) Create(ctx context.Context, p *domainjob.JobPosting) error { return r.db.WithContext(ctx).Create(p).Error }
+func (r *JobPostingRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainjob.JobPosting, error) { var p domainjob.JobPosting; err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&p).Error; if errors.Is(err, gorm.ErrRecordNotFound) { return nil, domainerrors.ErrNotFound }; return &p, err }
+func (r *JobPostingRepo) Update(ctx context.Context, p *domainjob.JobPosting) error { return r.db.WithContext(ctx).Save(p).Error }
+func (r *JobPostingRepo) Delete(ctx context.Context, id, userID string) error { result := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&domainjob.JobPosting{}); if result.Error != nil { return result.Error }; if result.RowsAffected == 0 { return domainerrors.ErrNotFound }; return nil }
+func (r *JobPostingRepo) ListByUser(ctx context.Context, f domainjob.ListFilter) ([]domainjob.JobPosting, int64, error) {
+	q := r.db.WithContext(ctx).Model(&domainjob.JobPosting{}).Where("user_id = ?", f.UserID)
+	if f.Keyword != "" { like := "%" + f.Keyword + "%"; q = q.Where("company_name ILIKE ? OR job_title ILIKE ?", like, like) }
+	if f.SourcePlatform != "" { q = q.Where("source_platform = ?", f.SourcePlatform) }
+	if f.Status != "" { q = q.Where("status = ?", f.Status) }
+	var total int64
+	if err := q.Count(&total).Error; err != nil { return nil, 0, err }
+	var rows []domainjob.JobPosting
+	err := q.Order("created_at DESC").Offset((f.Page - 1) * f.PageSize).Limit(f.PageSize).Find(&rows).Error
+	return rows, total, err
+}
+```
+
+- [ ] **Step 2: Implement ResumeApplication repository**
+
+Create `backend/internal/infrastructure/persistence/postgres/resume_application_repo.go`:
+
+```go
+package postgres
+
+import (
+	"context"
+	"errors"
+
+	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
+	"gorm.io/gorm"
+)
+
+type ResumeApplicationRepo struct{ db *gorm.DB }
+func NewResumeApplicationRepo(db *gorm.DB) *ResumeApplicationRepo { return &ResumeApplicationRepo{db: db} }
+func (r *ResumeApplicationRepo) Create(ctx context.Context, a *domainapp.ResumeApplication) error { return r.db.WithContext(ctx).Create(a).Error }
+func (r *ResumeApplicationRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainapp.ResumeApplication, error) { var a domainapp.ResumeApplication; err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&a).Error; if errors.Is(err, gorm.ErrRecordNotFound) { return nil, domainerrors.ErrNotFound }; return &a, err }
+func (r *ResumeApplicationRepo) Update(ctx context.Context, a *domainapp.ResumeApplication) error { return r.db.WithContext(ctx).Save(a).Error }
+func (r *ResumeApplicationRepo) Delete(ctx context.Context, id, userID string) error { result := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&domainapp.ResumeApplication{}); if result.Error != nil { return result.Error }; if result.RowsAffected == 0 { return domainerrors.ErrNotFound }; return nil }
+func (r *ResumeApplicationRepo) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) { var count int64; err := r.db.WithContext(ctx).Model(&domainapp.ResumeApplication{}).Where("resume_version_id = ?", versionID).Count(&count).Error; return count > 0, err }
+func (r *ResumeApplicationRepo) UpdateCurrentStatus(ctx context.Context, id, userID string, status domainapp.Status) error { result := r.db.WithContext(ctx).Model(&domainapp.ResumeApplication{}).Where("id = ? AND user_id = ?", id, userID).Update("current_status", status); if result.Error != nil { return result.Error }; if result.RowsAffected == 0 { return domainerrors.ErrNotFound }; return nil }
+func (r *ResumeApplicationRepo) ListByUser(ctx context.Context, f domainapp.ListFilter) ([]domainapp.ResumeApplication, int64, error) {
+	q := r.db.WithContext(ctx).Model(&domainapp.ResumeApplication{}).Where("user_id = ?", f.UserID)
+	if f.ResumeVersionID != "" { q = q.Where("resume_version_id = ?", f.ResumeVersionID) }
+	if f.RepoID != "" { q = q.Where("repo_id = ?", f.RepoID) }
+	if f.Keyword != "" { like := "%" + f.Keyword + "%"; q = q.Where("company_name ILIKE ? OR job_title ILIKE ?", like, like) }
+	if f.CurrentStatus != "" { q = q.Where("current_status = ?", f.CurrentStatus) }
+	var total int64
+	if err := q.Count(&total).Error; err != nil { return nil, 0, err }
+	var rows []domainapp.ResumeApplication
+	err := q.Order("applied_at DESC").Offset((f.Page - 1) * f.PageSize).Limit(f.PageSize).Find(&rows).Error
+	return rows, total, err
+}
+```
+
+- [ ] **Step 3: Implement InterviewProgress repository**
+
+Create `backend/internal/infrastructure/persistence/postgres/interview_progress_repo.go`:
+
+```go
+package postgres
+
+import (
+	"context"
+	"errors"
+
+	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
+	"gorm.io/gorm"
+)
+
+type InterviewProgressRepo struct{ db *gorm.DB }
+func NewInterviewProgressRepo(db *gorm.DB) *InterviewProgressRepo { return &InterviewProgressRepo{db: db} }
+func (r *InterviewProgressRepo) Create(ctx context.Context, p *domainprogress.InterviewProgress) error { return r.db.WithContext(ctx).Create(p).Error }
+func (r *InterviewProgressRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domainprogress.InterviewProgress, error) { var p domainprogress.InterviewProgress; err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&p).Error; if errors.Is(err, gorm.ErrRecordNotFound) { return nil, domainerrors.ErrNotFound }; return &p, err }
+func (r *InterviewProgressRepo) Update(ctx context.Context, p *domainprogress.InterviewProgress) error { return r.db.WithContext(ctx).Save(p).Error }
+func (r *InterviewProgressRepo) Delete(ctx context.Context, id, userID string) error { result := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&domainprogress.InterviewProgress{}); if result.Error != nil { return result.Error }; if result.RowsAffected == 0 { return domainerrors.ErrNotFound }; return nil }
+func (r *InterviewProgressRepo) ListByApplicationAndUser(ctx context.Context, applicationID, userID string) ([]domainprogress.InterviewProgress, error) { var rows []domainprogress.InterviewProgress; err := r.db.WithContext(ctx).Where("application_id = ? AND user_id = ?", applicationID, userID).Order("occurred_at ASC").Find(&rows).Error; return rows, err }
+func (r *InterviewProgressRepo) DeleteByApplicationID(ctx context.Context, applicationID, userID string) error { return r.db.WithContext(ctx).Where("application_id = ? AND user_id = ?", applicationID, userID).Delete(&domainprogress.InterviewProgress{}).Error }
+```
+
+- [ ] **Step 4: Run repository compile check**
+
+Run:
+
+```bash
+cd /Users/yilin/project/ai-for/backend && go test ./internal/infrastructure/persistence/postgres -run '^$' -count=1
+```
+
+Expected: PASS or only unrelated existing integration setup failures. Fix compile errors before continuing.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd /Users/yilin/project/ai-for/backend && git add internal/infrastructure/persistence/postgres/job_posting_repo.go internal/infrastructure/persistence/postgres/resume_application_repo.go internal/infrastructure/persistence/postgres/interview_progress_repo.go && git commit -m "feat: add postgres repositories for job domain"
+```
+
+---
+
+### Task 10: Implement frontend route handlers
 
 **Files:**
 - Create: `backend/internal/interface/handler/job_posting_handler.go`
-- Create: `backend/internal/interface/handler/job_posting_handler_test.go`
 - Create: `backend/internal/interface/handler/resume_application_handler.go`
-- Create: `backend/internal/interface/handler/resume_application_handler_test.go`
 - Create: `backend/internal/interface/handler/interview_progress_handler.go`
-- Create: `backend/internal/interface/handler/interview_progress_handler_test.go`
 
-- [ ] **Step 1: Write failing handler tests**
+- [ ] **Step 1: Implement JobPosting handler**
 
-```go
-// internal/interface/handler/job_posting_handler_test.go
-package handler_test
-
-import (
-	"bytes"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/yilin/ai-for-backend/internal/interface/handler"
-)
-
-func TestJobPostingHandler_Create_BadRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	h := handler.NewJobPostingHandler(nil)
-	r.POST("/api/v1/job-postings", h.Create)
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/job-postings", bytes.NewBufferString(`{}`))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-	assert.Contains(t, w.Body.String(), "40000")
-}
-```
+Create `backend/internal/interface/handler/job_posting_handler.go`:
 
 ```go
-// internal/interface/handler/resume_application_handler_test.go
-package handler_test
-
-import (
-	"bytes"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/yilin/ai-for-backend/internal/interface/handler"
-)
-
-func TestResumeApplicationHandler_Create_BadRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	h := handler.NewResumeApplicationHandler(nil)
-	r.POST("/api/v1/job-postings/:jobId/applications", h.Create)
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/job-postings/j1/applications", bytes.NewBufferString(`{}`))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-	assert.Contains(t, w.Body.String(), "40000")
-}
-```
-
-```go
-// internal/interface/handler/interview_progress_handler_test.go
-package handler_test
-
-import (
-	"bytes"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/yilin/ai-for-backend/internal/interface/handler"
-)
-
-func TestInterviewProgressHandler_Create_BadRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	h := handler.NewInterviewProgressHandler(nil)
-	r.POST("/api/v1/job-postings/:jobId/interviews", h.Create)
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/job-postings/j1/interviews", bytes.NewBufferString(`{}`))
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(w, req)
-	assert.Contains(t, w.Body.String(), "40000")
-}
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-```bash
-go test ./internal/interface/handler/... -run "JobPosting|ResumeApplication|InterviewProgress" -v
-```
-
-Expected: FAIL with missing constructors/handlers.
-
-- [ ] **Step 3: Implement handlers**
-
-```go
-// internal/interface/handler/job_posting_handler.go
 package handler
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
-	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
-	"github.com/yilin/ai-for-backend/pkg/pagination"
+	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	pkgerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	"github.com/yilin/ai-for-backend/pkg/response"
 )
 
 type JobPostingService interface {
 	Create(ctx context.Context, userID string, req dto.CreateJobPostingRequest) error
-	List(ctx context.Context, userID, status, jobType string, page, pageSize int) (any, int64, error)
-	Get(ctx context.Context, userID, id string) (any, error)
+	List(ctx context.Context, userID, keyword, sourcePlatform, status string, page, pageSize int) ([]domainjob.JobPosting, int64, error)
+	Get(ctx context.Context, userID, id string) (*domainjob.JobPosting, error)
 	Update(ctx context.Context, userID, id string, req dto.UpdateJobPostingRequest) error
-	UpdateStatus(ctx context.Context, userID, id string, req dto.UpdateJobPostingStatusRequest) error
 	Delete(ctx context.Context, userID, id string) error
+	Parse(ctx context.Context, req dto.ParseJobPostingRequest) (*dto.JobPostingResponse, error)
 }
 
 type JobPostingHandler struct{ svc JobPostingService }
 func NewJobPostingHandler(svc JobPostingService) *JobPostingHandler { return &JobPostingHandler{svc: svc} }
 
-func (h *JobPostingHandler) Create(c *gin.Context) {
-	var req dto.CreateJobPostingRequest
-	if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, domainerrors.CodeBadParams, err.Error()); return }
-	if err := h.svc.Create(c.Request.Context(), c.GetString("userID"), req); err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, nil)
-}
-func (h *JobPostingHandler) List(c *gin.Context) {
-	p := pagination.FromContext(c)
-	rows, total, err := h.svc.List(c.Request.Context(), c.GetString("userID"), c.Query("status"), c.Query("jobType"), p.Page, p.PageSize)
-	if err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.SuccessPage(c, rows, total, p.Page, p.PageSize)
-}
-func (h *JobPostingHandler) Get(c *gin.Context) {
-	row, err := h.svc.Get(c.Request.Context(), c.GetString("userID"), c.Param("id"))
-	if err != nil { response.Fail(c, domainerrors.CodeNotFound, "资源不存在"); return }
-	response.Success(c, row)
-}
-func (h *JobPostingHandler) Update(c *gin.Context) {
-	var req dto.UpdateJobPostingRequest
-	if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, domainerrors.CodeBadParams, err.Error()); return }
-	if err := h.svc.Update(c.Request.Context(), c.GetString("userID"), c.Param("id"), req); err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, nil)
-}
-func (h *JobPostingHandler) UpdateStatus(c *gin.Context) {
-	var req dto.UpdateJobPostingStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, domainerrors.CodeBadParams, err.Error()); return }
-	if err := h.svc.UpdateStatus(c.Request.Context(), c.GetString("userID"), c.Param("id"), req); err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, nil)
-}
-func (h *JobPostingHandler) Delete(c *gin.Context) {
-	if err := h.svc.Delete(c.Request.Context(), c.GetString("userID"), c.Param("id")); err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, nil)
-}
+func (h *JobPostingHandler) List(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; page, pageSize := parsePage(c); rows, total, err := h.svc.List(c.Request.Context(), userID, c.Query("keyword"), c.Query("sourcePlatform"), c.Query("status"), page, pageSize); if err != nil { mapError(c, err); return }; response.Success(c, gin.H{"list": dto.ToJobPostingResponses(rows), "total": total, "page": page, "pageSize": pageSize}) }
+func (h *JobPostingHandler) Get(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; row, err := h.svc.Get(c.Request.Context(), userID, c.Param("id")); if err != nil { mapError(c, err); return }; response.Success(c, dto.ToJobPostingResponse(row)) }
+func (h *JobPostingHandler) Create(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; var req dto.CreateJobPostingRequest; if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, pkgerrors.CodeBadParams, "参数错误"); return }; if err := h.svc.Create(c.Request.Context(), userID, req); err != nil { mapError(c, err); return }; rows, _, err := h.svc.List(c.Request.Context(), userID, "", "", "", 1, 1); if err == nil && len(rows) > 0 { response.Success(c, dto.ToJobPostingResponse(&rows[0])); return }; response.Success(c, nil) }
+func (h *JobPostingHandler) Update(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; var req dto.UpdateJobPostingRequest; if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, pkgerrors.CodeBadParams, "参数错误"); return }; if err := h.svc.Update(c.Request.Context(), userID, c.Param("id"), req); err != nil { mapError(c, err); return }; row, err := h.svc.Get(c.Request.Context(), userID, c.Param("id")); if err != nil { mapError(c, err); return }; response.Success(c, dto.ToJobPostingResponse(row)) }
+func (h *JobPostingHandler) Delete(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; if err := h.svc.Delete(c.Request.Context(), userID, c.Param("id")); err != nil { mapError(c, err); return }; response.Success(c, nil) }
+func (h *JobPostingHandler) Parse(c *gin.Context) { var req dto.ParseJobPostingRequest; if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, pkgerrors.CodeBadParams, "岗位链接不能为空"); return }; parsed, err := h.svc.Parse(c.Request.Context(), req); if err != nil { mapError(c, err); return }; response.Success(c, parsed) }
+
+func parsePage(c *gin.Context) (int, int) { page, _ := strconv.Atoi(c.DefaultQuery("page", "1")); pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10")); if page <= 0 { page = 1 }; if pageSize <= 0 { pageSize = 10 }; return page, pageSize }
 ```
 
+- [ ] **Step 2: Implement ResumeApplication handler**
+
+Create `backend/internal/interface/handler/resume_application_handler.go`:
+
 ```go
-// internal/interface/handler/resume_application_handler.go
 package handler
 
 import (
@@ -1520,38 +1725,34 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
-	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
+	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
+	pkgerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	"github.com/yilin/ai-for-backend/pkg/response"
 )
 
 type ResumeApplicationService interface {
-	Create(ctx context.Context, userID, jobID string, req dto.CreateResumeApplicationRequest) error
-	List(ctx context.Context, userID, jobID string) (any, error)
-	Delete(ctx context.Context, userID, jobID, id string) error
+	Create(ctx context.Context, userID string, req dto.CreateResumeApplicationRequest) error
+	List(ctx context.Context, userID, resumeVersionID, repoID, keyword, currentStatus string, page, pageSize int) ([]domainapp.ResumeApplication, int64, error)
+	Get(ctx context.Context, userID, id string) (*domainapp.ResumeApplication, error)
+	Update(ctx context.Context, userID, id string, req dto.UpdateResumeApplicationRequest) error
+	Delete(ctx context.Context, userID, id string) error
 }
 
 type ResumeApplicationHandler struct{ svc ResumeApplicationService }
 func NewResumeApplicationHandler(svc ResumeApplicationService) *ResumeApplicationHandler { return &ResumeApplicationHandler{svc: svc} }
 
-func (h *ResumeApplicationHandler) Create(c *gin.Context) {
-	var req dto.CreateResumeApplicationRequest
-	if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, domainerrors.CodeBadParams, err.Error()); return }
-	if err := h.svc.Create(c.Request.Context(), c.GetString("userID"), c.Param("jobId"), req); err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, nil)
-}
-func (h *ResumeApplicationHandler) List(c *gin.Context) {
-	rows, err := h.svc.List(c.Request.Context(), c.GetString("userID"), c.Param("jobId"))
-	if err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, rows)
-}
-func (h *ResumeApplicationHandler) Delete(c *gin.Context) {
-	if err := h.svc.Delete(c.Request.Context(), c.GetString("userID"), c.Param("jobId"), c.Param("id")); err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, nil)
-}
+func (h *ResumeApplicationHandler) List(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; page, pageSize := parsePage(c); rows, total, err := h.svc.List(c.Request.Context(), userID, c.Query("resumeVersionId"), c.Query("repoId"), c.Query("keyword"), c.Query("currentStatus"), page, pageSize); if err != nil { mapError(c, err); return }; response.Success(c, gin.H{"list": dto.ToResumeApplicationResponses(rows), "total": total, "page": page, "pageSize": pageSize}) }
+func (h *ResumeApplicationHandler) Get(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; row, err := h.svc.Get(c.Request.Context(), userID, c.Param("id")); if err != nil { mapError(c, err); return }; response.Success(c, dto.ToResumeApplicationResponse(row)) }
+func (h *ResumeApplicationHandler) Create(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; var req dto.CreateResumeApplicationRequest; if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, pkgerrors.CodeBadParams, "参数错误"); return }; if err := h.svc.Create(c.Request.Context(), userID, req); err != nil { mapError(c, err); return }; rows, _, err := h.svc.List(c.Request.Context(), userID, req.ResumeVersionID, "", "", "", 1, 1); if err == nil && len(rows) > 0 { response.Success(c, dto.ToResumeApplicationResponse(&rows[0])); return }; response.Success(c, nil) }
+func (h *ResumeApplicationHandler) Update(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; var req dto.UpdateResumeApplicationRequest; if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, pkgerrors.CodeBadParams, "参数错误"); return }; if err := h.svc.Update(c.Request.Context(), userID, c.Param("id"), req); err != nil { mapError(c, err); return }; row, err := h.svc.Get(c.Request.Context(), userID, c.Param("id")); if err != nil { mapError(c, err); return }; response.Success(c, dto.ToResumeApplicationResponse(row)) }
+func (h *ResumeApplicationHandler) Delete(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; if err := h.svc.Delete(c.Request.Context(), userID, c.Param("id")); err != nil { mapError(c, err); return }; response.Success(c, nil) }
 ```
 
+- [ ] **Step 3: Implement InterviewProgress handler**
+
+Create `backend/internal/interface/handler/interview_progress_handler.go`:
+
 ```go
-// internal/interface/handler/interview_progress_handler.go
 package handler
 
 import (
@@ -1559,47 +1760,155 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
-	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
+	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	pkgerrors "github.com/yilin/ai-for-backend/pkg/errors"
 	"github.com/yilin/ai-for-backend/pkg/response"
 )
 
 type InterviewProgressService interface {
-	Create(ctx context.Context, userID, jobID string, req dto.CreateInterviewProgressRequest) error
-	List(ctx context.Context, userID, jobID string) (any, error)
-	Update(ctx context.Context, userID, jobID, id string, req dto.UpdateInterviewProgressRequest) error
-	Delete(ctx context.Context, userID, jobID, id string) error
+	Create(ctx context.Context, userID string, req dto.CreateInterviewProgressRequest) error
+	List(ctx context.Context, userID, applicationID string) ([]domainprogress.InterviewProgress, error)
+	Update(ctx context.Context, userID, id string, req dto.UpdateInterviewProgressRequest) error
+	Delete(ctx context.Context, userID, id string) error
 }
 
 type InterviewProgressHandler struct{ svc InterviewProgressService }
 func NewInterviewProgressHandler(svc InterviewProgressService) *InterviewProgressHandler { return &InterviewProgressHandler{svc: svc} }
 
-func (h *InterviewProgressHandler) Create(c *gin.Context) {
-	var req dto.CreateInterviewProgressRequest
-	if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, domainerrors.CodeBadParams, err.Error()); return }
-	if err := h.svc.Create(c.Request.Context(), c.GetString("userID"), c.Param("jobId"), req); err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, nil)
-}
-func (h *InterviewProgressHandler) List(c *gin.Context) {
-	rows, err := h.svc.List(c.Request.Context(), c.GetString("userID"), c.Param("jobId"))
-	if err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, rows)
-}
-func (h *InterviewProgressHandler) Update(c *gin.Context) {
-	var req dto.UpdateInterviewProgressRequest
-	if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, domainerrors.CodeBadParams, err.Error()); return }
-	if err := h.svc.Update(c.Request.Context(), c.GetString("userID"), c.Param("jobId"), c.Param("id"), req); err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, nil)
-}
-func (h *InterviewProgressHandler) Delete(c *gin.Context) {
-	if err := h.svc.Delete(c.Request.Context(), c.GetString("userID"), c.Param("jobId"), c.Param("id")); err != nil { response.Fail(c, domainerrors.CodeInternalError, err.Error()); return }
-	response.Success(c, nil)
-}
+func (h *InterviewProgressHandler) List(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; applicationID := c.Query("applicationId"); if applicationID == "" { response.Fail(c, pkgerrors.CodeBadParams, "applicationId 不能为空"); return }; rows, err := h.svc.List(c.Request.Context(), userID, applicationID); if err != nil { mapError(c, err); return }; response.Success(c, gin.H{"list": dto.ToInterviewProgressResponses(rows)}) }
+func (h *InterviewProgressHandler) Create(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; var req dto.CreateInterviewProgressRequest; if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, pkgerrors.CodeBadParams, "参数错误"); return }; if err := h.svc.Create(c.Request.Context(), userID, req); err != nil { mapError(c, err); return }; rows, err := h.svc.List(c.Request.Context(), userID, req.ApplicationID); if err == nil && len(rows) > 0 { response.Success(c, dto.ToInterviewProgressResponse(&rows[len(rows)-1])); return }; response.Success(c, nil) }
+func (h *InterviewProgressHandler) Update(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; var req dto.UpdateInterviewProgressRequest; if err := c.ShouldBindJSON(&req); err != nil { response.Fail(c, pkgerrors.CodeBadParams, "参数错误"); return }; if err := h.svc.Update(c.Request.Context(), userID, c.Param("id"), req); err != nil { mapError(c, err); return }; response.Success(c, nil) }
+func (h *InterviewProgressHandler) Delete(c *gin.Context) { userID, ok := resumeUserID(c); if !ok { return }; if err := h.svc.Delete(c.Request.Context(), userID, c.Param("id")); err != nil { mapError(c, err); return }; response.Success(c, nil) }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [ ] **Step 4: Run handler compile check**
+
+Run:
 
 ```bash
-go test ./internal/interface/handler/... -run "JobPosting|ResumeApplication|InterviewProgress" -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/interface/handler -run '^$' -count=1
+```
+
+Expected: PASS. If `resumeUserID` or `mapError` names differ in the current handler package, use the existing helper names already used by resume repo/version handlers.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd /Users/yilin/project/ai-for/backend && git add internal/interface/handler/job_posting_handler.go internal/interface/handler/resume_application_handler.go internal/interface/handler/interview_progress_handler.go && git commit -m "feat: add frontend-aligned job domain handlers"
+```
+
+---
+
+### Task 11: Wire router and server
+
+**Files:**
+- Modify: `backend/internal/interface/router/router.go`
+- Modify: `backend/internal/interface/router/router_test.go`
+- Modify: `backend/cmd/server/main.go`
+
+- [ ] **Step 1: Update router dependencies and routes**
+
+In `backend/internal/interface/router/router.go`, add dependencies for the three new handlers using the same pattern as existing resume handlers, then register these authenticated routes under the existing `/api` or `/api/v1` group that is proxied by the frontend:
+
+```go
+auth.GET("/job-postings", deps.JobPostingHandler.List)
+auth.GET("/job-postings/:id", deps.JobPostingHandler.Get)
+auth.POST("/job-postings", deps.JobPostingHandler.Create)
+auth.PUT("/job-postings/:id", deps.JobPostingHandler.Update)
+auth.DELETE("/job-postings/:id", deps.JobPostingHandler.Delete)
+auth.POST("/job-postings/parse", deps.JobPostingHandler.Parse)
+
+auth.GET("/resume-applications", deps.ResumeApplicationHandler.List)
+auth.GET("/resume-applications/:id", deps.ResumeApplicationHandler.Get)
+auth.POST("/resume-applications", deps.ResumeApplicationHandler.Create)
+auth.PUT("/resume-applications/:id", deps.ResumeApplicationHandler.Update)
+auth.DELETE("/resume-applications/:id", deps.ResumeApplicationHandler.Delete)
+
+auth.GET("/interview-progress", deps.InterviewProgressHandler.List)
+auth.POST("/interview-progress", deps.InterviewProgressHandler.Create)
+auth.PUT("/interview-progress/:id", deps.InterviewProgressHandler.Update)
+auth.DELETE("/interview-progress/:id", deps.InterviewProgressHandler.Delete)
+```
+
+Important route-order rule: register `POST /job-postings/parse` before `GET /job-postings/:id` if this router matches static paths after params. Gin usually handles exact static routes correctly, but registering static paths first prevents ambiguity.
+
+- [ ] **Step 2: Update router tests**
+
+In `backend/internal/interface/router/router_test.go`, add these expected routes to the existing route list/assertions:
+
+```go
+"GET /api/job-postings",
+"GET /api/job-postings/:id",
+"POST /api/job-postings",
+"PUT /api/job-postings/:id",
+"DELETE /api/job-postings/:id",
+"POST /api/job-postings/parse",
+"GET /api/resume-applications",
+"GET /api/resume-applications/:id",
+"POST /api/resume-applications",
+"PUT /api/resume-applications/:id",
+"DELETE /api/resume-applications/:id",
+"GET /api/interview-progress",
+"POST /api/interview-progress",
+"PUT /api/interview-progress/:id",
+"DELETE /api/interview-progress/:id",
+```
+
+If the existing router test expects `/api/v1/...`, use `/api/v1/...` consistently. Match the current router prefix, not a new prefix.
+
+- [ ] **Step 3: Wire repositories, services, and handlers in main**
+
+In `backend/cmd/server/main.go`, add imports for the new packages:
+
+```go
+jobpostingapp "github.com/yilin/ai-for-backend/internal/application/job_posting"
+interviewprogressapp "github.com/yilin/ai-for-backend/internal/application/interview_progress"
+resumeapplicationapp "github.com/yilin/ai-for-backend/internal/application/resume_application"
+domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
+```
+
+Add models to AutoMigrate only if `main.go` currently uses AutoMigrate:
+
+```go
+&domainjob.JobPosting{},
+&domainapp.ResumeApplication{},
+&domainprogress.InterviewProgress{},
+```
+
+Create repositories:
+
+```go
+jobPostingRepo := infrapostgres.NewJobPostingRepo(db)
+resumeApplicationRepo := infrapostgres.NewResumeApplicationRepo(db)
+interviewProgressRepo := infrapostgres.NewInterviewProgressRepo(db)
+```
+
+Create services:
+
+```go
+jobPostingSvc := jobpostingapp.NewJobPostingService(jobPostingRepo)
+resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo)
+interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, resumeApplicationSvc)
+```
+
+Create handlers:
+
+```go
+jobPostingHandler := handler.NewJobPostingHandler(jobPostingSvc)
+resumeApplicationHandler := handler.NewResumeApplicationHandler(resumeApplicationSvc)
+interviewProgressHandler := handler.NewInterviewProgressHandler(interviewProgressSvc)
+```
+
+Pass these handlers to router setup using the current router dependency style.
+
+- [ ] **Step 4: Run build and router tests**
+
+Run:
+
+```bash
+cd /Users/yilin/project/ai-for/backend && go test ./internal/interface/router ./cmd/server/... -count=1
 ```
 
 Expected: PASS.
@@ -1607,195 +1916,99 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/interface/handler/job_posting_handler* internal/interface/handler/resume_application_handler* internal/interface/handler/interview_progress_handler*
-git commit -m "feat: add job domain handlers"
+cd /Users/yilin/project/ai-for/backend && git add internal/interface/router/router.go internal/interface/router/router_test.go cmd/server/main.go && git commit -m "feat: wire frontend-aligned job domain routes"
 ```
 
 ---
 
-## Task 11: Router and main.go Wiring
+### Task 12: Final verification
 
 **Files:**
-- Modify: `backend/internal/interface/router/router.go`
-- Modify: `backend/cmd/server/main.go`
-
-- [ ] **Step 1: Update router setup signature and routes**
-
-```go
-// internal/interface/router/router.go
-// Add these parameters to Setup:
-// jobPostingHandler *handler.JobPostingHandler,
-// resumeApplicationHandler *handler.ResumeApplicationHandler,
-// interviewProgressHandler *handler.InterviewProgressHandler,
-
-// Add these routes inside the authenticated route group:
-auth.GET("/job-postings", jobPostingHandler.List)
-auth.POST("/job-postings", jobPostingHandler.Create)
-auth.GET("/job-postings/:id", jobPostingHandler.Get)
-auth.PUT("/job-postings/:id", jobPostingHandler.Update)
-auth.DELETE("/job-postings/:id", jobPostingHandler.Delete)
-auth.PUT("/job-postings/:id/status", jobPostingHandler.UpdateStatus)
-
-auth.GET("/job-postings/:jobId/applications", resumeApplicationHandler.List)
-auth.POST("/job-postings/:jobId/applications", resumeApplicationHandler.Create)
-auth.DELETE("/job-postings/:jobId/applications/:id", resumeApplicationHandler.Delete)
-
-auth.GET("/job-postings/:jobId/interviews", interviewProgressHandler.List)
-auth.POST("/job-postings/:jobId/interviews", interviewProgressHandler.Create)
-auth.PUT("/job-postings/:jobId/interviews/:id", interviewProgressHandler.Update)
-auth.DELETE("/job-postings/:jobId/interviews/:id", interviewProgressHandler.Delete)
-```
-
-- [ ] **Step 2: Wire repositories, services, and handlers in main.go**
-
-```go
-// cmd/server/main.go
-// Add imports with aliases:
-// jobpostingapp "github.com/yilin/ai-for-backend/internal/application/job_posting"
-// resumeapplicationapp "github.com/yilin/ai-for-backend/internal/application/resume_application"
-// interviewprogressapp "github.com/yilin/ai-for-backend/internal/application/interview_progress"
-// domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
-// domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
-// domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
-
-// Add AutoMigrate models if Plan 1 main.go still uses AutoMigrate:
-if err := db.AutoMigrate(&domainuser.User{}, &domainrepo.ResumeRepo{}, &domainversion.ResumeVersion{}, &domainjob.JobPosting{}, &domainapp.ResumeApplication{}, &domainprogress.InterviewProgress{}); err != nil {
-	log.Fatalf("failed to auto-migrate: %v", err)
-}
-
-// Add repositories:
-jobPostingRepo := infrapostgres.NewJobPostingRepo(db)
-resumeApplicationRepo := infrapostgres.NewResumeApplicationRepo(db)
-interviewProgressRepo := infrapostgres.NewInterviewProgressRepo(db)
-
-// Replace Plan 2 noopVersionInUseChecker with real repo:
-resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeVersionRepo, resumeApplicationRepo)
-
-// Add services:
-jobPostingSvc := jobpostingapp.NewJobPostingService(jobPostingRepo)
-resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo, jobPostingRepo, resumeVersionRepo)
-interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, jobPostingRepo)
-
-// Add handlers:
-jobPostingHandler := handler.NewJobPostingHandler(jobPostingSvc)
-resumeApplicationHandler := handler.NewResumeApplicationHandler(resumeApplicationSvc)
-interviewProgressHandler := handler.NewInterviewProgressHandler(interviewProgressSvc)
-
-// Pass new handlers to router.Setup in the same order as the updated signature.
-```
-
-- [ ] **Step 3: Build**
-
-```bash
-go build ./cmd/server/...
-```
-
-Expected: build succeeds.
-
-- [ ] **Step 4: Smoke test job posting endpoints**
-
-```bash
-make run
-```
-
-In another shell:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/job-postings \
-  -H "X-Access-Token: <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"company":"Acme","position":"Backend Engineer","jobType":"social","status":"collecting"}'
-
-curl "http://localhost:8080/api/v1/job-postings?status=collecting&jobType=social" \
-  -H "X-Access-Token: <token>"
-```
-
-Expected: both return JSON with `"code":20000`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add internal/interface/router/router.go cmd/server/main.go
-git commit -m "feat: wire job domain routes and services"
-```
-
----
-
-## Task 12: Final Verification
-
-**Files:**
-- No new files
+- No new files. Fix compile/test failures in files touched by earlier tasks.
 
 - [ ] **Step 1: Run domain tests**
 
+Run:
+
 ```bash
-go test ./internal/domain/job_posting/... -v
-go test ./internal/domain/resume_application/... -v
-go test ./internal/domain/interview_progress/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/domain/job_posting ./internal/domain/resume_application ./internal/domain/interview_progress -count=1
 ```
 
 Expected: PASS.
 
 - [ ] **Step 2: Run application tests**
 
+Run:
+
 ```bash
-go test ./internal/application/job_posting/... -v
-go test ./internal/application/resume_application/... -v
-go test ./internal/application/interview_progress/... -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/application/job_posting ./internal/application/resume_application ./internal/application/interview_progress -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 3: Run handler tests**
+- [ ] **Step 3: Run handler/router tests**
+
+Run:
 
 ```bash
-go test ./internal/interface/handler/... -run "JobPosting|ResumeApplication|InterviewProgress" -v
+cd /Users/yilin/project/ai-for/backend && go test ./internal/interface/handler ./internal/interface/router -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 4: Run repository integration tests**
+- [ ] **Step 4: Run full backend tests**
+
+Run:
 
 ```bash
-go test ./internal/infrastructure/persistence/postgres/... -run "JobPosting|ResumeApplication|InterviewProgress" -v
+cd /Users/yilin/project/ai-for/backend && go test ./... -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: Run full unit test suite**
+- [ ] **Step 5: Verify no frontend files changed**
+
+Run:
 
 ```bash
-make test
+cd /Users/yilin/project/ai-for/backend && git diff --name-only
 ```
 
-Expected: PASS.
+Expected: changed files are backend files and this plan document only. No `frontend/` files should be listed.
 
-- [ ] **Step 6: Commit final fixes if any**
+- [ ] **Step 6: Commit final fixes if needed**
+
+If Step 4 required fixes after the previous commits, commit only those fixes:
 
 ```bash
-git add internal/ cmd/ migrations/
-git commit -m "test: finalize job domain coverage"
+cd /Users/yilin/project/ai-for/backend && git add internal cmd migrations ../docs/superpowers/plans/2026-05-10-backend-plan3-job-domain.md && git commit -m "test: finalize frontend-aligned job domain"
 ```
 
 ---
 
 ## Self-Review
 
-**Spec coverage check:**
-- ✅ JobPosting domain covers company, position, job type, source, URL, status, notes, soft delete, and user ownership.
-- ✅ JobPosting list supports pagination plus `status` and `jobType` filters.
-- ✅ ResumeApplication links job postings to resume versions and implements `ExistsByResumeVersionID(ctx, versionID string) (bool, error)` for Plan 2 deletion protection.
-- ✅ InterviewProgress supports rounds, interview type, scheduled/completed times, result, and notes.
-- ✅ All endpoints are under authenticated `/api/v1` routes.
-- ✅ All operations include user-scoped ownership checks through service/repository methods.
-- ✅ Migrations 000004-000006 create all required tables and indexes.
-- ✅ TDD is represented for entities, services, handlers, and infrastructure repositories.
+**Spec coverage:**
 
-**Placeholder scan:** No TBD, TODO, "implement later", or "similar to" placeholders remain.
+- JobPosting fields match `frontend/src/models/job-posting.ts`: covered in Tasks 1, 4, 5, 6, 9, 10, 11.
+- JobPosting API routes match `frontend/src/api/job-postings.ts`: covered in Tasks 10 and 11.
+- JobPosting filters `keyword`, `sourcePlatform`, `status`, `page`, `pageSize`: covered in Tasks 1, 6, 9, 10.
+- ResumeApplication fields match `frontend/src/models/resume-application.ts`: covered in Tasks 2, 4, 5, 7, 9, 10, 11.
+- ResumeApplication API routes match `frontend/src/api/resume-applications.ts`: covered in Tasks 10 and 11.
+- ResumeApplication filters `resumeVersionId`, `repoId`, `keyword`, `currentStatus`, `page`, `pageSize`: covered in Tasks 2, 7, 9, 10.
+- InterviewProgress fields match `frontend/src/models/interview-progress.ts`: covered in Tasks 3, 4, 5, 8, 9, 10, 11.
+- InterviewProgress API routes match `frontend/src/api/interview-progress.ts`: covered in Tasks 10 and 11.
+- Interview progress syncs parent application status from latest progress and failed result maps to rejected: covered in Task 8.
+- Backend architecture remains DDD with domain/application/infrastructure/interface layers: covered across Tasks 1-11.
+- Database columns remain snake_case while JSON remains frontend camelCase: covered in Tasks 4 and 5.
+
+**Placeholder scan:** No TBD/TODO/implement-later placeholders remain. All new files have concrete code content.
 
 **Type consistency:**
-- ✅ Domain constants match DTO string fields and service conversions.
-- ✅ Handler service interfaces match service methods.
-- ✅ Repository method names match application services.
-- ✅ `ResumeApplicationRepo.ExistsByResumeVersionID` matches Plan 2 `VersionInUseChecker`.
-- ✅ Router paths match the requested API contract.
+
+- `domainjob.Status` values are `pending/applied/not_fit/closed` and are reused by DTO/service/repository.
+- `domainapp.Status` values match frontend `ApplicationStatus` and are reused by DTO/service/status sync.
+- `domainprogress.Stage` values match application status names and convert to `domainapp.Status` during sync.
+- Repository interfaces match service constructors and method calls.
+- Handler interfaces match service methods.
+- Route paths match frontend API wrappers, not the previous nested backend-only plan.
