@@ -6,14 +6,14 @@ import {
 
 export const getFlashcards = (params: FlashcardQueryParams) =>
   request({
-    url: '/api/v1/flashcards',
+    url: '/api/flashcards',
     method: 'get',
     params
   })
 
 export const createFlashcardReview = (data: CreateFlashcardReviewRequest) =>
   request({
-    url: '/api/v1/flashcard-reviews',
+    url: '/api/flashcard-reviews',
     method: 'post',
     data
   })
