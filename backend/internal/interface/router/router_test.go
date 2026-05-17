@@ -9,8 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
+	domainreview "github.com/yilin/ai-for-backend/internal/domain/flashcard_review"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	domainquestion "github.com/yilin/ai-for-backend/internal/domain/interview_question"
+	questionrepo "github.com/yilin/ai-for-backend/internal/domain/interview_question/repository"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
+	domainoccurrence "github.com/yilin/ai-for-backend/internal/domain/question_occurrence"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
 	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
@@ -128,6 +132,46 @@ func (s *stubInterviewProgressService) Delete(ctx context.Context, userID, id st
 	return nil
 }
 
+type stubInterviewQuestionService struct{}
+
+func (s *stubInterviewQuestionService) CreateQuestion(ctx context.Context, userID string, req dto.CreateInterviewQuestionRequest) (*domainquestion.InterviewQuestion, error) {
+	return &domainquestion.InterviewQuestion{ID: "q1", UserID: userID, Title: req.Title, Content: req.Content, AnswerAnalysis: req.AnswerAnalysis, Tags: domainquestion.EncodeTags(req.Tags), Difficulty: req.Difficulty, QuestionType: req.QuestionType, MasteryStatus: req.MasteryStatus}, nil
+}
+func (s *stubInterviewQuestionService) ListQuestions(ctx context.Context, userID string, req dto.InterviewQuestionQuery) ([]questionrepo.QuestionWithOccurrenceCount, int64, error) {
+	return []questionrepo.QuestionWithOccurrenceCount{}, 0, nil
+}
+func (s *stubInterviewQuestionService) GetQuestion(ctx context.Context, userID, id string) (*domainquestion.InterviewQuestion, int64, []domainoccurrence.QuestionOccurrence, domainreview.ReviewSummary, []domainreview.FlashcardReview, error) {
+	return &domainquestion.InterviewQuestion{ID: id, UserID: userID, Title: "Question", Content: "Content", AnswerAnalysis: "Analysis", Tags: domainquestion.EncodeTags(nil), Difficulty: domainquestion.DifficultyEasy, QuestionType: domainquestion.QuestionTypeKnowledge, MasteryStatus: domainquestion.MasteryStatusUnreviewed}, 0, []domainoccurrence.QuestionOccurrence{}, domainreview.ReviewSummary{}, []domainreview.FlashcardReview{}, nil
+}
+func (s *stubInterviewQuestionService) UpdateQuestion(ctx context.Context, userID, id string, req dto.UpdateInterviewQuestionRequest) (*domainquestion.InterviewQuestion, error) {
+	return &domainquestion.InterviewQuestion{ID: id, UserID: userID, Title: "Question", Content: "Content", AnswerAnalysis: "Analysis", Tags: domainquestion.EncodeTags(nil), Difficulty: domainquestion.DifficultyEasy, QuestionType: domainquestion.QuestionTypeKnowledge, MasteryStatus: domainquestion.MasteryStatusUnreviewed}, nil
+}
+func (s *stubInterviewQuestionService) DeleteQuestion(ctx context.Context, userID, id string) error {
+	return nil
+}
+func (s *stubInterviewQuestionService) UpdateFavorite(ctx context.Context, userID, id string, req dto.UpdateQuestionFavoriteRequest) (*domainquestion.InterviewQuestion, error) {
+	favorite := false
+	if req.IsFavorite != nil {
+		favorite = *req.IsFavorite
+	}
+	return &domainquestion.InterviewQuestion{ID: id, UserID: userID, Title: "Question", Content: "Content", AnswerAnalysis: "Analysis", Tags: domainquestion.EncodeTags(nil), Difficulty: domainquestion.DifficultyEasy, QuestionType: domainquestion.QuestionTypeKnowledge, MasteryStatus: domainquestion.MasteryStatusUnreviewed, IsFavorite: favorite}, nil
+}
+func (s *stubInterviewQuestionService) ListOccurrences(ctx context.Context, userID string, req dto.QuestionOccurrenceQuery) ([]domainoccurrence.QuestionOccurrence, error) {
+	return []domainoccurrence.QuestionOccurrence{}, nil
+}
+func (s *stubInterviewQuestionService) CreateOccurrence(ctx context.Context, userID string, req dto.CreateQuestionOccurrenceRequest) (*domainoccurrence.QuestionOccurrence, error) {
+	return &domainoccurrence.QuestionOccurrence{ID: "occ-1", UserID: userID, QuestionID: req.QuestionID, ApplicationID: req.ApplicationID, CompanyNameSnapshot: "Acme", JobTitleSnapshot: "Backend", OccurredAt: req.OccurredAt.Value()}, nil
+}
+func (s *stubInterviewQuestionService) DeleteOccurrence(ctx context.Context, userID, id string) error {
+	return nil
+}
+func (s *stubInterviewQuestionService) ListFlashcards(ctx context.Context, userID string, req dto.FlashcardQuery) ([]questionrepo.QuestionWithOccurrenceCount, int64, error) {
+	return []questionrepo.QuestionWithOccurrenceCount{}, 0, nil
+}
+func (s *stubInterviewQuestionService) CreateFlashcardReview(ctx context.Context, userID string, req dto.CreateFlashcardReviewRequest) (*domainreview.FlashcardReview, questionrepo.QuestionWithOccurrenceCount, domainreview.ReviewSummary, error) {
+	return &domainreview.FlashcardReview{ID: "rev-1", UserID: userID, QuestionID: req.QuestionID, ReviewedAt: req.ReviewedAt.Value(), Result: req.Result, ReviewMode: req.ReviewMode}, questionrepo.QuestionWithOccurrenceCount{Question: domainquestion.InterviewQuestion{ID: req.QuestionID, UserID: userID, Title: "Question", Content: "Content", AnswerAnalysis: "Analysis", Tags: domainquestion.EncodeTags(nil), Difficulty: domainquestion.DifficultyEasy, QuestionType: domainquestion.QuestionTypeKnowledge, MasteryStatus: domainquestion.MasteryStatusMastered}}, domainreview.ReviewSummary{}, nil
+}
+
 func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	versionSvc := &stubResumeVersionService{}
@@ -138,6 +182,7 @@ func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 		JobPostingHandler:        handler.NewJobPostingHandler(&stubJobPostingService{}),
 		ResumeApplicationHandler: handler.NewResumeApplicationHandler(&stubResumeApplicationService{}),
 		InterviewProgressHandler: handler.NewInterviewProgressHandler(&stubInterviewProgressService{}),
+		InterviewQuestionHandler: handler.NewInterviewQuestionHandler(&stubInterviewQuestionService{}),
 		AuthMiddleware: func(c *gin.Context) {
 			c.Set("userID", "u1")
 			c.Next()
@@ -172,6 +217,17 @@ func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 		{http.MethodPost, "/api/v1/interview-progress"},
 		{http.MethodPut, "/api/v1/interview-progress/p1"},
 		{http.MethodDelete, "/api/v1/interview-progress/p1"},
+		{http.MethodGet, "/api/v1/interview-questions"},
+		{http.MethodPost, "/api/v1/interview-questions"},
+		{http.MethodGet, "/api/v1/interview-questions/q1"},
+		{http.MethodPut, "/api/v1/interview-questions/q1"},
+		{http.MethodDelete, "/api/v1/interview-questions/q1"},
+		{http.MethodPut, "/api/v1/interview-questions/q1/favorite"},
+		{http.MethodGet, "/api/v1/question-occurrences?questionId=q1"},
+		{http.MethodPost, "/api/v1/question-occurrences"},
+		{http.MethodDelete, "/api/v1/question-occurrences/occ-1"},
+		{http.MethodGet, "/api/v1/flashcards"},
+		{http.MethodPost, "/api/v1/flashcard-reviews"},
 	}
 	for _, tc := range cases {
 		w := httptest.NewRecorder()

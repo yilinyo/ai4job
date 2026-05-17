@@ -13,6 +13,7 @@ type Dependencies struct {
 	JobPostingHandler        *handler.JobPostingHandler
 	ResumeApplicationHandler *handler.ResumeApplicationHandler
 	InterviewProgressHandler *handler.InterviewProgressHandler
+	InterviewQuestionHandler *handler.InterviewQuestionHandler
 	AuthMiddleware           gin.HandlerFunc
 }
 
@@ -67,6 +68,20 @@ func NewRouter(deps Dependencies) *gin.Engine {
 		auth.POST("/interview-progress", deps.InterviewProgressHandler.Create)
 		auth.PUT("/interview-progress/:id", deps.InterviewProgressHandler.Update)
 		auth.DELETE("/interview-progress/:id", deps.InterviewProgressHandler.Delete)
+
+		auth.GET("/interview-questions", deps.InterviewQuestionHandler.ListQuestions)
+		auth.POST("/interview-questions", deps.InterviewQuestionHandler.CreateQuestion)
+		auth.GET("/interview-questions/:id", deps.InterviewQuestionHandler.GetQuestion)
+		auth.PUT("/interview-questions/:id", deps.InterviewQuestionHandler.UpdateQuestion)
+		auth.DELETE("/interview-questions/:id", deps.InterviewQuestionHandler.DeleteQuestion)
+		auth.PUT("/interview-questions/:id/favorite", deps.InterviewQuestionHandler.UpdateFavorite)
+
+		auth.GET("/question-occurrences", deps.InterviewQuestionHandler.ListOccurrences)
+		auth.POST("/question-occurrences", deps.InterviewQuestionHandler.CreateOccurrence)
+		auth.DELETE("/question-occurrences/:id", deps.InterviewQuestionHandler.DeleteOccurrence)
+
+		auth.GET("/flashcards", deps.InterviewQuestionHandler.ListFlashcards)
+		auth.POST("/flashcard-reviews", deps.InterviewQuestionHandler.CreateFlashcardReview)
 
 		auth.GET("/resume-repos/:id", deps.ResumeRepoHandler.Get)
 		auth.PUT("/resume-repos/:id", deps.ResumeRepoHandler.Update)

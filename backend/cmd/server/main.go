@@ -11,6 +11,7 @@ import (
 	"time"
 
 	interviewprogressapp "github.com/yilin/ai-for-backend/internal/application/interview_progress"
+	interviewquestionapp "github.com/yilin/ai-for-backend/internal/application/interview_question"
 	jobpostingapp "github.com/yilin/ai-for-backend/internal/application/job_posting"
 	resumeapplicationapp "github.com/yilin/ai-for-backend/internal/application/resume_application"
 	resumerepoapp "github.com/yilin/ai-for-backend/internal/application/resume_repo"
@@ -73,6 +74,10 @@ func main() {
 	jobPostingRepo := infraDB.NewJobPostingRepo(db)
 	resumeApplicationRepo := infraDB.NewResumeApplicationRepo(db)
 	interviewProgressRepo := infraDB.NewInterviewProgressRepo(db)
+	interviewQuestionRepo := infraDB.NewInterviewQuestionRepo(db)
+	questionOccurrenceRepo := infraDB.NewQuestionOccurrenceRepo(db)
+	flashcardReviewRepo := infraDB.NewFlashcardReviewRepo(db)
+	transactionRunner := infraDB.NewTransactionRunner(db)
 
 	// --- Application Services ---
 	userSvc := user.NewUserService(userRepo, tokenCache, jwtMgr, cfg.EmailMock)
@@ -81,6 +86,7 @@ func main() {
 	resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo, jobPostingRepo, resumeRepoRepo, resumeVersionRepo)
 	interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, resumeApplicationSvc)
 	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, resumeApplicationRepo)
+	interviewQuestionSvc := interviewquestionapp.NewInterviewQuestionServiceWithTransactions(interviewQuestionRepo, questionOccurrenceRepo, flashcardReviewRepo, resumeApplicationSvc, interviewProgressRepo, transactionRunner)
 
 	// --- Middleware ---
 	authMiddleware := middleware.Auth(
@@ -95,6 +101,7 @@ func main() {
 	jobPostingHandler := handler.NewJobPostingHandler(jobPostingSvc)
 	resumeApplicationHandler := handler.NewResumeApplicationHandler(resumeApplicationSvc)
 	interviewProgressHandler := handler.NewInterviewProgressHandler(interviewProgressSvc)
+	interviewQuestionHandler := handler.NewInterviewQuestionHandler(interviewQuestionSvc)
 
 	// --- Router ---
 	r := router.NewRouter(router.Dependencies{
@@ -104,6 +111,7 @@ func main() {
 		JobPostingHandler:        jobPostingHandler,
 		ResumeApplicationHandler: resumeApplicationHandler,
 		InterviewProgressHandler: interviewProgressHandler,
+		InterviewQuestionHandler: interviewQuestionHandler,
 		AuthMiddleware:           authMiddleware,
 	})
 
