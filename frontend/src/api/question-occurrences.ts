@@ -6,20 +6,20 @@ import {
 
 export const getQuestionOccurrences = (params: QuestionOccurrenceQueryParams) =>
   request({
-    url: '/api/question-occurrences',
+    url: '/api/v1/question-occurrences',
     method: 'get',
     params
   })
 
 export const createQuestionOccurrence = (data: CreateQuestionOccurrenceRequest) =>
   request({
-    url: '/api/question-occurrences',
+    url: '/api/v1/question-occurrences',
     method: 'post',
     data
   })
 
 export const deleteQuestionOccurrence = (id: string) =>
   request({
-    url: `/api/question-occurrences/${id}`,
+    url: `/api/v1/question-occurrences/${id}`,
     method: 'delete'
   })

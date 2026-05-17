@@ -19,6 +19,10 @@ type FlexibleTime struct {
 	time.Time
 }
 
+type RequiredFlexibleTime struct {
+	time.Time
+}
+
 func (t *FlexibleTime) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		t.Time = time.Time{}
@@ -58,6 +62,22 @@ func (t *FlexibleTime) UnmarshalJSON(data []byte) error {
 }
 
 func (t FlexibleTime) Value() time.Time {
+	return t.Time
+}
+
+func (t *RequiredFlexibleTime) UnmarshalJSON(data []byte) error {
+	var parsed FlexibleTime
+	if err := parsed.UnmarshalJSON(data); err != nil {
+		return err
+	}
+	if parsed.Time.IsZero() {
+		return fmt.Errorf("time is required")
+	}
+	t.Time = parsed.Time
+	return nil
+}
+
+func (t RequiredFlexibleTime) Value() time.Time {
 	return t.Time
 }
 
