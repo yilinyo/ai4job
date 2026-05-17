@@ -189,6 +189,20 @@ func TestCreateQuestionOccurrenceRequestRequiresOccurredAt(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestCreateQuestionOccurrenceRequestRejectsNullOccurredAt(t *testing.T) {
+	var request CreateQuestionOccurrenceRequest
+	err := bindJSONRequest(&request, `{"questionId":"question-1","applicationId":"application-1","occurredAt":null}`)
+
+	require.Error(t, err)
+}
+
+func TestCreateQuestionOccurrenceRequestRejectsEmptyOccurredAt(t *testing.T) {
+	var request CreateQuestionOccurrenceRequest
+	err := bindJSONRequest(&request, `{"questionId":"question-1","applicationId":"application-1","occurredAt":""}`)
+
+	require.Error(t, err)
+}
+
 func TestCreateQuestionOccurrenceRequestAcceptsValidOccurredAt(t *testing.T) {
 	var request CreateQuestionOccurrenceRequest
 	err := bindJSONRequest(&request, `{"questionId":"question-1","applicationId":"application-1","occurredAt":"2026-05-08T10:00:00Z"}`)

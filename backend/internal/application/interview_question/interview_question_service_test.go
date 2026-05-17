@@ -255,7 +255,7 @@ func TestCreateOccurrenceCopiesAppSnapshotsAndFillsProgressStageWhenMissing(t *t
 	apps := new(mockApplicationReader)
 	progresses := new(mockProgressReader)
 	service := NewInterviewQuestionService(questions, occurrences, new(mockReviewRepo), apps, progresses)
-	occurredAt := dto.FlexibleTime{Time: time.Date(2026, 5, 15, 10, 0, 0, 0, time.UTC)}
+	occurredAt := dto.RequiredFlexibleTime{Time: time.Date(2026, 5, 15, 10, 0, 0, 0, time.UTC)}
 	progressID := "progress-1"
 	app := mustApplication(t, "app-1", "user-1", "Acme", "Backend Engineer")
 	progress := mustProgress(t, "progress-1", "user-1", "app-1", domainprogress.StageSecondInterview)
@@ -309,7 +309,7 @@ func TestCreateOccurrenceRejectsProgressFromDifferentApplication(t *testing.T) {
 	progresses := new(mockProgressReader)
 	occurrences := new(mockOccurrenceRepo)
 	service := NewInterviewQuestionService(questions, occurrences, nil, apps, progresses)
-	occurredAt := dto.FlexibleTime{Time: time.Date(2026, 5, 15, 10, 0, 0, 0, time.UTC)}
+	occurredAt := dto.RequiredFlexibleTime{Time: time.Date(2026, 5, 15, 10, 0, 0, 0, time.UTC)}
 	progressID := "progress-1"
 
 	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(mustQuestion(t, "question-1", "user-1"), nil).Once()

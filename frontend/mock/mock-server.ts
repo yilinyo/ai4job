@@ -85,17 +85,17 @@ app.put('/api/interview-progress/:id', interviewProgress.updateInterviewProgress
 app.delete('/api/interview-progress/:id', interviewProgress.deleteInterviewProgress)
 
 // 面试题库相关
-app.get('/api/interview-questions', interviewQuestions.getInterviewQuestions)
-app.get('/api/interview-questions/:id', interviewQuestions.getInterviewQuestionById)
-app.post('/api/interview-questions', interviewQuestions.createInterviewQuestion)
-app.put('/api/interview-questions/:id', interviewQuestions.updateInterviewQuestion)
-app.delete('/api/interview-questions/:id', interviewQuestions.deleteInterviewQuestion)
-app.put('/api/interview-questions/:id/favorite', interviewQuestions.updateInterviewQuestionFavorite)
-app.get('/api/question-occurrences', interviewQuestions.getQuestionOccurrences)
-app.post('/api/question-occurrences', interviewQuestions.createQuestionOccurrence)
-app.delete('/api/question-occurrences/:id', interviewQuestions.deleteQuestionOccurrence)
-app.get('/api/flashcards', interviewQuestions.getFlashcards)
-app.post('/api/flashcard-reviews', interviewQuestions.createFlashcardReview)
+app.get(['/api/interview-questions', '/api/v1/interview-questions'], interviewQuestions.getInterviewQuestions)
+app.get(['/api/interview-questions/:id', '/api/v1/interview-questions/:id'], interviewQuestions.getInterviewQuestionById)
+app.post(['/api/interview-questions', '/api/v1/interview-questions'], interviewQuestions.createInterviewQuestion)
+app.put(['/api/interview-questions/:id', '/api/v1/interview-questions/:id'], interviewQuestions.updateInterviewQuestion)
+app.delete(['/api/interview-questions/:id', '/api/v1/interview-questions/:id'], interviewQuestions.deleteInterviewQuestion)
+app.put(['/api/interview-questions/:id/favorite', '/api/v1/interview-questions/:id/favorite'], interviewQuestions.updateInterviewQuestionFavorite)
+app.get(['/api/question-occurrences', '/api/v1/question-occurrences'], interviewQuestions.getQuestionOccurrences)
+app.post(['/api/question-occurrences', '/api/v1/question-occurrences'], interviewQuestions.createQuestionOccurrence)
+app.delete(['/api/question-occurrences/:id', '/api/v1/question-occurrences/:id'], interviewQuestions.deleteQuestionOccurrence)
+app.get(['/api/flashcards', '/api/v1/flashcards'], interviewQuestions.getFlashcards)
+app.post(['/api/flashcard-reviews', '/api/v1/flashcard-reviews'], interviewQuestions.createFlashcardReview)
 
 // Read and swagger config file
 const apiDefinition = yaml.load(path.resolve(__dirname, 'swagger.yml'))

@@ -175,7 +175,7 @@ func TestInterviewQuestionHandler_OccurrenceValidationAndCreateShape(t *testing.
 	svc := &mockInterviewQuestionService{}
 	occurredAt := time.Date(2026, 5, 15, 9, 30, 0, 0, time.UTC)
 	performance := domainoccurrence.AnswerPerformanceGood
-	createReq := dto.CreateQuestionOccurrenceRequest{QuestionID: "q1", ApplicationID: "app-1", OccurredAt: &dto.FlexibleTime{Time: occurredAt}, AnswerPerformance: &performance, ActualQuestion: "Actual", Note: "note"}
+	createReq := dto.CreateQuestionOccurrenceRequest{QuestionID: "q1", ApplicationID: "app-1", OccurredAt: &dto.RequiredFlexibleTime{Time: occurredAt}, AnswerPerformance: &performance, ActualQuestion: "Actual", Note: "note"}
 	row := &domainoccurrence.QuestionOccurrence{ID: "occ-1", UserID: "u1", QuestionID: "q1", ApplicationID: "app-1", CompanyNameSnapshot: "Acme", JobTitleSnapshot: "Backend", OccurredAt: occurredAt, AnswerPerformance: &performance, ActualQuestion: "Actual", Note: "note", CreatedAt: occurredAt, UpdatedAt: occurredAt}
 	svc.On("CreateOccurrence", mock.Anything, "u1", createReq).Return(row, nil).Once()
 	r := gin.New()
