@@ -247,9 +247,11 @@ export const getResumeVersions = (req: Request, res: Response) => {
   })
 }
 
+export const getResumeVersionByIdInternal = (id: string) => versionList.find(v => v.id === id)
+
 export const getResumeVersionById = (req: Request, res: Response) => {
   const { id } = req.params
-  const version = versionList.find(v => v.id === id)
+  const version = getResumeVersionByIdInternal(id)
 
   if (!version) {
     return res.status(404).json({

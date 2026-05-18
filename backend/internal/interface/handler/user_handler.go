@@ -117,6 +117,8 @@ func mapError(c *gin.Context, err error) {
 		response.Fail(c, pkgerrors.CodeLoginFailed, "用户名或密码错误")
 	case errors.Is(err, pkgerrors.ErrForbidden):
 		response.Fail(c, pkgerrors.CodeForbidden, "无权限")
+	case errors.Is(err, pkgerrors.ErrInactiveVersion):
+		response.Fail(c, pkgerrors.CodeForbidden, "简历版本未激活，不能新增投递记录")
 	case errors.Is(err, pkgerrors.ErrBadParams):
 		response.Fail(c, pkgerrors.CodeBadParams, "参数错误")
 	case errors.Is(err, pkgerrors.ErrDuplicate), errors.Is(err, pkgerrors.ErrConflict):

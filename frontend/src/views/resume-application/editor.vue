@@ -6,6 +6,15 @@
     />
 
     <el-card v-loading="loading" class="editor-card">
+      <el-alert
+        v-if="creationBlockedMessage"
+        :title="creationBlockedMessage"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="context-alert"
+      />
+
       <el-form
         ref="applicationForm"
         :model="applicationForm"
@@ -143,6 +152,7 @@
           <el-button
             type="primary"
             :loading="submitLoading"
+            :disabled="!isEdit && !!creationBlockedMessage"
             @click="handleSubmit"
           >
             {{ isEdit ? '保存修改' : '创建投递记录' }}
@@ -161,6 +171,7 @@ import { Component, Vue } from 'vue-property-decorator'
 import { Form as ElForm } from 'element-ui'
 import { ResumeApplicationModule } from '@/store/modules/resume-application'
 import { JobPostingModule } from '@/store/modules/job-posting'
+import { ResumeVersionModule } from '@/store/modules/resume-version'
 import {
   ApplicationStatus,
   CreateResumeApplicationRequest,
@@ -177,6 +188,7 @@ export default class extends Vue {
   private selectedJobPostingId = ''
   private isEdit = false
   private submitLoading = false
+  private creationBlockedMessage = ''
 
   private statusOptions = [
     { label: '已投递', value: ApplicationStatus.APPLIED },
@@ -231,6 +243,10 @@ export default class extends Vue {
     return this.isEdit ? '编辑投递记录' : '创建投递记录'
   }
 
+  get canCreateApplication() {
+    return this.isEdit || this.creationBlockedMessage === ''
+  }
+
   async created() {
     this.applicationId = this.$route.params.id || ''
     this.versionId = this.$route.query.versionId as string || ''
@@ -244,6 +260,10 @@ export default class extends Vue {
       await this.loadApplication()
     } else if (this.selectedJobPostingId) {
       await this.fillFromJobPosting(this.selectedJobPostingId)
+    }
+
+    if (!this.isEdit) {
+      await this.ensureCreationContext()
     }
   }
 
@@ -311,12 +331,38 @@ export default class extends Vue {
     }
   }
 
+  private async ensureCreationContext() {
+    if (!this.versionId || !this.repoId) {
+      this.creationBlockedMessage = '请先从激活的简历版本详情页进入，再创建投递记录。'
+      return
+    }
+
+    await ResumeVersionModule.GetResumeVersionById(this.versionId)
+    const version = ResumeVersionModule.currentVersion
+    if (!version) {
+      this.creationBlockedMessage = '未找到可用的简历版本，请返回激活版本详情页后重试。'
+      return
+    }
+
+    if (!version.isActive) {
+      this.creationBlockedMessage = '当前简历版本未激活，不能新增投递记录。'
+      return
+    }
+
+    this.creationBlockedMessage = ''
+  }
+
   private formatDateOnly(dateString: string) {
     const date = new Date(dateString)
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   }
 
   private handleSubmit() {
+    if (!this.canCreateApplication) {
+      this.$message.warning(this.creationBlockedMessage || '当前页面不能创建投递记录')
+      return
+    }
+
     (this.$refs.applicationForm as ElForm).validate(async(valid: boolean) => {
       if (!valid) return
 
@@ -385,6 +431,10 @@ export default class extends Vue {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 8px 16px;
+  }
+
+  .context-alert {
+    margin-bottom: 16px;
   }
 }
 </style>

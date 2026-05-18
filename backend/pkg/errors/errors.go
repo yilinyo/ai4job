@@ -23,6 +23,7 @@ var (
 	ErrConflict       = errors.New("resource conflict")
 	ErrBadParams      = errors.New("bad params")
 	ErrLoginFailed    = errors.New("login credentials are incorrect")
+	ErrInactiveVersion = errors.New("resume version is inactive")
 	ErrVersionInUse   = errors.New("resume version is referenced by an application")
 	ErrEmailCodeWrong = errors.New("email verification code is incorrect or expired")
 	ErrDuplicate      = errors.New("duplicate entry")

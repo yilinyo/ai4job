@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { cascadeDeleteQuestionOccurrencesByApplicationId } from './interview-questions'
+import { getResumeVersionByIdInternal } from './resume-versions'
 
 export enum ApplicationStatus {
   APPLIED = 'applied',
@@ -199,6 +200,23 @@ export const getResumeApplicationById = (req: Request, res: Response) => {
 }
 
 export const createResumeApplication = (req: Request, res: Response) => {
+  const version = getResumeVersionByIdInternal(req.body.resumeVersionId)
+  if (!version) {
+    return res.status(400).json({
+      code: 50004,
+      message: '简历版本不存在',
+      data: null
+    })
+  }
+
+  if (!version.isActive) {
+    return res.status(403).json({
+      code: 40300,
+      message: '简历版本未激活，不能新增投递记录',
+      data: null
+    })
+  }
+
   const now = new Date().toISOString()
   const newApplication: ResumeApplication = {
     id: String(applicationList.length + 1),

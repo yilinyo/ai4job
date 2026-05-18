@@ -75,6 +75,9 @@ func (s *ResumeApplicationService) Create(ctx context.Context, userID string, re
 	if err := s.ensureReferencesOwned(ctx, userID, application.JobPostingID, application.RepoID, application.ResumeVersionID); err != nil {
 		return nil, err
 	}
+	if err := s.ensureResumeVersionActive(ctx, application.ResumeVersionID); err != nil {
+		return nil, err
+	}
 	if err := s.repo.Create(ctx, application); err != nil {
 		return nil, err
 	}
@@ -202,6 +205,20 @@ func (s *ResumeApplicationService) ensureReferencesOwned(ctx context.Context, us
 	}
 	_, err = s.resumeRepos.FindByIDAndUserID(ctx, version.RepoID, userID)
 	return err
+}
+
+func (s *ResumeApplicationService) ensureResumeVersionActive(ctx context.Context, resumeVersionID string) error {
+	if s.resumeVersions == nil {
+		return domainerrors.ErrBadParams
+	}
+	version, err := s.resumeVersions.FindByID(ctx, resumeVersionID)
+	if err != nil {
+		return err
+	}
+	if !version.IsActive {
+		return domainerrors.ErrInactiveVersion
+	}
+	return nil
 }
 
 func normalizeOptionalJobPostingID(jobPostingID *string) *string {
