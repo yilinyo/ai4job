@@ -649,6 +649,36 @@ func TestDeleteQuestionReturnsCascadeErrorWithoutDeletingQuestion(t *testing.T) 
 	occurrences.AssertExpectations(t)
 }
 
+func TestDeleteQuestionIgnoresActivityLogErrorAfterDeleting(t *testing.T) {
+	ctx := context.Background()
+	questions := new(mockQuestionRepo)
+	occurrences := new(mockOccurrenceRepo)
+	reviews := new(mockReviewRepo)
+	transactions := new(fakeTransactionRunner)
+	logger := &spyActivityLogger{Err: errors.New("activity log failed")}
+	service := NewInterviewQuestionServiceWithTransactions(questions, occurrences, reviews, nil, nil, transactions).WithActivityLogger(logger)
+	txCtx := transactionContextMatcher()
+	question := mustQuestion(t, "question-1", "user-1")
+
+	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(question, nil).Once()
+	occurrences.On("DeleteByQuestionID", txCtx, "question-1", "user-1").Return(nil).Once()
+	reviews.On("DeleteByQuestionID", txCtx, "question-1", "user-1").Return(nil).Once()
+	questions.On("Delete", txCtx, "question-1", "user-1").Return(nil).Once()
+
+	err := service.DeleteQuestion(ctx, "user-1", "question-1")
+
+	require.NoError(t, err)
+	require.Equal(t, 1, transactions.calls)
+	require.Len(t, logger.Entries, 1)
+	assert.Equal(t, domainactivity.ActionDeleted, logger.Entries[0].Action)
+	assert.Equal(t, "question-1", logger.Entries[0].TargetID)
+	assert.Equal(t, "Question title", logger.Entries[0].TargetLabel)
+	assert.Equal(t, "", logger.Entries[0].Route)
+	occurrences.AssertExpectations(t)
+	reviews.AssertExpectations(t)
+	questions.AssertExpectations(t)
+}
+
 func mustQuestion(t *testing.T, id, userID string) *domainquestion.InterviewQuestion {
 	t.Helper()
 	q, err := domainquestion.NewInterviewQuestion(domainquestion.NewInterviewQuestionParams{

@@ -201,13 +201,11 @@ func (s *InterviewQuestionService) DeleteQuestion(ctx context.Context, userID, i
 		if err := s.reviews.DeleteByQuestionID(txCtx, id, userID); err != nil {
 			return err
 		}
-		if err := s.questions.Delete(txCtx, id, userID); err != nil {
-			return err
-		}
-		return s.logQuestionActivityInTransaction(txCtx, question, domainactivity.ActionDeleted)
+		return s.questions.Delete(txCtx, id, userID)
 	}); err != nil {
 		return err
 	}
+	s.logQuestionActivity(ctx, question, domainactivity.ActionDeleted)
 	return nil
 }
 
@@ -384,10 +382,6 @@ func (s *InterviewQuestionService) CreateFlashcardReview(ctx context.Context, us
 
 func (s *InterviewQuestionService) logQuestionActivity(ctx context.Context, question *domainquestion.InterviewQuestion, action domainactivity.Action) {
 	activitylog.BestEffortLog(ctx, s.activityLogger, questionActivityEntry(question, action))
-}
-
-func (s *InterviewQuestionService) logQuestionActivityInTransaction(ctx context.Context, question *domainquestion.InterviewQuestion, action domainactivity.Action) error {
-	return activitylog.OrNoop(s.activityLogger).Log(ctx, questionActivityEntry(question, action))
 }
 
 func questionActivityEntry(question *domainquestion.InterviewQuestion, action domainactivity.Action) activitylog.Entry {
