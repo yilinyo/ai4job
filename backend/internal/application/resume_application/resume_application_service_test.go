@@ -2,6 +2,7 @@ package resume_application_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -22,11 +23,12 @@ import (
 
 type spyActivityLogger struct {
 	Entries []activitylog.Entry
+	Err     error
 }
 
 func (l *spyActivityLogger) Log(ctx context.Context, entry activitylog.Entry) error {
 	l.Entries = append(l.Entries, entry)
-	return nil
+	return l.Err
 }
 
 type mockResumeApplicationRepo struct{ mock.Mock }
@@ -508,9 +510,60 @@ func TestResumeApplicationService_UpdateChangingCurrentStatusLogsStatusChangedWi
 	versions.AssertExpectations(t)
 }
 
+func TestResumeApplicationService_DeleteLogsActivityWithEmptyRoute(t *testing.T) {
+	repo := &mockResumeApplicationRepo{}
+	logger := &spyActivityLogger{}
+	application := &domainapp.ResumeApplication{
+		ID:              "a1",
+		UserID:          "u1",
+		ResumeVersionID: "v1",
+		RepoID:          "r1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+		CurrentStatus:   domainapp.StatusApplied,
+	}
+	repo.On("FindByIDAndUserID", mock.Anything, "a1", "u1").Return(application, nil).Once()
+	repo.On("Delete", mock.Anything, "a1", "u1").Return(nil).Once()
+	svc := appsvc.NewResumeApplicationService(repo, nil, nil, nil).WithActivityLogger(logger)
+
+	err := svc.Delete(context.Background(), "u1", "a1")
+
+	require.NoError(t, err)
+	require.Len(t, logger.Entries, 1)
+	assert.Equal(t, domainactivity.ActionDeleted, logger.Entries[0].Action)
+	assert.Equal(t, "", logger.Entries[0].Route)
+	repo.AssertExpectations(t)
+}
+
+func TestResumeApplicationService_DeleteIgnoresActivityLoggingErrorAfterDelete(t *testing.T) {
+	repo := &mockResumeApplicationRepo{}
+	logger := &spyActivityLogger{Err: errors.New("activity log failed")}
+	application := &domainapp.ResumeApplication{
+		ID:              "a1",
+		UserID:          "u1",
+		ResumeVersionID: "v1",
+		RepoID:          "r1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+		CurrentStatus:   domainapp.StatusApplied,
+	}
+	repo.On("FindByIDAndUserID", mock.Anything, "a1", "u1").Return(application, nil).Once()
+	repo.On("Delete", mock.Anything, "a1", "u1").Return(nil).Once()
+	svc := appsvc.NewResumeApplicationService(repo, nil, nil, nil).WithActivityLogger(logger)
+
+	err := svc.Delete(context.Background(), "u1", "a1")
+
+	require.NoError(t, err)
+	require.Len(t, logger.Entries, 1)
+	repo.AssertExpectations(t)
+}
+
 func TestResumeApplicationService_UpdateCurrentStatusRejectsInvalidStatusAndDelegatesValidStatus(t *testing.T) {
 	repo := &mockResumeApplicationRepo{}
-	svc := appsvc.NewResumeApplicationService(repo, nil, nil, nil)
+	logger := &spyActivityLogger{}
+	svc := appsvc.NewResumeApplicationService(repo, nil, nil, nil).WithActivityLogger(logger)
 	application := &domainapp.ResumeApplication{
 		ID:              "a1",
 		UserID:          "u1",
@@ -532,6 +585,32 @@ func TestResumeApplicationService_UpdateCurrentStatusRejectsInvalidStatusAndDele
 	err = svc.UpdateCurrentStatus(context.Background(), "u1", "a1", domainapp.StatusOffer)
 
 	require.NoError(t, err)
+	require.Len(t, logger.Entries, 1)
+	assert.Equal(t, domainactivity.ActionStatusChanged, logger.Entries[0].Action)
+	repo.AssertExpectations(t)
+}
+
+func TestResumeApplicationService_UpdateCurrentStatusSameStatusDoesNotLogActivity(t *testing.T) {
+	repo := &mockResumeApplicationRepo{}
+	logger := &spyActivityLogger{}
+	application := &domainapp.ResumeApplication{
+		ID:              "a1",
+		UserID:          "u1",
+		ResumeVersionID: "v1",
+		RepoID:          "r1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+		CurrentStatus:   domainapp.StatusApplied,
+	}
+	repo.On("FindByIDAndUserID", mock.Anything, "a1", "u1").Return(application, nil).Once()
+	repo.On("UpdateCurrentStatus", mock.Anything, "a1", "u1", domainapp.StatusApplied).Return(nil).Once()
+	svc := appsvc.NewResumeApplicationService(repo, nil, nil, nil).WithActivityLogger(logger)
+
+	err := svc.UpdateCurrentStatus(context.Background(), "u1", "a1", domainapp.StatusApplied)
+
+	require.NoError(t, err)
+	assert.Empty(t, logger.Entries)
 	repo.AssertExpectations(t)
 }
 

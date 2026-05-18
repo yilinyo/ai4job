@@ -89,9 +89,7 @@ func (s *ResumeApplicationService) Create(ctx context.Context, userID string, re
 	if err := s.repo.Create(ctx, application); err != nil {
 		return nil, err
 	}
-	if err := s.logApplicationActivity(ctx, application, domainactivity.ActionCreated, applicationActivitySummary(application, domainactivity.ActionCreated)); err != nil {
-		return nil, err
-	}
+	s.logApplicationActivity(ctx, application, domainactivity.ActionCreated, applicationActivitySummary(application, domainactivity.ActionCreated), applicationRoute(application, domainactivity.ActionCreated))
 	return application, nil
 }
 
@@ -178,7 +176,8 @@ func (s *ResumeApplicationService) Update(ctx context.Context, userID, id string
 		action = domainactivity.ActionStatusChanged
 		summary = applicationStatusChangedSummary(application)
 	}
-	return s.logApplicationActivity(ctx, application, action, summary)
+	s.logApplicationActivity(ctx, application, action, summary, applicationRoute(application, action))
+	return nil
 }
 
 func (s *ResumeApplicationService) Delete(ctx context.Context, userID, id string) error {
@@ -189,7 +188,8 @@ func (s *ResumeApplicationService) Delete(ctx context.Context, userID, id string
 	if err := s.repo.Delete(ctx, id, userID); err != nil {
 		return err
 	}
-	return s.logApplicationActivity(ctx, application, domainactivity.ActionDeleted, applicationActivitySummary(application, domainactivity.ActionDeleted))
+	s.logApplicationActivity(ctx, application, domainactivity.ActionDeleted, applicationActivitySummary(application, domainactivity.ActionDeleted), applicationRoute(application, domainactivity.ActionDeleted))
+	return nil
 }
 
 func (s *ResumeApplicationService) ExistsByResumeVersionID(ctx context.Context, versionID string) (bool, error) {
@@ -197,6 +197,14 @@ func (s *ResumeApplicationService) ExistsByResumeVersionID(ctx context.Context, 
 }
 
 func (s *ResumeApplicationService) UpdateCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error {
+	return s.updateCurrentStatus(ctx, userID, id, status, true)
+}
+
+func (s *ResumeApplicationService) SyncCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error {
+	return s.updateCurrentStatus(ctx, userID, id, status, false)
+}
+
+func (s *ResumeApplicationService) updateCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status, logActivity bool) error {
 	application, err := s.repo.FindByIDAndUserID(ctx, id, userID)
 	if err != nil {
 		return err
@@ -208,10 +216,11 @@ func (s *ResumeApplicationService) UpdateCurrentStatus(ctx context.Context, user
 	if err := s.repo.UpdateCurrentStatus(ctx, id, userID, application.CurrentStatus); err != nil {
 		return err
 	}
-	if oldStatus == application.CurrentStatus {
-		return s.logApplicationActivity(ctx, application, domainactivity.ActionUpdated, applicationActivitySummary(application, domainactivity.ActionUpdated))
+	if !logActivity || oldStatus == application.CurrentStatus {
+		return nil
 	}
-	return s.logApplicationActivity(ctx, application, domainactivity.ActionStatusChanged, applicationStatusChangedSummary(application))
+	s.logApplicationActivity(ctx, application, domainactivity.ActionStatusChanged, applicationStatusChangedSummary(application), applicationRoute(application, domainactivity.ActionStatusChanged))
+	return nil
 }
 
 func (s *ResumeApplicationService) ensureReferencesOwned(ctx context.Context, userID string, jobPostingID *string, repoID, resumeVersionID string) error {
@@ -256,16 +265,23 @@ func (s *ResumeApplicationService) ensureResumeVersionActive(ctx context.Context
 	return nil
 }
 
-func (s *ResumeApplicationService) logApplicationActivity(ctx context.Context, application *domainapp.ResumeApplication, action domainactivity.Action, summary string) error {
-	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+func (s *ResumeApplicationService) logApplicationActivity(ctx context.Context, application *domainapp.ResumeApplication, action domainactivity.Action, summary, route string) {
+	activitylog.BestEffortLog(ctx, s.activityLogger, activitylog.Entry{
 		UserID:      application.UserID,
 		Action:      action,
 		TargetType:  domainactivity.TargetTypeApplication,
 		TargetID:    application.ID,
 		TargetLabel: applicationLabel(application),
 		Summary:     activitylog.TrimSummary(summary),
-		Route:       "/resume/application/" + application.ID,
+		Route:       route,
 	})
+}
+
+func applicationRoute(application *domainapp.ResumeApplication, action domainactivity.Action) string {
+	if action == domainactivity.ActionDeleted {
+		return ""
+	}
+	return "/resume/application/" + application.ID
 }
 
 func applicationLabel(application *domainapp.ResumeApplication) string {

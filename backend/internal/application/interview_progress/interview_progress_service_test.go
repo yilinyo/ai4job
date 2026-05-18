@@ -2,18 +2,31 @@ package interview_progress_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/yilin/ai-for-backend/internal/application/activitylog"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	appsvc "github.com/yilin/ai-for-backend/internal/application/interview_progress"
+	domainactivity "github.com/yilin/ai-for-backend/internal/domain/activity_log"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
+
+type spyActivityLogger struct {
+	Entries []activitylog.Entry
+	Err     error
+}
+
+func (l *spyActivityLogger) Log(ctx context.Context, entry activitylog.Entry) error {
+	l.Entries = append(l.Entries, entry)
+	return l.Err
+}
 
 type mockInterviewProgressRepo struct {
 	mock.Mock
@@ -61,10 +74,15 @@ func (m *mockApplicationService) UpdateCurrentStatus(ctx context.Context, userID
 	return m.Called(ctx, userID, id, status).Error(0)
 }
 
-func TestInterviewProgressService_CreateSyncsFailedResultToRejected(t *testing.T) {
+func (m *mockApplicationService) SyncCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error {
+	return m.Called(ctx, userID, id, status).Error(0)
+}
+
+func TestInterviewProgressService_CreateSyncsFailedResultToRejectedAndLogsOnlyProgressActivity(t *testing.T) {
 	repo := &mockInterviewProgressRepo{}
 	apps := &mockApplicationService{}
-	svc := appsvc.NewInterviewProgressService(repo, apps)
+	logger := &spyActivityLogger{}
+	svc := appsvc.NewInterviewProgressService(repo, apps).WithActivityLogger(logger)
 	occurredAt := time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC)
 	req := dto.CreateInterviewProgressRequest{
 		ApplicationID:     "app-1",
@@ -87,7 +105,7 @@ func TestInterviewProgressService_CreateSyncsFailedResultToRejected(t *testing.T
 		OccurredAt:    occurredAt,
 		Result:        domainprogress.ResultFailed,
 	}}, nil).Once()
-	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusRejected).Return(nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusRejected).Return(nil).Once()
 
 	got, err := svc.Create(context.Background(), "user-1", req)
 
@@ -95,6 +113,9 @@ func TestInterviewProgressService_CreateSyncsFailedResultToRejected(t *testing.T
 	require.NotNil(t, got)
 	assert.Equal(t, "user-1", got.UserID)
 	assert.Equal(t, req.ApplicationID, got.ApplicationID)
+	require.Len(t, logger.Entries, 1)
+	assert.Equal(t, domainactivity.ActionCreated, logger.Entries[0].Action)
+	assert.Equal(t, domainactivity.TargetTypeInterview, logger.Entries[0].TargetType)
 	repo.AssertExpectations(t)
 	apps.AssertExpectations(t)
 }
@@ -118,7 +139,7 @@ func TestInterviewProgressService_CreateSyncsLatestNonFailedStageToMatchingAppli
 		{ID: "old", UserID: "user-1", ApplicationID: "app-1", Stage: domainprogress.StageViewed, OccurredAt: older, Result: domainprogress.ResultPassed},
 		{ID: "new", UserID: "user-1", ApplicationID: "app-1", Stage: domainprogress.StageOffer, OccurredAt: latest, Result: domainprogress.ResultPending},
 	}, nil).Once()
-	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusOffer).Return(nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusOffer).Return(nil).Once()
 
 	got, err := svc.Create(context.Background(), "user-1", req)
 
@@ -126,6 +147,40 @@ func TestInterviewProgressService_CreateSyncsLatestNonFailedStageToMatchingAppli
 	require.NotNil(t, got)
 	assert.Equal(t, "user-1", got.UserID)
 	assert.Equal(t, req.ApplicationID, got.ApplicationID)
+	repo.AssertExpectations(t)
+	apps.AssertExpectations(t)
+}
+
+func TestInterviewProgressService_CreateIgnoresActivityLoggingErrorAfterCreateAndSync(t *testing.T) {
+	repo := &mockInterviewProgressRepo{}
+	apps := &mockApplicationService{}
+	logger := &spyActivityLogger{Err: errors.New("activity log failed")}
+	svc := appsvc.NewInterviewProgressService(repo, apps).WithActivityLogger(logger)
+	occurredAt := time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC)
+	req := dto.CreateInterviewProgressRequest{
+		ApplicationID: "app-1",
+		Stage:         domainprogress.StageOffer,
+		OccurredAt:    dto.FlexibleTime{Time: occurredAt},
+		Result:        domainprogress.ResultPassed,
+	}
+
+	apps.On("Get", mock.Anything, "user-1", "app-1").Return(&domainapp.ResumeApplication{ID: "app-1", UserID: "user-1"}, nil).Once()
+	repo.On("Create", mock.Anything, mock.AnythingOfType("*interview_progress.InterviewProgress")).Return(nil).Once()
+	repo.On("ListByApplicationAndUser", mock.Anything, "app-1", "user-1").Return([]domainprogress.InterviewProgress{{
+		ID:            "progress-1",
+		UserID:        "user-1",
+		ApplicationID: "app-1",
+		Stage:         domainprogress.StageOffer,
+		OccurredAt:    occurredAt,
+		Result:        domainprogress.ResultPassed,
+	}}, nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusOffer).Return(nil).Once()
+
+	got, err := svc.Create(context.Background(), "user-1", req)
+
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Len(t, logger.Entries, 1)
 	repo.AssertExpectations(t)
 	apps.AssertExpectations(t)
 }
@@ -232,7 +287,7 @@ func TestInterviewProgressService_UpdatePreservesOmittedFieldsAppliesProvidedFie
 		OccurredAt:    newOccurredAt,
 		Result:        domainprogress.ResultPending,
 	}}, nil).Once()
-	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusSecondInterview).Return(nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusSecondInterview).Return(nil).Once()
 
 	got, err := svc.Update(context.Background(), "user-1", "progress-1", req)
 
@@ -281,8 +336,8 @@ func TestInterviewProgressService_UpdateChangingApplicationIDSyncsBothOldAndNewA
 		OccurredAt:    occurredAt,
 		Result:        domainprogress.ResultPassed,
 	}}, nil).Once()
-	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusApplied).Return(nil).Once()
-	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-2", domainapp.StatusViewed).Return(nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusApplied).Return(nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-2", domainapp.StatusViewed).Return(nil).Once()
 
 	got, err := svc.Update(context.Background(), "user-1", "progress-1", req)
 
@@ -341,8 +396,8 @@ func TestInterviewProgressService_UpdateMovingOnlyProgressAwaySyncsOldApplicatio
 	})).Return(nil).Once()
 	repo.On("ListByApplicationAndUser", mock.Anything, "app-1", "user-1").Return([]domainprogress.InterviewProgress{}, nil).Once()
 	repo.On("ListByApplicationAndUser", mock.Anything, "app-2", "user-1").Return([]domainprogress.InterviewProgress{*existing}, nil).Once()
-	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusApplied).Return(nil).Once()
-	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-2", domainapp.StatusFinalInterview).Return(nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusApplied).Return(nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-2", domainapp.StatusFinalInterview).Return(nil).Once()
 
 	got, err := svc.Update(context.Background(), "user-1", "progress-1", req)
 
@@ -388,7 +443,7 @@ func TestInterviewProgressService_DeleteSyncsOldApplicationStatus(t *testing.T) 
 		OccurredAt:    occurredAt.Add(-time.Hour),
 		Result:        domainprogress.ResultPassed,
 	}}, nil).Once()
-	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusSecondInterview).Return(nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusSecondInterview).Return(nil).Once()
 
 	err := svc.Delete(context.Background(), "user-1", "progress-1")
 
@@ -414,7 +469,7 @@ func TestInterviewProgressService_DeleteOnlyProgressSyncsApplicationToApplied(t 
 	repo.On("FindByIDAndUserID", mock.Anything, "progress-1", "user-1").Return(existing, nil).Once()
 	repo.On("Delete", mock.Anything, "progress-1", "user-1").Return(nil).Once()
 	repo.On("ListByApplicationAndUser", mock.Anything, "app-1", "user-1").Return([]domainprogress.InterviewProgress{}, nil).Once()
-	apps.On("UpdateCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusApplied).Return(nil).Once()
+	apps.On("SyncCurrentStatus", mock.Anything, "user-1", "app-1", domainapp.StatusApplied).Return(nil).Once()
 
 	err := svc.Delete(context.Background(), "user-1", "progress-1")
 

@@ -23,6 +23,10 @@ type Logger interface {
 	Log(ctx context.Context, entry Entry) error
 }
 
+func BestEffortLog(ctx context.Context, logger Logger, entry Entry) {
+	_ = OrNoop(logger).Log(ctx, entry)
+}
+
 type NoopLogger struct{}
 
 func (NoopLogger) Log(ctx context.Context, entry Entry) error {

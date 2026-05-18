@@ -24,11 +24,12 @@ import (
 
 type spyActivityLogger struct {
 	Entries []activitylog.Entry
+	Err     error
 }
 
 func (l *spyActivityLogger) Log(ctx context.Context, entry activitylog.Entry) error {
 	l.Entries = append(l.Entries, entry)
-	return nil
+	return l.Err
 }
 
 type mockQuestionRepo struct{ mock.Mock }
@@ -242,7 +243,9 @@ func TestInterviewQuestionService_CreateUpdateFavoriteAndOccurrenceLogExpectedAc
 	assertActivity(0, domainactivity.ActionCreated, created.ID, "/interview-question-bank/question/"+created.ID)
 	assertActivity(1, domainactivity.ActionUpdated, "question-1", "/interview-question-bank/question/question-1")
 	assertActivity(2, domainactivity.ActionFavorited, "question-1", "/interview-question-bank/question/question-1")
-	assertActivity(3, domainactivity.ActionLinked, occurrence.ID, "/resume/application/app-1")
+	assertActivity(3, domainactivity.ActionLinked, "question-1", "/interview-question-bank/question/question-1")
+	assert.Equal(t, "题目 Updated question title 关联到 Acme / Backend Engineer", logger.Entries[3].Summary)
+	assert.Equal(t, occurrence.QuestionID, logger.Entries[3].TargetID)
 	questions.AssertExpectations(t)
 	occurrences.AssertExpectations(t)
 	apps.AssertExpectations(t)
@@ -430,6 +433,34 @@ func TestCreateOccurrenceRejectsProgressFromDifferentApplication(t *testing.T) {
 	occurrences.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 }
 
+func TestDeleteOccurrenceLogsQuestionActivityUsingQuestionIDAndTitle(t *testing.T) {
+	ctx := context.Background()
+	questions := new(mockQuestionRepo)
+	occurrences := new(mockOccurrenceRepo)
+	logger := &spyActivityLogger{}
+	service := NewInterviewQuestionService(questions, occurrences, nil, nil, nil).WithActivityLogger(logger)
+	occurrence := mustOccurrence(t, "occurrence-1", "user-1", "question-1", "app-1")
+	question := mustQuestion(t, "question-1", "user-1")
+
+	occurrences.On("FindByIDAndUserID", ctx, "occurrence-1", "user-1").Return(occurrence, nil).Once()
+	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(question, nil).Once()
+	occurrences.On("Delete", ctx, "occurrence-1", "user-1").Return(nil).Once()
+
+	err := service.DeleteOccurrence(ctx, "user-1", "occurrence-1")
+
+	require.NoError(t, err)
+	require.Len(t, logger.Entries, 1)
+	entry := logger.Entries[0]
+	assert.Equal(t, domainactivity.ActionDeleted, entry.Action)
+	assert.Equal(t, domainactivity.TargetTypeQuestion, entry.TargetType)
+	assert.Equal(t, "question-1", entry.TargetID)
+	assert.Equal(t, "Question title", entry.TargetLabel)
+	assert.Equal(t, "删除题目关联记录 Question title - Acme / Backend Engineer", entry.Summary)
+	assert.Equal(t, "/interview-question-bank/question/question-1", entry.Route)
+	questions.AssertExpectations(t)
+	occurrences.AssertExpectations(t)
+}
+
 func TestCreateFlashcardReviewRequiresTransactionRunnerWithoutWriting(t *testing.T) {
 	ctx := context.Background()
 	questions := new(mockQuestionRepo)
@@ -576,7 +607,8 @@ func TestDeleteQuestionDeletesChildrenBeforeQuestionInsideTransaction(t *testing
 	occurrences := new(mockOccurrenceRepo)
 	reviews := new(mockReviewRepo)
 	transactions := new(fakeTransactionRunner)
-	service := NewInterviewQuestionServiceWithTransactions(questions, occurrences, reviews, nil, nil, transactions)
+	logger := &spyActivityLogger{}
+	service := NewInterviewQuestionServiceWithTransactions(questions, occurrences, reviews, nil, nil, transactions).WithActivityLogger(logger)
 	txCtx := transactionContextMatcher()
 
 	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(mustQuestion(t, "question-1", "user-1"), nil).Once()
@@ -588,6 +620,9 @@ func TestDeleteQuestionDeletesChildrenBeforeQuestionInsideTransaction(t *testing
 
 	require.NoError(t, err)
 	require.Equal(t, 1, transactions.calls)
+	require.Len(t, logger.Entries, 1)
+	assert.Equal(t, domainactivity.ActionDeleted, logger.Entries[0].Action)
+	assert.Equal(t, "", logger.Entries[0].Route)
 	occurrences.AssertExpectations(t)
 	reviews.AssertExpectations(t)
 	questions.AssertExpectations(t)

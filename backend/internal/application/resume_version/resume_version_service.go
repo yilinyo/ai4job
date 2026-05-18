@@ -81,7 +81,8 @@ func (s *ResumeVersionService) Create(ctx context.Context, userID string, req dt
 	if err := s.repoReader.IncrementVersionCount(ctx, req.RepoID, 1); err != nil {
 		return err
 	}
-	return s.logVersionActivity(ctx, userID, v, domainactivity.ActionCreated, "/resume/version/"+v.ID)
+	s.logVersionActivity(ctx, userID, v, domainactivity.ActionCreated, "/resume/version/"+v.ID)
+	return nil
 }
 
 func (s *ResumeVersionService) List(ctx context.Context, userID, repoID string) ([]domainversion.ResumeVersion, error) {
@@ -111,9 +112,11 @@ func (s *ResumeVersionService) Update(ctx context.Context, userID, id string, re
 		if err := s.repo.SetActiveByID(ctx, v.RepoID, id); err != nil {
 			return err
 		}
-		return s.logVersionActivity(ctx, userID, v, domainactivity.ActionStatusChanged, "/resume/version/"+v.ID)
+		s.logVersionActivity(ctx, userID, v, domainactivity.ActionStatusChanged, "/resume/version/"+v.ID)
+		return nil
 	}
-	return s.logVersionActivity(ctx, userID, v, domainactivity.ActionUpdated, "/resume/version/"+v.ID)
+	s.logVersionActivity(ctx, userID, v, domainactivity.ActionUpdated, "/resume/version/"+v.ID)
+	return nil
 }
 
 func (s *ResumeVersionService) Delete(ctx context.Context, userID, id string) error {
@@ -134,7 +137,8 @@ func (s *ResumeVersionService) Delete(ctx context.Context, userID, id string) er
 	if err := s.repoReader.IncrementVersionCount(ctx, v.RepoID, -1); err != nil {
 		return err
 	}
-	return s.logVersionActivity(ctx, userID, v, domainactivity.ActionDeleted, "")
+	s.logVersionActivity(ctx, userID, v, domainactivity.ActionDeleted, "")
+	return nil
 }
 
 func (s *ResumeVersionService) Activate(ctx context.Context, userID, id string) error {
@@ -145,10 +149,11 @@ func (s *ResumeVersionService) Activate(ctx context.Context, userID, id string) 
 	if err := s.repo.SetActiveByID(ctx, v.RepoID, id); err != nil {
 		return err
 	}
-	return s.logVersionActivity(ctx, userID, v, domainactivity.ActionStatusChanged, "/resume/version/"+v.ID)
+	s.logVersionActivity(ctx, userID, v, domainactivity.ActionStatusChanged, "/resume/version/"+v.ID)
+	return nil
 }
 
-func (s *ResumeVersionService) logVersionActivity(ctx context.Context, userID string, v *domainversion.ResumeVersion, action domainactivity.Action, route string) error {
+func (s *ResumeVersionService) logVersionActivity(ctx context.Context, userID string, v *domainversion.ResumeVersion, action domainactivity.Action, route string) {
 	verb := "已更新"
 	if action == domainactivity.ActionCreated {
 		verb = "已创建"
@@ -158,7 +163,7 @@ func (s *ResumeVersionService) logVersionActivity(ctx context.Context, userID st
 		verb = "已激活"
 	}
 	label := activitylog.TrimLabel(v.Title)
-	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+	activitylog.BestEffortLog(ctx, s.activityLogger, activitylog.Entry{
 		UserID:      userID,
 		Action:      action,
 		TargetType:  domainactivity.TargetTypeResume,

@@ -48,7 +48,8 @@ func (s *ResumeRepoService) Create(ctx context.Context, userID string, req dto.C
 	if err := s.repo.Create(ctx, r); err != nil {
 		return err
 	}
-	return s.logRepoActivity(ctx, r, domainactivity.ActionCreated, "/resume/repo/"+r.ID)
+	s.logRepoActivity(ctx, r, domainactivity.ActionCreated, "/resume/repo/"+r.ID)
+	return nil
 }
 
 func (s *ResumeRepoService) List(ctx context.Context, userID string, jobType domainrepo.JobType, keyword string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error) {
@@ -82,7 +83,8 @@ func (s *ResumeRepoService) Update(ctx context.Context, userID, id string, req d
 	if err := s.repo.Update(ctx, r); err != nil {
 		return err
 	}
-	return s.logRepoActivity(ctx, r, domainactivity.ActionUpdated, "/resume/repo/"+r.ID)
+	s.logRepoActivity(ctx, r, domainactivity.ActionUpdated, "/resume/repo/"+r.ID)
+	return nil
 }
 
 func (s *ResumeRepoService) Delete(ctx context.Context, userID, id string) error {
@@ -93,21 +95,22 @@ func (s *ResumeRepoService) Delete(ctx context.Context, userID, id string) error
 	if err := s.repo.Delete(ctx, id, userID); err != nil {
 		return err
 	}
-	return s.logRepoActivity(ctx, r, domainactivity.ActionDeleted, "")
+	s.logRepoActivity(ctx, r, domainactivity.ActionDeleted, "")
+	return nil
 }
 
 func (s *ResumeRepoService) IncrementVersionCount(ctx context.Context, id string, delta int) error {
 	return s.repo.IncrementVersionCount(ctx, id, delta)
 }
 
-func (s *ResumeRepoService) logRepoActivity(ctx context.Context, r *domainrepo.ResumeRepo, action domainactivity.Action, route string) error {
+func (s *ResumeRepoService) logRepoActivity(ctx context.Context, r *domainrepo.ResumeRepo, action domainactivity.Action, route string) {
 	verb := "已更新"
 	if action == domainactivity.ActionCreated {
 		verb = "已创建"
 	} else if action == domainactivity.ActionDeleted {
 		verb = "已删除"
 	}
-	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+	activitylog.BestEffortLog(ctx, s.activityLogger, activitylog.Entry{
 		UserID:      r.UserID,
 		Action:      action,
 		TargetType:  domainactivity.TargetTypeResume,

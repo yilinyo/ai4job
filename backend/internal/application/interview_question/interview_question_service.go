@@ -109,9 +109,7 @@ func (s *InterviewQuestionService) CreateQuestion(ctx context.Context, userID st
 	if err := s.questions.Create(ctx, question); err != nil {
 		return nil, err
 	}
-	if err := s.logQuestionActivity(ctx, question, domainactivity.ActionCreated); err != nil {
-		return nil, err
-	}
+	s.logQuestionActivity(ctx, question, domainactivity.ActionCreated)
 	return question, nil
 }
 
@@ -181,9 +179,7 @@ func (s *InterviewQuestionService) UpdateQuestion(ctx context.Context, userID, i
 	if err := s.questions.Update(ctx, question); err != nil {
 		return nil, err
 	}
-	if err := s.logQuestionActivity(ctx, question, domainactivity.ActionUpdated); err != nil {
-		return nil, err
-	}
+	s.logQuestionActivity(ctx, question, domainactivity.ActionUpdated)
 	return question, nil
 }
 
@@ -205,11 +201,14 @@ func (s *InterviewQuestionService) DeleteQuestion(ctx context.Context, userID, i
 		if err := s.reviews.DeleteByQuestionID(txCtx, id, userID); err != nil {
 			return err
 		}
-		return s.questions.Delete(txCtx, id, userID)
+		if err := s.questions.Delete(txCtx, id, userID); err != nil {
+			return err
+		}
+		return s.logQuestionActivityInTransaction(txCtx, question, domainactivity.ActionDeleted)
 	}); err != nil {
 		return err
 	}
-	return s.logQuestionActivity(ctx, question, domainactivity.ActionDeleted)
+	return nil
 }
 
 func (s *InterviewQuestionService) UpdateFavorite(ctx context.Context, userID, id string, req dto.UpdateQuestionFavoriteRequest) (*domainquestion.InterviewQuestion, error) {
@@ -233,9 +232,7 @@ func (s *InterviewQuestionService) UpdateFavorite(ctx context.Context, userID, i
 	if question.IsFavorite {
 		action = domainactivity.ActionFavorited
 	}
-	if err := s.logQuestionActivity(ctx, question, action); err != nil {
-		return nil, err
-	}
+	s.logQuestionActivity(ctx, question, action)
 	return question, nil
 }
 
@@ -257,7 +254,8 @@ func (s *InterviewQuestionService) CreateOccurrence(ctx context.Context, userID 
 	if s.questions == nil || s.occurrences == nil || s.apps == nil {
 		return nil, domainerrors.ErrBadParams
 	}
-	if _, err := s.questions.FindByIDAndUserID(ctx, req.QuestionID, userID); err != nil {
+	question, err := s.questions.FindByIDAndUserID(ctx, req.QuestionID, userID)
+	if err != nil {
 		return nil, err
 	}
 	application, err := s.apps.Get(ctx, userID, req.ApplicationID)
@@ -302,24 +300,27 @@ func (s *InterviewQuestionService) CreateOccurrence(ctx context.Context, userID 
 	if err := s.occurrences.Create(ctx, occurrence); err != nil {
 		return nil, err
 	}
-	if err := s.logOccurrenceActivity(ctx, occurrence, domainactivity.ActionLinked); err != nil {
-		return nil, err
-	}
+	s.logOccurrenceActivity(ctx, occurrence, question, domainactivity.ActionLinked)
 	return occurrence, nil
 }
 
 func (s *InterviewQuestionService) DeleteOccurrence(ctx context.Context, userID, id string) error {
-	if s.occurrences == nil {
+	if s.occurrences == nil || s.questions == nil {
 		return domainerrors.ErrBadParams
 	}
 	occurrence, err := s.occurrences.FindByIDAndUserID(ctx, id, userID)
 	if err != nil {
 		return err
 	}
+	question, err := s.questions.FindByIDAndUserID(ctx, occurrence.QuestionID, userID)
+	if err != nil {
+		return err
+	}
 	if err := s.occurrences.Delete(ctx, id, userID); err != nil {
 		return err
 	}
-	return s.logOccurrenceActivity(ctx, occurrence, domainactivity.ActionDeleted)
+	s.logOccurrenceActivity(ctx, occurrence, question, domainactivity.ActionDeleted)
+	return nil
 }
 
 func (s *InterviewQuestionService) ListFlashcards(ctx context.Context, userID string, req dto.FlashcardQuery) ([]questionrepo.QuestionWithOccurrenceCount, int64, error) {
@@ -381,29 +382,42 @@ func (s *InterviewQuestionService) CreateFlashcardReview(ctx context.Context, us
 	return review, questionrepo.QuestionWithOccurrenceCount{Question: *question, OccurrenceCount: count}, *summary, nil
 }
 
-func (s *InterviewQuestionService) logQuestionActivity(ctx context.Context, question *domainquestion.InterviewQuestion, action domainactivity.Action) error {
+func (s *InterviewQuestionService) logQuestionActivity(ctx context.Context, question *domainquestion.InterviewQuestion, action domainactivity.Action) {
+	activitylog.BestEffortLog(ctx, s.activityLogger, questionActivityEntry(question, action))
+}
+
+func (s *InterviewQuestionService) logQuestionActivityInTransaction(ctx context.Context, question *domainquestion.InterviewQuestion, action domainactivity.Action) error {
+	return activitylog.OrNoop(s.activityLogger).Log(ctx, questionActivityEntry(question, action))
+}
+
+func questionActivityEntry(question *domainquestion.InterviewQuestion, action domainactivity.Action) activitylog.Entry {
 	label := activitylog.TrimLabel(question.Title)
-	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+	route := "/interview-question-bank/question/" + question.ID
+	if action == domainactivity.ActionDeleted {
+		route = ""
+	}
+	return activitylog.Entry{
 		UserID:      question.UserID,
 		Action:      action,
 		TargetType:  domainactivity.TargetTypeQuestion,
 		TargetID:    question.ID,
 		TargetLabel: label,
 		Summary:     activitylog.TrimSummary(questionSummary(label, action)),
-		Route:       "/interview-question-bank/question/" + question.ID,
-	})
+		Route:       route,
+	}
 }
 
-func (s *InterviewQuestionService) logOccurrenceActivity(ctx context.Context, occurrence *domainoccurrence.QuestionOccurrence, action domainactivity.Action) error {
-	label := activitylog.TrimLabel(occurrence.CompanyNameSnapshot + " / " + occurrence.JobTitleSnapshot)
-	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+func (s *InterviewQuestionService) logOccurrenceActivity(ctx context.Context, occurrence *domainoccurrence.QuestionOccurrence, question *domainquestion.InterviewQuestion, action domainactivity.Action) {
+	companyJobLabel := activitylog.TrimLabel(occurrence.CompanyNameSnapshot + " / " + occurrence.JobTitleSnapshot)
+	questionLabel := activitylog.TrimLabel(question.Title)
+	activitylog.BestEffortLog(ctx, s.activityLogger, activitylog.Entry{
 		UserID:      occurrence.UserID,
 		Action:      action,
 		TargetType:  domainactivity.TargetTypeQuestion,
-		TargetID:    occurrence.ID,
-		TargetLabel: label,
-		Summary:     activitylog.TrimSummary(occurrenceSummary(label, action)),
-		Route:       "/resume/application/" + occurrence.ApplicationID,
+		TargetID:    question.ID,
+		TargetLabel: questionLabel,
+		Summary:     activitylog.TrimSummary(occurrenceSummary(questionLabel, companyJobLabel, action)),
+		Route:       "/interview-question-bank/question/" + question.ID,
 	})
 }
 
@@ -422,11 +436,11 @@ func questionSummary(label string, action domainactivity.Action) string {
 	}
 }
 
-func occurrenceSummary(label string, action domainactivity.Action) string {
+func occurrenceSummary(questionLabel, companyJobLabel string, action domainactivity.Action) string {
 	if action == domainactivity.ActionDeleted {
-		return label + " 面试题出现记录已删除"
+		return "删除题目关联记录 " + questionLabel + " - " + companyJobLabel
 	}
-	return label + " 面试题出现记录已创建"
+	return "题目 " + questionLabel + " 关联到 " + companyJobLabel
 }
 
 func buildQuestionListFilter(userID string, req dto.InterviewQuestionQuery) (questionrepo.ListFilter, error) {

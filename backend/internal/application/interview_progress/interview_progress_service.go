@@ -21,6 +21,7 @@ type ApplicationReader interface {
 
 type ApplicationStatusUpdater interface {
 	UpdateCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error
+	SyncCurrentStatus(ctx context.Context, userID, id string, status domainapp.Status) error
 }
 
 type ApplicationService interface {
@@ -66,9 +67,7 @@ func (s *InterviewProgressService) Create(ctx context.Context, userID string, re
 	if err := s.syncApplicationStatus(ctx, userID, progress.ApplicationID); err != nil {
 		return nil, err
 	}
-	if err := s.logProgressActivity(ctx, progress, domainactivity.ActionCreated); err != nil {
-		return nil, err
-	}
+	s.logProgressActivity(ctx, progress, domainactivity.ActionCreated)
 	return progress, nil
 }
 
@@ -121,9 +120,7 @@ func (s *InterviewProgressService) Update(ctx context.Context, userID, id string
 	if err := s.syncApplicationStatus(ctx, userID, progress.ApplicationID); err != nil {
 		return nil, err
 	}
-	if err := s.logProgressActivity(ctx, progress, domainactivity.ActionUpdated); err != nil {
-		return nil, err
-	}
+	s.logProgressActivity(ctx, progress, domainactivity.ActionUpdated)
 	return progress, nil
 }
 
@@ -141,10 +138,11 @@ func (s *InterviewProgressService) Delete(ctx context.Context, userID, id string
 	if err := s.syncApplicationStatus(ctx, userID, progress.ApplicationID); err != nil {
 		return err
 	}
-	return s.logProgressActivity(ctx, progress, domainactivity.ActionDeleted)
+	s.logProgressActivity(ctx, progress, domainactivity.ActionDeleted)
+	return nil
 }
 
-func (s *InterviewProgressService) logProgressActivity(ctx context.Context, progress *domainprogress.InterviewProgress, action domainactivity.Action) error {
+func (s *InterviewProgressService) logProgressActivity(ctx context.Context, progress *domainprogress.InterviewProgress, action domainactivity.Action) {
 	label := activitylog.TrimLabel(stageLabel(progress.Stage) + " / " + resultLabel(progress.Result))
 	verb := "已更新"
 	if action == domainactivity.ActionCreated {
@@ -152,7 +150,7 @@ func (s *InterviewProgressService) logProgressActivity(ctx context.Context, prog
 	} else if action == domainactivity.ActionDeleted {
 		verb = "已删除"
 	}
-	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+	activitylog.BestEffortLog(ctx, s.activityLogger, activitylog.Entry{
 		UserID:      progress.UserID,
 		Action:      action,
 		TargetType:  domainactivity.TargetTypeInterview,
@@ -220,7 +218,7 @@ func (s *InterviewProgressService) syncApplicationStatus(ctx context.Context, us
 		return err
 	}
 	if len(progresses) == 0 {
-		return s.apps.UpdateCurrentStatus(ctx, userID, applicationID, domainapp.StatusApplied)
+		return s.apps.SyncCurrentStatus(ctx, userID, applicationID, domainapp.StatusApplied)
 	}
 
 	latest := progresses[0]
@@ -234,5 +232,5 @@ func (s *InterviewProgressService) syncApplicationStatus(ctx context.Context, us
 	if latest.Result == domainprogress.ResultFailed {
 		status = domainapp.StatusRejected
 	}
-	return s.apps.UpdateCurrentStatus(ctx, userID, applicationID, status)
+	return s.apps.SyncCurrentStatus(ctx, userID, applicationID, status)
 }
