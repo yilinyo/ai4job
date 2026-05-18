@@ -65,6 +65,7 @@
               <div class="section-subtitle">当前版本共关联 {{ applicationTotal }} 条投递记录</div>
             </div>
             <el-button
+              v-if="currentVersion.isActive"
               type="primary"
               size="small"
               icon="el-icon-plus"

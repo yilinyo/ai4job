@@ -78,7 +78,7 @@ func (m *mockResumeVersionReader) FindByID(ctx context.Context, id string) (*dom
 	return version, args.Error(1)
 }
 
-func newOwnedReferenceReaders(jobPostingID *string, repoID, versionID string) (*mockJobPostingReader, *mockResumeRepoReader, *mockResumeVersionReader) {
+func newOwnedReferenceReaders(jobPostingID *string, repoID, versionID string, versionActive bool) (*mockJobPostingReader, *mockResumeRepoReader, *mockResumeVersionReader) {
 	jobs := &mockJobPostingReader{}
 	repos := &mockResumeRepoReader{}
 	versions := &mockResumeVersionReader{}
@@ -86,7 +86,7 @@ func newOwnedReferenceReaders(jobPostingID *string, repoID, versionID string) (*
 		jobs.On("FindByIDAndUserID", mock.Anything, *jobPostingID, "u1").Return(&domainjob.JobPosting{ID: *jobPostingID, UserID: "u1"}, nil)
 	}
 	repos.On("FindByIDAndUserID", mock.Anything, repoID, "u1").Return(&domainrepo.ResumeRepo{ID: repoID, UserID: "u1"}, nil)
-	versions.On("FindByID", mock.Anything, versionID).Return(&domainversion.ResumeVersion{ID: versionID, RepoID: repoID}, nil)
+	versions.On("FindByID", mock.Anything, versionID).Return(&domainversion.ResumeVersion{ID: versionID, RepoID: repoID, IsActive: versionActive}, nil)
 	return jobs, repos, versions
 }
 
@@ -102,7 +102,7 @@ func TestResumeApplicationService_CreateCopiesFieldsDefaultsStatusAndSupportsOpt
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &mockResumeApplicationRepo{}
-			jobs, repos, versions := newOwnedReferenceReaders(tt.jobPostingID, "r1", "v1")
+			jobs, repos, versions := newOwnedReferenceReaders(tt.jobPostingID, "r1", "v1", true)
 			repo.On("Create", mock.Anything, mock.MatchedBy(func(a *domainapp.ResumeApplication) bool {
 				return a.ID != "" &&
 					a.UserID == "u1" &&
@@ -172,7 +172,7 @@ func TestResumeApplicationService_CreateNormalizesBlankJobPostingIDToNil(t *test
 	repo.On("Create", mock.Anything, mock.MatchedBy(func(a *domainapp.ResumeApplication) bool {
 		return a.JobPostingID == nil
 	})).Return(nil)
-	jobs, repos, versions := newOwnedReferenceReaders(nil, "r1", "v1")
+	jobs, repos, versions := newOwnedReferenceReaders(nil, "r1", "v1", true)
 	svc := appsvc.NewResumeApplicationService(repo, jobs, repos, versions)
 
 	got, err := svc.Create(context.Background(), "u1", dto.CreateResumeApplicationRequest{
@@ -188,6 +188,28 @@ func TestResumeApplicationService_CreateNormalizesBlankJobPostingIDToNil(t *test
 	require.NotNil(t, got)
 	assert.Nil(t, got.JobPostingID)
 	repo.AssertExpectations(t)
+	jobs.AssertExpectations(t)
+	repos.AssertExpectations(t)
+	versions.AssertExpectations(t)
+}
+
+func TestResumeApplicationService_CreateRejectsInactiveResumeVersion(t *testing.T) {
+	appliedAt := time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC)
+	repo := &mockResumeApplicationRepo{}
+	jobs, repos, versions := newOwnedReferenceReaders(nil, "r1", "v1", false)
+	svc := appsvc.NewResumeApplicationService(repo, jobs, repos, versions)
+
+	got, err := svc.Create(context.Background(), "u1", dto.CreateResumeApplicationRequest{
+		ResumeVersionID: "v1",
+		RepoID:          "r1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       dto.FlexibleTime{Time: appliedAt},
+	})
+
+	assert.Nil(t, got)
+	assert.ErrorIs(t, err, domainerrors.ErrInactiveVersion)
+	repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 	jobs.AssertExpectations(t)
 	repos.AssertExpectations(t)
 	versions.AssertExpectations(t)
@@ -329,7 +351,7 @@ func TestResumeApplicationService_UpdatePreservesOmittedFieldsAndAppliesProvided
 	newOverallScore := 8
 	repo := &mockResumeApplicationRepo{}
 	repo.On("FindByIDAndUserID", mock.Anything, "a1", "u1").Return(existing, nil)
-	jobs, repos, versions := newOwnedReferenceReaders(&newJobPostingID, "r1", "v1")
+	jobs, repos, versions := newOwnedReferenceReaders(&newJobPostingID, "r1", "v1", true)
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(a *domainapp.ResumeApplication) bool {
 		return a.ID == "a1" &&
 			a.UserID == "u1" &&
@@ -390,7 +412,7 @@ func TestResumeApplicationService_UpdateNormalizesBlankJobPostingIDToNil(t *test
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(a *domainapp.ResumeApplication) bool {
 		return a.JobPostingID == nil
 	})).Return(nil)
-	jobs, repos, versions := newOwnedReferenceReaders(nil, "r1", "v1")
+	jobs, repos, versions := newOwnedReferenceReaders(nil, "r1", "v1", true)
 	svc := appsvc.NewResumeApplicationService(repo, jobs, repos, versions)
 
 	err := svc.Update(context.Background(), "u1", "a1", dto.UpdateResumeApplicationRequest{
@@ -423,7 +445,7 @@ func TestResumeApplicationService_UpdateClearsExistingJobPostingIDWhenProvidedBl
 	repo.On("Update", mock.Anything, mock.MatchedBy(func(a *domainapp.ResumeApplication) bool {
 		return a.JobPostingID == nil
 	})).Return(nil)
-	jobs, repos, versions := newOwnedReferenceReaders(nil, "r1", "v1")
+	jobs, repos, versions := newOwnedReferenceReaders(nil, "r1", "v1", true)
 	svc := appsvc.NewResumeApplicationService(repo, jobs, repos, versions)
 
 	err := svc.Update(context.Background(), "u1", "a1", dto.UpdateResumeApplicationRequest{

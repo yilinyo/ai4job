@@ -21,6 +21,7 @@ var (
 	ErrForbidden      = errors.New("forbidden")
 	ErrConflict       = errors.New("resource conflict")
 	ErrBadParams      = errors.New("bad params")
+	ErrInactiveVersion = errors.New("resume version is inactive")
 	ErrVersionInUse   = errors.New("resume version is referenced by an application")
 	ErrEmailCodeWrong = errors.New("email verification code is incorrect or expired")
 	ErrDuplicate      = errors.New("duplicate entry")
