@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yilin/ai-for-backend/internal/application/activitylog"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
+	domainactivity "github.com/yilin/ai-for-backend/internal/domain/activity_log"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
 	interviewprogressrepo "github.com/yilin/ai-for-backend/internal/domain/interview_progress/repository"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
@@ -27,12 +29,18 @@ type ApplicationService interface {
 }
 
 type InterviewProgressService struct {
-	repo interviewprogressrepo.Repository
-	apps ApplicationService
+	repo           interviewprogressrepo.Repository
+	apps           ApplicationService
+	activityLogger activitylog.Logger
 }
 
 func NewInterviewProgressService(repo interviewprogressrepo.Repository, apps ApplicationService) *InterviewProgressService {
-	return &InterviewProgressService{repo: repo, apps: apps}
+	return &InterviewProgressService{repo: repo, apps: apps, activityLogger: activitylog.NoopLogger{}}
+}
+
+func (s *InterviewProgressService) WithActivityLogger(logger activitylog.Logger) *InterviewProgressService {
+	s.activityLogger = activitylog.OrNoop(logger)
+	return s
 }
 
 func (s *InterviewProgressService) Create(ctx context.Context, userID string, req dto.CreateInterviewProgressRequest) (*domainprogress.InterviewProgress, error) {
@@ -56,6 +64,9 @@ func (s *InterviewProgressService) Create(ctx context.Context, userID string, re
 		return nil, err
 	}
 	if err := s.syncApplicationStatus(ctx, userID, progress.ApplicationID); err != nil {
+		return nil, err
+	}
+	if err := s.logProgressActivity(ctx, progress, domainactivity.ActionCreated); err != nil {
 		return nil, err
 	}
 	return progress, nil
@@ -110,6 +121,9 @@ func (s *InterviewProgressService) Update(ctx context.Context, userID, id string
 	if err := s.syncApplicationStatus(ctx, userID, progress.ApplicationID); err != nil {
 		return nil, err
 	}
+	if err := s.logProgressActivity(ctx, progress, domainactivity.ActionUpdated); err != nil {
+		return nil, err
+	}
 	return progress, nil
 }
 
@@ -124,7 +138,69 @@ func (s *InterviewProgressService) Delete(ctx context.Context, userID, id string
 	if err := s.repo.Delete(ctx, id, userID); err != nil {
 		return err
 	}
-	return s.syncApplicationStatus(ctx, userID, progress.ApplicationID)
+	if err := s.syncApplicationStatus(ctx, userID, progress.ApplicationID); err != nil {
+		return err
+	}
+	return s.logProgressActivity(ctx, progress, domainactivity.ActionDeleted)
+}
+
+func (s *InterviewProgressService) logProgressActivity(ctx context.Context, progress *domainprogress.InterviewProgress, action domainactivity.Action) error {
+	label := activitylog.TrimLabel(stageLabel(progress.Stage) + " / " + resultLabel(progress.Result))
+	verb := "已更新"
+	if action == domainactivity.ActionCreated {
+		verb = "已创建"
+	} else if action == domainactivity.ActionDeleted {
+		verb = "已删除"
+	}
+	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+		UserID:      progress.UserID,
+		Action:      action,
+		TargetType:  domainactivity.TargetTypeInterview,
+		TargetID:    progress.ID,
+		TargetLabel: label,
+		Summary:     activitylog.TrimSummary(label + " 面试进展" + verb),
+		Route:       "/resume/application/" + progress.ApplicationID,
+	})
+}
+
+func stageLabel(stage domainprogress.Stage) string {
+	switch stage {
+	case domainprogress.StageApplied:
+		return "已投递"
+	case domainprogress.StageViewed:
+		return "已查看"
+	case domainprogress.StageWrittenTest:
+		return "笔试"
+	case domainprogress.StageFirstInterview:
+		return "一面"
+	case domainprogress.StageSecondInterview:
+		return "二面"
+	case domainprogress.StageFinalInterview:
+		return "终面"
+	case domainprogress.StageHRInterview:
+		return "HR面"
+	case domainprogress.StageOffer:
+		return "Offer"
+	case domainprogress.StageRejected:
+		return "已拒绝"
+	case domainprogress.StageClosed:
+		return "已关闭"
+	default:
+		return string(stage)
+	}
+}
+
+func resultLabel(result domainprogress.Result) string {
+	switch result {
+	case domainprogress.ResultPassed:
+		return "通过"
+	case domainprogress.ResultPending:
+		return "待定"
+	case domainprogress.ResultFailed:
+		return "未通过"
+	default:
+		return string(result)
+	}
 }
 
 func (s *InterviewProgressService) ensureApplicationOwned(ctx context.Context, userID, applicationID string) error {

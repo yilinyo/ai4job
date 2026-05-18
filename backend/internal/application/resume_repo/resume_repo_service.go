@@ -4,18 +4,26 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/yilin/ai-for-backend/internal/application/activitylog"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
+	domainactivity "github.com/yilin/ai-for-backend/internal/domain/activity_log"
 	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
 	resumereporepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo/repository"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
 type ResumeRepoService struct {
-	repo resumereporepo.Repository
+	repo           resumereporepo.Repository
+	activityLogger activitylog.Logger
 }
 
 func NewResumeRepoService(repo resumereporepo.Repository) *ResumeRepoService {
-	return &ResumeRepoService{repo: repo}
+	return &ResumeRepoService{repo: repo, activityLogger: activitylog.NoopLogger{}}
+}
+
+func (s *ResumeRepoService) WithActivityLogger(logger activitylog.Logger) *ResumeRepoService {
+	s.activityLogger = activitylog.OrNoop(logger)
+	return s
 }
 
 func (s *ResumeRepoService) Create(ctx context.Context, userID string, req dto.CreateResumeRepoRequest) error {
@@ -37,7 +45,10 @@ func (s *ResumeRepoService) Create(ctx context.Context, userID string, req dto.C
 	if err != nil {
 		return err
 	}
-	return s.repo.Create(ctx, r)
+	if err := s.repo.Create(ctx, r); err != nil {
+		return err
+	}
+	return s.logRepoActivity(ctx, r, domainactivity.ActionCreated, "/resume/repo/"+r.ID)
 }
 
 func (s *ResumeRepoService) List(ctx context.Context, userID string, jobType domainrepo.JobType, keyword string, page, pageSize int) ([]domainrepo.ResumeRepo, int64, error) {
@@ -68,13 +79,41 @@ func (s *ResumeRepoService) Update(ctx context.Context, userID, id string, req d
 	}); err != nil {
 		return err
 	}
-	return s.repo.Update(ctx, r)
+	if err := s.repo.Update(ctx, r); err != nil {
+		return err
+	}
+	return s.logRepoActivity(ctx, r, domainactivity.ActionUpdated, "/resume/repo/"+r.ID)
 }
 
 func (s *ResumeRepoService) Delete(ctx context.Context, userID, id string) error {
-	return s.repo.Delete(ctx, id, userID)
+	r, err := s.repo.FindByIDAndUserID(ctx, id, userID)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.Delete(ctx, id, userID); err != nil {
+		return err
+	}
+	return s.logRepoActivity(ctx, r, domainactivity.ActionDeleted, "")
 }
 
 func (s *ResumeRepoService) IncrementVersionCount(ctx context.Context, id string, delta int) error {
 	return s.repo.IncrementVersionCount(ctx, id, delta)
+}
+
+func (s *ResumeRepoService) logRepoActivity(ctx context.Context, r *domainrepo.ResumeRepo, action domainactivity.Action, route string) error {
+	verb := "已更新"
+	if action == domainactivity.ActionCreated {
+		verb = "已创建"
+	} else if action == domainactivity.ActionDeleted {
+		verb = "已删除"
+	}
+	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+		UserID:      r.UserID,
+		Action:      action,
+		TargetType:  domainactivity.TargetTypeResume,
+		TargetID:    r.ID,
+		TargetLabel: activitylog.TrimLabel(r.Name),
+		Summary:     activitylog.TrimSummary(activitylog.TrimLabel(r.Name) + " 简历仓库" + verb),
+		Route:       route,
+	})
 }

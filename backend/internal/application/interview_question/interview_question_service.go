@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yilin/ai-for-backend/internal/application/activitylog"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
+	domainactivity "github.com/yilin/ai-for-backend/internal/domain/activity_log"
 	domainreview "github.com/yilin/ai-for-backend/internal/domain/flashcard_review"
 	reviewrepo "github.com/yilin/ai-for-backend/internal/domain/flashcard_review/repository"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
@@ -40,21 +42,23 @@ type TransactionRunner interface {
 }
 
 type InterviewQuestionService struct {
-	questions    questionrepo.Repository
-	occurrences  occurrencerepo.Repository
-	reviews      reviewrepo.Repository
-	apps         ApplicationReader
-	progresses   ProgressReader
-	transactions TransactionRunner
+	questions      questionrepo.Repository
+	occurrences    occurrencerepo.Repository
+	reviews        reviewrepo.Repository
+	apps           ApplicationReader
+	progresses     ProgressReader
+	transactions   TransactionRunner
+	activityLogger activitylog.Logger
 }
 
 func NewInterviewQuestionService(questions questionrepo.Repository, occurrences occurrencerepo.Repository, reviews reviewrepo.Repository, apps ApplicationReader, progresses ProgressReader) *InterviewQuestionService {
 	return &InterviewQuestionService{
-		questions:   questions,
-		occurrences: occurrences,
-		reviews:     reviews,
-		apps:        apps,
-		progresses:  progresses,
+		questions:      questions,
+		occurrences:    occurrences,
+		reviews:        reviews,
+		apps:           apps,
+		progresses:     progresses,
+		activityLogger: activitylog.NoopLogger{},
 	}
 }
 
@@ -66,6 +70,11 @@ func NewInterviewQuestionServiceWithTransactions(questions questionrepo.Reposito
 
 func (s *InterviewQuestionService) WithTransactions(transactions TransactionRunner) *InterviewQuestionService {
 	s.transactions = transactions
+	return s
+}
+
+func (s *InterviewQuestionService) WithActivityLogger(logger activitylog.Logger) *InterviewQuestionService {
+	s.activityLogger = activitylog.OrNoop(logger)
 	return s
 }
 
@@ -98,6 +107,9 @@ func (s *InterviewQuestionService) CreateQuestion(ctx context.Context, userID st
 		return nil, domainerrors.ErrBadParams
 	}
 	if err := s.questions.Create(ctx, question); err != nil {
+		return nil, err
+	}
+	if err := s.logQuestionActivity(ctx, question, domainactivity.ActionCreated); err != nil {
 		return nil, err
 	}
 	return question, nil
@@ -169,6 +181,9 @@ func (s *InterviewQuestionService) UpdateQuestion(ctx context.Context, userID, i
 	if err := s.questions.Update(ctx, question); err != nil {
 		return nil, err
 	}
+	if err := s.logQuestionActivity(ctx, question, domainactivity.ActionUpdated); err != nil {
+		return nil, err
+	}
 	return question, nil
 }
 
@@ -176,7 +191,14 @@ func (s *InterviewQuestionService) DeleteQuestion(ctx context.Context, userID, i
 	if s.questions == nil || s.occurrences == nil || s.reviews == nil {
 		return domainerrors.ErrBadParams
 	}
-	return s.withinTransaction(ctx, func(txCtx context.Context) error {
+	if s.transactions == nil {
+		return domainerrors.ErrBadParams
+	}
+	question, err := s.questions.FindByIDAndUserID(ctx, id, userID)
+	if err != nil {
+		return err
+	}
+	if err := s.withinTransaction(ctx, func(txCtx context.Context) error {
 		if err := s.occurrences.DeleteByQuestionID(txCtx, id, userID); err != nil {
 			return err
 		}
@@ -184,7 +206,10 @@ func (s *InterviewQuestionService) DeleteQuestion(ctx context.Context, userID, i
 			return err
 		}
 		return s.questions.Delete(txCtx, id, userID)
-	})
+	}); err != nil {
+		return err
+	}
+	return s.logQuestionActivity(ctx, question, domainactivity.ActionDeleted)
 }
 
 func (s *InterviewQuestionService) UpdateFavorite(ctx context.Context, userID, id string, req dto.UpdateQuestionFavoriteRequest) (*domainquestion.InterviewQuestion, error) {
@@ -202,6 +227,13 @@ func (s *InterviewQuestionService) UpdateFavorite(ctx context.Context, userID, i
 		return nil, err
 	}
 	if err := s.questions.Update(ctx, question); err != nil {
+		return nil, err
+	}
+	action := domainactivity.ActionUnfavorited
+	if question.IsFavorite {
+		action = domainactivity.ActionFavorited
+	}
+	if err := s.logQuestionActivity(ctx, question, action); err != nil {
 		return nil, err
 	}
 	return question, nil
@@ -270,6 +302,9 @@ func (s *InterviewQuestionService) CreateOccurrence(ctx context.Context, userID 
 	if err := s.occurrences.Create(ctx, occurrence); err != nil {
 		return nil, err
 	}
+	if err := s.logOccurrenceActivity(ctx, occurrence, domainactivity.ActionLinked); err != nil {
+		return nil, err
+	}
 	return occurrence, nil
 }
 
@@ -277,7 +312,14 @@ func (s *InterviewQuestionService) DeleteOccurrence(ctx context.Context, userID,
 	if s.occurrences == nil {
 		return domainerrors.ErrBadParams
 	}
-	return s.occurrences.Delete(ctx, id, userID)
+	occurrence, err := s.occurrences.FindByIDAndUserID(ctx, id, userID)
+	if err != nil {
+		return err
+	}
+	if err := s.occurrences.Delete(ctx, id, userID); err != nil {
+		return err
+	}
+	return s.logOccurrenceActivity(ctx, occurrence, domainactivity.ActionDeleted)
 }
 
 func (s *InterviewQuestionService) ListFlashcards(ctx context.Context, userID string, req dto.FlashcardQuery) ([]questionrepo.QuestionWithOccurrenceCount, int64, error) {
@@ -337,6 +379,54 @@ func (s *InterviewQuestionService) CreateFlashcardReview(ctx context.Context, us
 		summary = &domainreview.ReviewSummary{}
 	}
 	return review, questionrepo.QuestionWithOccurrenceCount{Question: *question, OccurrenceCount: count}, *summary, nil
+}
+
+func (s *InterviewQuestionService) logQuestionActivity(ctx context.Context, question *domainquestion.InterviewQuestion, action domainactivity.Action) error {
+	label := activitylog.TrimLabel(question.Title)
+	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+		UserID:      question.UserID,
+		Action:      action,
+		TargetType:  domainactivity.TargetTypeQuestion,
+		TargetID:    question.ID,
+		TargetLabel: label,
+		Summary:     activitylog.TrimSummary(questionSummary(label, action)),
+		Route:       "/interview-question-bank/question/" + question.ID,
+	})
+}
+
+func (s *InterviewQuestionService) logOccurrenceActivity(ctx context.Context, occurrence *domainoccurrence.QuestionOccurrence, action domainactivity.Action) error {
+	label := activitylog.TrimLabel(occurrence.CompanyNameSnapshot + " / " + occurrence.JobTitleSnapshot)
+	return activitylog.OrNoop(s.activityLogger).Log(ctx, activitylog.Entry{
+		UserID:      occurrence.UserID,
+		Action:      action,
+		TargetType:  domainactivity.TargetTypeQuestion,
+		TargetID:    occurrence.ID,
+		TargetLabel: label,
+		Summary:     activitylog.TrimSummary(occurrenceSummary(label, action)),
+		Route:       "/resume/application/" + occurrence.ApplicationID,
+	})
+}
+
+func questionSummary(label string, action domainactivity.Action) string {
+	switch action {
+	case domainactivity.ActionCreated:
+		return label + " 面试题已创建"
+	case domainactivity.ActionDeleted:
+		return label + " 面试题已删除"
+	case domainactivity.ActionFavorited:
+		return label + " 面试题已收藏"
+	case domainactivity.ActionUnfavorited:
+		return label + " 面试题已取消收藏"
+	default:
+		return label + " 面试题已更新"
+	}
+}
+
+func occurrenceSummary(label string, action domainactivity.Action) string {
+	if action == domainactivity.ActionDeleted {
+		return label + " 面试题出现记录已删除"
+	}
+	return label + " 面试题出现记录已创建"
 }
 
 func buildQuestionListFilter(userID string, req dto.InterviewQuestionQuery) (questionrepo.ListFilter, error) {

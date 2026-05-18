@@ -6,9 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/yilin/ai-for-backend/internal/application/activitylog"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
+	domainactivity "github.com/yilin/ai-for-backend/internal/domain/activity_log"
 	domainreview "github.com/yilin/ai-for-backend/internal/domain/flashcard_review"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
 	domainquestion "github.com/yilin/ai-for-backend/internal/domain/interview_question"
@@ -18,6 +21,15 @@ import (
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
+
+type spyActivityLogger struct {
+	Entries []activitylog.Entry
+}
+
+func (l *spyActivityLogger) Log(ctx context.Context, entry activitylog.Entry) error {
+	l.Entries = append(l.Entries, entry)
+	return nil
+}
 
 type mockQuestionRepo struct{ mock.Mock }
 
@@ -144,6 +156,96 @@ func transactionContextMatcher() interface{} {
 		inTransaction, _ := ctx.Value(transactionContextKey{}).(bool)
 		return inTransaction
 	})
+}
+
+func TestInterviewQuestionService_GetQuestionDoesNotLogActivity(t *testing.T) {
+	ctx := context.Background()
+	questions := new(mockQuestionRepo)
+	occurrences := new(mockOccurrenceRepo)
+	reviews := new(mockReviewRepo)
+	logger := &spyActivityLogger{}
+	service := NewInterviewQuestionService(questions, occurrences, reviews, nil, nil).WithActivityLogger(logger)
+	question := mustQuestion(t, "question-1", "user-1")
+
+	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(question, nil).Once()
+	questions.On("CountOccurrences", ctx, "question-1", "user-1").Return(int64(0), nil).Once()
+	occurrences.On("ListByUser", ctx, occurrencerepo.ListFilter{UserID: "user-1", QuestionID: "question-1"}).Return([]domainoccurrence.QuestionOccurrence{}, nil).Once()
+	reviews.On("SummaryByQuestion", ctx, "question-1", "user-1").Return(&domainreview.ReviewSummary{}, nil).Once()
+	reviews.On("ListRecentByQuestion", ctx, "question-1", "user-1", 10).Return([]domainreview.FlashcardReview{}, nil).Once()
+
+	got, count, gotOccurrences, _, gotReviews, err := service.GetQuestion(ctx, "user-1", "question-1")
+
+	require.NoError(t, err)
+	require.Equal(t, question, got)
+	require.Zero(t, count)
+	require.Empty(t, gotOccurrences)
+	require.Empty(t, gotReviews)
+	require.Empty(t, logger.Entries)
+	questions.AssertExpectations(t)
+	occurrences.AssertExpectations(t)
+	reviews.AssertExpectations(t)
+}
+
+func TestInterviewQuestionService_CreateUpdateFavoriteAndOccurrenceLogExpectedActions(t *testing.T) {
+	ctx := context.Background()
+	questions := new(mockQuestionRepo)
+	occurrences := new(mockOccurrenceRepo)
+	apps := new(mockApplicationReader)
+	logger := &spyActivityLogger{}
+	service := NewInterviewQuestionService(questions, occurrences, new(mockReviewRepo), apps, new(mockProgressReader)).WithActivityLogger(logger)
+	question := mustQuestion(t, "question-1", "user-1")
+	question.IsFavorite = false
+	newTitle := "Updated question title"
+	favorite := true
+	occurredAt := dto.RequiredFlexibleTime{Time: time.Date(2026, 5, 15, 10, 0, 0, 0, time.UTC)}
+
+	questions.On("Create", ctx, mock.MatchedBy(func(q *domainquestion.InterviewQuestion) bool {
+		return q.UserID == "user-1" && q.Title == "Created question"
+	})).Return(nil).Once()
+	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(question, nil).Twice()
+	questions.On("Update", ctx, mock.MatchedBy(func(q *domainquestion.InterviewQuestion) bool {
+		return q.ID == "question-1" && q.Title == newTitle
+	})).Return(nil).Once()
+	questions.On("Update", ctx, mock.MatchedBy(func(q *domainquestion.InterviewQuestion) bool {
+		return q.ID == "question-1" && q.IsFavorite
+	})).Return(nil).Once()
+	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(question, nil).Once()
+	apps.On("Get", ctx, "user-1", "app-1").Return(mustApplication(t, "app-1", "user-1", "Acme", "Backend Engineer"), nil).Once()
+	occurrences.On("Create", ctx, mock.MatchedBy(func(o *domainoccurrence.QuestionOccurrence) bool {
+		return o.QuestionID == "question-1" && o.ApplicationID == "app-1"
+	})).Return(nil).Once()
+
+	created, err := service.CreateQuestion(ctx, "user-1", dto.CreateInterviewQuestionRequest{
+		Title:          "Created question",
+		Content:        "Question content",
+		AnswerAnalysis: "Answer analysis",
+		Difficulty:     domainquestion.DifficultyMedium,
+		QuestionType:   domainquestion.QuestionTypeKnowledge,
+		MasteryStatus:  domainquestion.MasteryStatusUnreviewed,
+	})
+	require.NoError(t, err)
+	_, err = service.UpdateQuestion(ctx, "user-1", "question-1", dto.UpdateInterviewQuestionRequest{Title: &newTitle})
+	require.NoError(t, err)
+	_, err = service.UpdateFavorite(ctx, "user-1", "question-1", dto.UpdateQuestionFavoriteRequest{IsFavorite: &favorite})
+	require.NoError(t, err)
+	occurrence, err := service.CreateOccurrence(ctx, "user-1", dto.CreateQuestionOccurrenceRequest{QuestionID: "question-1", ApplicationID: "app-1", OccurredAt: &occurredAt})
+	require.NoError(t, err)
+
+	require.Len(t, logger.Entries, 4)
+	assertActivity := func(index int, action domainactivity.Action, targetID, route string) {
+		t.Helper()
+		assert.Equal(t, action, logger.Entries[index].Action)
+		assert.Equal(t, domainactivity.TargetTypeQuestion, logger.Entries[index].TargetType)
+		assert.Equal(t, targetID, logger.Entries[index].TargetID)
+		assert.Equal(t, route, logger.Entries[index].Route)
+	}
+	assertActivity(0, domainactivity.ActionCreated, created.ID, "/interview-question-bank/question/"+created.ID)
+	assertActivity(1, domainactivity.ActionUpdated, "question-1", "/interview-question-bank/question/question-1")
+	assertActivity(2, domainactivity.ActionFavorited, "question-1", "/interview-question-bank/question/question-1")
+	assertActivity(3, domainactivity.ActionLinked, occurrence.ID, "/resume/application/app-1")
+	questions.AssertExpectations(t)
+	occurrences.AssertExpectations(t)
+	apps.AssertExpectations(t)
 }
 
 func TestCreateQuestionDoesNotRequireApplicationAndDoesNotCreateOccurrence(t *testing.T) {
@@ -477,6 +579,7 @@ func TestDeleteQuestionDeletesChildrenBeforeQuestionInsideTransaction(t *testing
 	service := NewInterviewQuestionServiceWithTransactions(questions, occurrences, reviews, nil, nil, transactions)
 	txCtx := transactionContextMatcher()
 
+	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(mustQuestion(t, "question-1", "user-1"), nil).Once()
 	occurrences.On("DeleteByQuestionID", txCtx, "question-1", "user-1").Return(nil).Once()
 	reviews.On("DeleteByQuestionID", txCtx, "question-1", "user-1").Return(nil).Once()
 	questions.On("Delete", txCtx, "question-1", "user-1").Return(nil).Once()
@@ -499,6 +602,7 @@ func TestDeleteQuestionReturnsCascadeErrorWithoutDeletingQuestion(t *testing.T) 
 	service := NewInterviewQuestionServiceWithTransactions(questions, occurrences, reviews, nil, nil, transactions)
 	expectedErr := errors.New("cascade failed")
 
+	questions.On("FindByIDAndUserID", ctx, "question-1", "user-1").Return(mustQuestion(t, "question-1", "user-1"), nil).Once()
 	occurrences.On("DeleteByQuestionID", transactionContextMatcher(), "question-1", "user-1").Return(expectedErr).Once()
 
 	err := service.DeleteQuestion(ctx, "user-1", "question-1")

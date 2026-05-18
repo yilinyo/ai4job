@@ -8,8 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/yilin/ai-for-backend/internal/application/activitylog"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
 	appsvc "github.com/yilin/ai-for-backend/internal/application/resume_application"
+	domainactivity "github.com/yilin/ai-for-backend/internal/domain/activity_log"
 	domainjob "github.com/yilin/ai-for-backend/internal/domain/job_posting"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
 	resumeapplicationrepo "github.com/yilin/ai-for-backend/internal/domain/resume_application/repository"
@@ -17,6 +19,15 @@ import (
 	domainversion "github.com/yilin/ai-for-backend/internal/domain/resume_version"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
+
+type spyActivityLogger struct {
+	Entries []activitylog.Entry
+}
+
+func (l *spyActivityLogger) Log(ctx context.Context, entry activitylog.Entry) error {
+	l.Entries = append(l.Entries, entry)
+	return nil
+}
 
 type mockResumeApplicationRepo struct{ mock.Mock }
 
@@ -453,6 +464,44 @@ func TestResumeApplicationService_UpdateClearsExistingJobPostingIDWhenProvidedBl
 	})
 
 	require.NoError(t, err)
+	repo.AssertExpectations(t)
+	jobs.AssertExpectations(t)
+	repos.AssertExpectations(t)
+	versions.AssertExpectations(t)
+}
+
+func TestResumeApplicationService_UpdateChangingCurrentStatusLogsStatusChangedWithChineseStatusLabel(t *testing.T) {
+	repo := &mockResumeApplicationRepo{}
+	logger := &spyActivityLogger{}
+	existing := &domainapp.ResumeApplication{
+		ID:              "a1",
+		UserID:          "u1",
+		ResumeVersionID: "v1",
+		RepoID:          "r1",
+		CompanyName:     "Acme",
+		JobTitle:        "Backend Engineer",
+		AppliedAt:       time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+		CurrentStatus:   domainapp.StatusApplied,
+	}
+	newStatus := domainapp.StatusFirstInterview
+	repo.On("FindByIDAndUserID", mock.Anything, "a1", "u1").Return(existing, nil)
+	repo.On("Update", mock.Anything, mock.MatchedBy(func(a *domainapp.ResumeApplication) bool {
+		return a.ID == "a1" && a.CurrentStatus == domainapp.StatusFirstInterview
+	})).Return(nil)
+	jobs, repos, versions := newOwnedReferenceReaders(nil, "r1", "v1", true)
+	svc := appsvc.NewResumeApplicationService(repo, jobs, repos, versions).WithActivityLogger(logger)
+
+	err := svc.Update(context.Background(), "u1", "a1", dto.UpdateResumeApplicationRequest{CurrentStatus: &newStatus})
+
+	require.NoError(t, err)
+	require.Len(t, logger.Entries, 1)
+	entry := logger.Entries[0]
+	assert.Equal(t, domainactivity.ActionStatusChanged, entry.Action)
+	assert.Equal(t, domainactivity.TargetTypeApplication, entry.TargetType)
+	assert.Equal(t, "a1", entry.TargetID)
+	assert.Equal(t, "Acme / Backend Engineer", entry.TargetLabel)
+	assert.Equal(t, "Acme / Backend Engineer 投递状态更新为一面", entry.Summary)
+	assert.Equal(t, "/resume/application/a1", entry.Route)
 	repo.AssertExpectations(t)
 	jobs.AssertExpectations(t)
 	repos.AssertExpectations(t)

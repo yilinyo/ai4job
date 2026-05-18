@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	activitylogapp "github.com/yilin/ai-for-backend/internal/application/activitylog"
 	dashboardapp "github.com/yilin/ai-for-backend/internal/application/dashboard"
 	interviewprogressapp "github.com/yilin/ai-for-backend/internal/application/interview_progress"
 	interviewquestionapp "github.com/yilin/ai-for-backend/internal/application/interview_question"
@@ -83,13 +84,14 @@ func main() {
 	transactionRunner := infraDB.NewTransactionRunner(db)
 
 	// --- Application Services ---
+	activityLogger := activitylogapp.NewRepositoryLogger(activityLogRepo)
 	userSvc := user.NewUserService(userRepo, tokenCache, jwtMgr, cfg.EmailMock)
-	resumeRepoSvc := resumerepoapp.NewResumeRepoService(resumeRepoRepo)
+	resumeRepoSvc := resumerepoapp.NewResumeRepoService(resumeRepoRepo).WithActivityLogger(activityLogger)
 	jobPostingSvc := jobpostingapp.NewJobPostingService(jobPostingRepo)
-	resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo, jobPostingRepo, resumeRepoRepo, resumeVersionRepo)
-	interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, resumeApplicationSvc)
-	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, resumeApplicationRepo)
-	interviewQuestionSvc := interviewquestionapp.NewInterviewQuestionServiceWithTransactions(interviewQuestionRepo, questionOccurrenceRepo, flashcardReviewRepo, resumeApplicationSvc, interviewProgressRepo, transactionRunner)
+	resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo, jobPostingRepo, resumeRepoRepo, resumeVersionRepo).WithActivityLogger(activityLogger)
+	interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, resumeApplicationSvc).WithActivityLogger(activityLogger)
+	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, resumeApplicationRepo).WithActivityLogger(activityLogger)
+	interviewQuestionSvc := interviewquestionapp.NewInterviewQuestionServiceWithTransactions(interviewQuestionRepo, questionOccurrenceRepo, flashcardReviewRepo, resumeApplicationSvc, interviewProgressRepo, transactionRunner).WithActivityLogger(activityLogger)
 	dashboardSvc := dashboardapp.NewService(resumeApplicationRepo, interviewProgressRepo, dashboardTodoRepo, activityLogRepo).
 		WithTargetReaders(dashboardapp.TargetReaders{Applications: resumeApplicationRepo, Progresses: interviewProgressRepo, Questions: interviewQuestionRepo, Resumes: resumeRepoRepo})
 

@@ -172,6 +172,8 @@ func TestResumeRepoService_Update_Success(t *testing.T) {
 
 func TestResumeRepoService_Delete(t *testing.T) {
 	repo := &mockResumeRepoRepo{}
+	existing := validResumeRepo("r1", "u1", "Main")
+	repo.On("FindByIDAndUserID", mock.Anything, "r1", "u1").Return(existing, nil)
 	repo.On("Delete", mock.Anything, "r1", "u1").Return(nil)
 	svc := appsvc.NewResumeRepoService(repo)
 

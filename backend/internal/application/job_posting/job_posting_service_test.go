@@ -2,6 +2,7 @@ package job_posting_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,14 @@ import (
 )
 
 type mockJobPostingRepo struct{ mock.Mock }
+
+func TestJobPostingServiceHasNoActivityLoggerFieldOrOption(t *testing.T) {
+	svcType := reflect.TypeOf(appsvc.NewJobPostingService(&mockJobPostingRepo{})).Elem()
+	_, found := svcType.FieldByName("activityLogger")
+	assert.False(t, found)
+	_, found = reflect.TypeOf(appsvc.NewJobPostingService(&mockJobPostingRepo{})).MethodByName("WithActivityLogger")
+	assert.False(t, found)
+}
 
 func (m *mockJobPostingRepo) Create(ctx context.Context, p *domainjob.JobPosting) error {
 	return m.Called(ctx, p).Error(0)
