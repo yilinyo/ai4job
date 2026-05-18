@@ -23,9 +23,19 @@ func (m *mockDashboardService) Get(ctx context.Context, userID, rawRange string)
 	return args.Get(0).(*dto.DashboardResponse), args.Error(1)
 }
 
+func (m *mockDashboardService) ListTodos(ctx context.Context, userID string, completed *bool) ([]dto.DashboardTodoResponse, error) {
+	args := m.Called(ctx, userID, completed)
+	return args.Get(0).([]dto.DashboardTodoResponse), args.Error(1)
+}
+
 func (m *mockDashboardService) CreateTodo(ctx context.Context, userID string, req dto.CreateDashboardTodoRequest) (*domaintodo.DashboardTodo, error) {
 	args := m.Called(ctx, userID, req)
 	return args.Get(0).(*domaintodo.DashboardTodo), args.Error(1)
+}
+
+func (m *mockDashboardService) RouteForTodo(ctx context.Context, userID string, targetType domaintodo.TargetType, targetID *string) (string, error) {
+	args := m.Called(ctx, userID, targetType, targetID)
+	return args.String(0), args.Error(1)
 }
 
 func (m *mockDashboardService) UpdateTodo(ctx context.Context, userID, id string, req dto.UpdateDashboardTodoRequest) (*domaintodo.DashboardTodo, error) {
@@ -64,17 +74,45 @@ func TestDashboardHandler_GetUsesRangeAndDTOShape(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
+func TestDashboardHandler_ListTodosUsesCompletedFilter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockDashboardService{}
+	completed := false
+	svc.On("ListTodos", mock.Anything, "u1", &completed).Return([]dto.DashboardTodoResponse{{ID: "todo-1", Title: "跟进腾讯", Source: "manual"}}, nil).Once()
+	r := gin.New()
+	h := handler.NewDashboardHandler(svc)
+	r.GET("/dashboard/todos", func(c *gin.Context) { c.Set("userID", "u1"); h.ListTodos(c) })
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/dashboard/todos?completed=false", nil)
+	r.ServeHTTP(w, req)
+
+	var resp struct {
+		Data struct {
+			List []map[string]any `json:"list"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Len(t, resp.Data.List, 1)
+	require.Equal(t, "todo-1", resp.Data.List[0]["id"])
+	svc.AssertExpectations(t)
+}
+
 func TestDashboardHandler_CreateCompleteUpdateAndDeleteTodo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := &mockDashboardService{}
 	createReq := dto.CreateDashboardTodoRequest{Title: "跟进腾讯"}
 	updateTitle := "准备面试"
 	updateReq := dto.UpdateDashboardTodoRequest{Title: &updateTitle, ClearDueAt: true}
-	todo := &domaintodo.DashboardTodo{ID: "todo-1", UserID: "u1", Title: "跟进腾讯"}
+	targetID := "app-1"
+	todo := &domaintodo.DashboardTodo{ID: "todo-1", UserID: "u1", Title: "跟进腾讯", TargetType: domaintodo.TargetTypeApplication, TargetID: &targetID}
 	updatedTodo := &domaintodo.DashboardTodo{ID: "todo-1", UserID: "u1", Title: updateTitle}
 	svc.On("CreateTodo", mock.Anything, "u1", createReq).Return(todo, nil).Once()
+	svc.On("RouteForTodo", mock.Anything, "u1", domaintodo.TargetTypeApplication, &targetID).Return("/resume/application/app-1", nil).Once()
 	svc.On("CompleteTodo", mock.Anything, "u1", "todo-1").Return(todo, nil).Once()
+	svc.On("RouteForTodo", mock.Anything, "u1", domaintodo.TargetTypeApplication, &targetID).Return("/resume/application/app-1", nil).Once()
 	svc.On("UpdateTodo", mock.Anything, "u1", "todo-1", updateReq).Return(updatedTodo, nil).Once()
+	svc.On("RouteForTodo", mock.Anything, "u1", domaintodo.TargetType(""), (*string)(nil)).Return("", nil).Once()
 	svc.On("DeleteTodo", mock.Anything, "u1", "todo-1").Return(nil).Once()
 	r := gin.New()
 	h := handler.NewDashboardHandler(svc)
@@ -88,11 +126,13 @@ func TestDashboardHandler_CreateCompleteUpdateAndDeleteTodo(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"route":"/resume/application/app-1"`)
 
 	w = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPut, "/dashboard/todos/todo-1/complete", nil)
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"route":"/resume/application/app-1"`)
 
 	w = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPut, "/dashboard/todos/todo-1", bytes.NewBufferString(`{"title":"准备面试","clearDueAt":true}`))

@@ -90,7 +90,8 @@ func main() {
 	interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, resumeApplicationSvc)
 	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, resumeApplicationRepo)
 	interviewQuestionSvc := interviewquestionapp.NewInterviewQuestionServiceWithTransactions(interviewQuestionRepo, questionOccurrenceRepo, flashcardReviewRepo, resumeApplicationSvc, interviewProgressRepo, transactionRunner)
-	dashboardSvc := dashboardapp.NewService(resumeApplicationRepo, interviewProgressRepo, dashboardTodoRepo, activityLogRepo)
+	dashboardSvc := dashboardapp.NewService(resumeApplicationRepo, interviewProgressRepo, dashboardTodoRepo, activityLogRepo).
+		WithTargetReaders(dashboardapp.TargetReaders{Applications: resumeApplicationRepo, Progresses: interviewProgressRepo, Questions: interviewQuestionRepo, Resumes: resumeRepoRepo})
 
 	// --- Middleware ---
 	authMiddleware := middleware.Auth(

@@ -42,6 +42,7 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	auth := v1.Group("/", deps.AuthMiddleware)
 	{
 		auth.GET("/dashboard", deps.DashboardHandler.Get)
+		auth.GET("/dashboard/todos", deps.DashboardHandler.ListTodos)
 		auth.POST("/dashboard/todos", deps.DashboardHandler.CreateTodo)
 		auth.PUT("/dashboard/todos/:id", deps.DashboardHandler.UpdateTodo)
 		auth.PUT("/dashboard/todos/:id/complete", deps.DashboardHandler.CompleteTodo)

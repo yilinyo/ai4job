@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -13,20 +14,45 @@ import (
 	domaintodo "github.com/yilin/ai-for-backend/internal/domain/dashboard_todo"
 	todorepo "github.com/yilin/ai-for-backend/internal/domain/dashboard_todo/repository"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
+	domainquestion "github.com/yilin/ai-for-backend/internal/domain/interview_question"
 	domainapp "github.com/yilin/ai-for-backend/internal/domain/resume_application"
 	apprepo "github.com/yilin/ai-for-backend/internal/domain/resume_application/repository"
+	domainrepo "github.com/yilin/ai-for-backend/internal/domain/resume_repo"
 	domainerrors "github.com/yilin/ai-for-backend/pkg/errors"
 )
 
 const followUpDays = 7
-const applicationPageSize = 1000
+const applicationPageSize = 100
 
 type ApplicationRepository interface {
 	ListByUser(ctx context.Context, filter apprepo.ListFilter) ([]domainapp.ResumeApplication, int64, error)
 }
 
+type ApplicationReader interface {
+	FindByIDAndUserID(ctx context.Context, id, userID string) (*domainapp.ResumeApplication, error)
+}
+
 type InterviewProgressRepository interface {
 	ListByApplicationAndUser(ctx context.Context, applicationID, userID string) ([]domainprogress.InterviewProgress, error)
+}
+
+type InterviewProgressReader interface {
+	FindByIDAndUserID(ctx context.Context, id, userID string) (*domainprogress.InterviewProgress, error)
+}
+
+type InterviewQuestionReader interface {
+	FindByIDAndUserID(ctx context.Context, id, userID string) (*domainquestion.InterviewQuestion, error)
+}
+
+type ResumeRepoReader interface {
+	FindByIDAndUserID(ctx context.Context, id, userID string) (*domainrepo.ResumeRepo, error)
+}
+
+type TargetReaders struct {
+	Applications ApplicationReader
+	Progresses   InterviewProgressReader
+	Questions    InterviewQuestionReader
+	Resumes      ResumeRepoReader
 }
 
 type Service struct {
@@ -34,20 +60,36 @@ type Service struct {
 	progresses InterviewProgressRepository
 	todos      todorepo.Repository
 	activities activityrepo.Repository
+	targets    TargetReaders
 	now        func() time.Time
 }
 
 func NewService(apps ApplicationRepository, progresses InterviewProgressRepository, todos todorepo.Repository, activities activityrepo.Repository) *Service {
-	return &Service{apps: apps, progresses: progresses, todos: todos, activities: activities, now: time.Now}
+	s := &Service{apps: apps, progresses: progresses, todos: todos, activities: activities, now: time.Now}
+	readers := TargetReaders{}
+	if reader, ok := apps.(ApplicationReader); ok {
+		readers.Applications = reader
+	}
+	if reader, ok := progresses.(InterviewProgressReader); ok {
+		readers.Progresses = reader
+	}
+	s.targets = readers
+	return s
+}
+
+func (s *Service) WithTargetReaders(readers TargetReaders) *Service {
+	s.targets = readers
+	return s
 }
 
 func (s *Service) Get(ctx context.Context, userID, rawRange string) (*dto.DashboardResponse, error) {
-	rangeKey, startAt, err := parseRange(rawRange, s.now())
+	now := s.now()
+	rangeKey, startAt, err := parseRange(rawRange, now)
 	if err != nil {
 		return nil, err
 	}
 
-	applications, _, err := s.apps.ListByUser(ctx, apprepo.ListFilter{UserID: userID, Page: 1, PageSize: applicationPageSize})
+	applications, err := s.listAllApplications(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +107,13 @@ func (s *Service) Get(ctx context.Context, userID, rawRange string) (*dto.Dashbo
 
 	allTodos := make([]dto.DashboardTodoResponse, 0, len(manualTodos)+4)
 	for _, todo := range manualTodos {
-		allTodos = append(allTodos, dto.ToDashboardTodoResponse(todo, domaintodo.SourceManual, routeForTodo(todo.TargetType, todo.TargetID)))
+		route, err := s.RouteForTodo(ctx, userID, todo.TargetType, todo.TargetID)
+		if err != nil {
+			return nil, err
+		}
+		allTodos = append(allTodos, dto.ToDashboardTodoResponse(todo, domaintodo.SourceManual, route))
 	}
-	systemTodos, err := s.systemTodos(ctx, userID, applications)
+	systemTodos, err := s.systemTodos(ctx, userID, applications, now)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +126,7 @@ func (s *Service) Get(ctx context.Context, userID, rawRange string) (*dto.Dashbo
 
 	return &dto.DashboardResponse{
 		Range:                rangeKey,
-		Metrics:              buildMetrics(filtered, s.now()),
+		Metrics:              buildMetrics(filtered, now),
 		StatusPipeline:       buildStatusPipeline(filtered),
 		ApplicationTrend:     buildTrend(filtered),
 		CompanyRanking:       buildNameCounts(filtered, func(a domainapp.ResumeApplication) string { return a.CompanyName }),
@@ -93,6 +139,22 @@ func (s *Service) Get(ctx context.Context, userID, rawRange string) (*dto.Dashbo
 	}, nil
 }
 
+func (s *Service) ListTodos(ctx context.Context, userID string, completed *bool) ([]dto.DashboardTodoResponse, error) {
+	rows, err := s.todos.ListByUser(ctx, todorepo.ListFilter{UserID: userID, Completed: completed})
+	if err != nil {
+		return nil, err
+	}
+	responses := make([]dto.DashboardTodoResponse, 0, len(rows))
+	for _, todo := range rows {
+		route, err := s.RouteForTodo(ctx, userID, todo.TargetType, todo.TargetID)
+		if err != nil {
+			return nil, err
+		}
+		responses = append(responses, dto.ToDashboardTodoResponse(todo, domaintodo.SourceManual, route))
+	}
+	return responses, nil
+}
+
 func (s *Service) CreateTodo(ctx context.Context, userID string, req dto.CreateDashboardTodoRequest) (*domaintodo.DashboardTodo, error) {
 	var dueAt *time.Time
 	if req.DueAt != nil {
@@ -101,6 +163,9 @@ func (s *Service) CreateTodo(ctx context.Context, userID string, req dto.CreateD
 	}
 	todo, err := domaintodo.NewDashboardTodo(domaintodo.NewDashboardTodoParams{ID: uuid.NewString(), UserID: userID, Title: req.Title, Description: req.Description, DueAt: dueAt, TargetType: req.TargetType, TargetID: req.TargetID})
 	if err != nil {
+		return nil, err
+	}
+	if err := s.validateTarget(ctx, userID, todo.TargetType, todo.TargetID); err != nil {
 		return nil, err
 	}
 	if err := s.todos.Create(ctx, todo); err != nil {
@@ -136,7 +201,12 @@ func (s *Service) UpdateTodo(ctx context.Context, userID, id string, req dto.Upd
 		targetID = &targetValue
 	}
 
+	original := *todo
 	if err := todo.ApplyUpdate(domaintodo.UpdateSpec{Title: req.Title, Description: req.Description, DueAt: dueAt, TargetType: req.TargetType, TargetID: targetID}); err != nil {
+		return nil, err
+	}
+	if err := s.validateTarget(ctx, userID, todo.TargetType, todo.TargetID); err != nil {
+		*todo = original
 		return nil, err
 	}
 	if err := s.todos.Update(ctx, todo); err != nil {
@@ -161,8 +231,99 @@ func (s *Service) DeleteTodo(ctx context.Context, userID, id string) error {
 	return s.todos.Delete(ctx, id, userID)
 }
 
-func (s *Service) systemTodos(ctx context.Context, userID string, applications []domainapp.ResumeApplication) ([]dto.DashboardTodoResponse, error) {
-	now := s.now()
+func (s *Service) RouteForTodo(ctx context.Context, userID string, target domaintodo.TargetType, id *string) (string, error) {
+	if id == nil || strings.TrimSpace(*id) == "" {
+		return "", nil
+	}
+	targetID := strings.TrimSpace(*id)
+	switch target {
+	case domaintodo.TargetTypeApplication:
+		return "/resume/application/" + targetID, nil
+	case domaintodo.TargetTypeInterview:
+		if s.targets.Progresses == nil {
+			return "", nil
+		}
+		progress, err := s.targets.Progresses.FindByIDAndUserID(ctx, targetID, userID)
+		if err != nil {
+			if errors.Is(err, domainerrors.ErrNotFound) {
+				return "", nil
+			}
+			return "", err
+		}
+		return "/resume/application/" + strings.TrimSpace(progress.ApplicationID), nil
+	case domaintodo.TargetTypeQuestion:
+		return "/interview-question-bank/question/" + targetID, nil
+	case domaintodo.TargetTypeResume:
+		return "/resume/repo/" + targetID, nil
+	default:
+		return "", nil
+	}
+}
+
+func (s *Service) listAllApplications(ctx context.Context, userID string) ([]domainapp.ResumeApplication, error) {
+	all := make([]domainapp.ResumeApplication, 0)
+	for page := 1; ; page++ {
+		rows, total, err := s.apps.ListByUser(ctx, apprepo.ListFilter{UserID: userID, Page: page, PageSize: applicationPageSize})
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, rows...)
+		if len(rows) == 0 || int64(len(all)) >= total || len(rows) < applicationPageSize {
+			break
+		}
+	}
+	return all, nil
+}
+
+func (s *Service) validateTarget(ctx context.Context, userID string, target domaintodo.TargetType, id *string) error {
+	if target == "" && id == nil {
+		return nil
+	}
+	if id == nil || strings.TrimSpace(*id) == "" {
+		return domainerrors.ErrBadParams
+	}
+	targetID := strings.TrimSpace(*id)
+	switch target {
+	case domaintodo.TargetTypeApplication:
+		if s.targets.Applications == nil {
+			return domainerrors.ErrBadParams
+		}
+		_, err := s.targets.Applications.FindByIDAndUserID(ctx, targetID, userID)
+		return targetValidationError(err)
+	case domaintodo.TargetTypeInterview:
+		if s.targets.Progresses == nil {
+			return domainerrors.ErrBadParams
+		}
+		_, err := s.targets.Progresses.FindByIDAndUserID(ctx, targetID, userID)
+		return targetValidationError(err)
+	case domaintodo.TargetTypeQuestion:
+		if s.targets.Questions == nil {
+			return domainerrors.ErrBadParams
+		}
+		_, err := s.targets.Questions.FindByIDAndUserID(ctx, targetID, userID)
+		return targetValidationError(err)
+	case domaintodo.TargetTypeResume:
+		if s.targets.Resumes == nil {
+			return domainerrors.ErrBadParams
+		}
+		_, err := s.targets.Resumes.FindByIDAndUserID(ctx, targetID, userID)
+		return targetValidationError(err)
+	default:
+		return domainerrors.ErrBadParams
+	}
+}
+
+func targetValidationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, domainerrors.ErrNotFound) {
+		return domainerrors.ErrBadParams
+	}
+	return err
+}
+
+func (s *Service) systemTodos(ctx context.Context, userID string, applications []domainapp.ResumeApplication, now time.Time) ([]dto.DashboardTodoResponse, error) {
 	responses := make([]dto.DashboardTodoResponse, 0)
 	for _, application := range applications {
 		if application.UserID != userID {
@@ -317,23 +478,6 @@ func classifyJobTitle(title string) string {
 	}
 }
 
-func routeForTodo(target domaintodo.TargetType, id *string) string {
-	if id == nil || strings.TrimSpace(*id) == "" {
-		return ""
-	}
-	targetID := strings.TrimSpace(*id)
-	switch target {
-	case domaintodo.TargetTypeApplication, domaintodo.TargetTypeInterview:
-		return "/resume/application/" + targetID
-	case domaintodo.TargetTypeQuestion:
-		return "/interview-question-bank/question/" + targetID
-	case domaintodo.TargetTypeResume:
-		return "/resume/repo/" + targetID
-	default:
-		return ""
-	}
-}
-
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		trimmed := strings.TrimSpace(value)
@@ -403,7 +547,7 @@ func systemTodoResponse(id, title, description, applicationID string, dueAt time
 		TargetID:    &targetID,
 		CreatedAt:   dueAt,
 		UpdatedAt:   dueAt,
-	}, domaintodo.SourceSystem, routeForTodo(targetType, &targetID))
+	}, domaintodo.SourceSystem, "/resume/application/"+targetID)
 }
 
 type statusOrderItem struct {

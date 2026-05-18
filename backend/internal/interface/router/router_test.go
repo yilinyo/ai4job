@@ -178,8 +178,14 @@ type stubDashboardService struct{}
 func (s *stubDashboardService) Get(ctx context.Context, userID, rawRange string) (*dto.DashboardResponse, error) {
 	return &dto.DashboardResponse{Range: rawRange}, nil
 }
+func (s *stubDashboardService) ListTodos(ctx context.Context, userID string, completed *bool) ([]dto.DashboardTodoResponse, error) {
+	return []dto.DashboardTodoResponse{}, nil
+}
 func (s *stubDashboardService) CreateTodo(ctx context.Context, userID string, req dto.CreateDashboardTodoRequest) (*domaintodo.DashboardTodo, error) {
 	return &domaintodo.DashboardTodo{ID: "todo-1", UserID: userID, Title: req.Title}, nil
+}
+func (s *stubDashboardService) RouteForTodo(ctx context.Context, userID string, targetType domaintodo.TargetType, targetID *string) (string, error) {
+	return "", nil
 }
 func (s *stubDashboardService) UpdateTodo(ctx context.Context, userID, id string, req dto.UpdateDashboardTodoRequest) (*domaintodo.DashboardTodo, error) {
 	title := "Todo"
@@ -216,6 +222,7 @@ func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 		path   string
 	}{
 		{http.MethodGet, "/api/v1/dashboard?range=30d"},
+		{http.MethodGet, "/api/v1/dashboard/todos?completed=false"},
 		{http.MethodPost, "/api/v1/dashboard/todos"},
 		{http.MethodPut, "/api/v1/dashboard/todos/todo-1"},
 		{http.MethodPut, "/api/v1/dashboard/todos/todo-1/complete"},
