@@ -9,6 +9,7 @@ export * from './resume-application'
 export * from './interview-progress'
 export * from './job-posting'
 export * from './interview-question'
+export * from './dashboard'
 
 // 通用响应结构
 export interface ApiResponse<T = any> {

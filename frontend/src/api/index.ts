@@ -25,3 +25,6 @@ export * from './job-postings'
 export * from './interview-questions'
 export * from './question-occurrences'
 export * from './flashcards'
+
+// 仪表盘相关 API
+export * from './dashboard'

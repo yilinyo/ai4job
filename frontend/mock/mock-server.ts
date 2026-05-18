@@ -15,6 +15,7 @@ import * as resumeApplications from './resume-applications'
 import * as interviewProgress from './interview-progress'
 import * as jobPostings from './job-postings'
 import * as interviewQuestions from './interview-questions'
+import * as dashboard from './dashboard'
 
 const app = express()
 const port = 9528
@@ -96,6 +97,14 @@ app.post('/api/question-occurrences', interviewQuestions.createQuestionOccurrenc
 app.delete('/api/question-occurrences/:id', interviewQuestions.deleteQuestionOccurrence)
 app.get('/api/flashcards', interviewQuestions.getFlashcards)
 app.post('/api/flashcard-reviews', interviewQuestions.createFlashcardReview)
+
+// 仪表盘相关
+app.get('/api/dashboard', dashboard.getDashboard)
+app.get('/api/dashboard/todos', dashboard.getDashboardTodos)
+app.post('/api/dashboard/todos', dashboard.createDashboardTodo)
+app.put('/api/dashboard/todos/:id', dashboard.updateDashboardTodo)
+app.put('/api/dashboard/todos/:id/complete', dashboard.completeDashboardTodo)
+app.delete('/api/dashboard/todos/:id', dashboard.deleteDashboardTodo)
 
 // Read and swagger config file
 const apiDefinition = yaml.load(path.resolve(__dirname, 'swagger.yml'))
