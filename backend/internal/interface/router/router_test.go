@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/yilin/ai-for-backend/internal/application/dto"
+	domaintodo "github.com/yilin/ai-for-backend/internal/domain/dashboard_todo"
 	domainreview "github.com/yilin/ai-for-backend/internal/domain/flashcard_review"
 	domainprogress "github.com/yilin/ai-for-backend/internal/domain/interview_progress"
 	domainquestion "github.com/yilin/ai-for-backend/internal/domain/interview_question"
@@ -172,6 +173,26 @@ func (s *stubInterviewQuestionService) CreateFlashcardReview(ctx context.Context
 	return &domainreview.FlashcardReview{ID: "rev-1", UserID: userID, QuestionID: req.QuestionID, ReviewedAt: req.ReviewedAt.Value(), Result: req.Result, ReviewMode: req.ReviewMode}, questionrepo.QuestionWithOccurrenceCount{Question: domainquestion.InterviewQuestion{ID: req.QuestionID, UserID: userID, Title: "Question", Content: "Content", AnswerAnalysis: "Analysis", Tags: domainquestion.EncodeTags(nil), Difficulty: domainquestion.DifficultyEasy, QuestionType: domainquestion.QuestionTypeKnowledge, MasteryStatus: domainquestion.MasteryStatusMastered}}, domainreview.ReviewSummary{}, nil
 }
 
+type stubDashboardService struct{}
+
+func (s *stubDashboardService) Get(ctx context.Context, userID, rawRange string) (*dto.DashboardResponse, error) {
+	return &dto.DashboardResponse{Range: rawRange}, nil
+}
+func (s *stubDashboardService) CreateTodo(ctx context.Context, userID string, req dto.CreateDashboardTodoRequest) (*domaintodo.DashboardTodo, error) {
+	return &domaintodo.DashboardTodo{ID: "todo-1", UserID: userID, Title: req.Title}, nil
+}
+func (s *stubDashboardService) UpdateTodo(ctx context.Context, userID, id string, req dto.UpdateDashboardTodoRequest) (*domaintodo.DashboardTodo, error) {
+	title := "Todo"
+	if req.Title != nil {
+		title = *req.Title
+	}
+	return &domaintodo.DashboardTodo{ID: id, UserID: userID, Title: title}, nil
+}
+func (s *stubDashboardService) CompleteTodo(ctx context.Context, userID, id string) (*domaintodo.DashboardTodo, error) {
+	return &domaintodo.DashboardTodo{ID: id, UserID: userID, Title: "Todo"}, nil
+}
+func (s *stubDashboardService) DeleteTodo(ctx context.Context, userID, id string) error { return nil }
+
 func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	versionSvc := &stubResumeVersionService{}
@@ -183,6 +204,7 @@ func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 		ResumeApplicationHandler: handler.NewResumeApplicationHandler(&stubResumeApplicationService{}),
 		InterviewProgressHandler: handler.NewInterviewProgressHandler(&stubInterviewProgressService{}),
 		InterviewQuestionHandler: handler.NewInterviewQuestionHandler(&stubInterviewQuestionService{}),
+		DashboardHandler:         handler.NewDashboardHandler(&stubDashboardService{}),
 		AuthMiddleware: func(c *gin.Context) {
 			c.Set("userID", "u1")
 			c.Next()
@@ -193,6 +215,11 @@ func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 		method string
 		path   string
 	}{
+		{http.MethodGet, "/api/v1/dashboard?range=30d"},
+		{http.MethodPost, "/api/v1/dashboard/todos"},
+		{http.MethodPut, "/api/v1/dashboard/todos/todo-1"},
+		{http.MethodPut, "/api/v1/dashboard/todos/todo-1/complete"},
+		{http.MethodDelete, "/api/v1/dashboard/todos/todo-1"},
 		{http.MethodGet, "/api/v1/resume-repos"},
 		{http.MethodGet, "/api/v1/resume-repos/r1"},
 		{http.MethodGet, "/api/v1/resume-versions?repoId=r1"},

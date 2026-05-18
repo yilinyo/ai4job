@@ -14,6 +14,7 @@ type Dependencies struct {
 	ResumeApplicationHandler *handler.ResumeApplicationHandler
 	InterviewProgressHandler *handler.InterviewProgressHandler
 	InterviewQuestionHandler *handler.InterviewQuestionHandler
+	DashboardHandler         *handler.DashboardHandler
 	AuthMiddleware           gin.HandlerFunc
 }
 
@@ -40,6 +41,12 @@ func NewRouter(deps Dependencies) *gin.Engine {
 
 	auth := v1.Group("/", deps.AuthMiddleware)
 	{
+		auth.GET("/dashboard", deps.DashboardHandler.Get)
+		auth.POST("/dashboard/todos", deps.DashboardHandler.CreateTodo)
+		auth.PUT("/dashboard/todos/:id", deps.DashboardHandler.UpdateTodo)
+		auth.PUT("/dashboard/todos/:id/complete", deps.DashboardHandler.CompleteTodo)
+		auth.DELETE("/dashboard/todos/:id", deps.DashboardHandler.DeleteTodo)
+
 		auth.GET("/resume-repos", deps.ResumeRepoHandler.List)
 		auth.POST("/resume-repos", deps.ResumeRepoHandler.Create)
 

@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	dashboardapp "github.com/yilin/ai-for-backend/internal/application/dashboard"
 	interviewprogressapp "github.com/yilin/ai-for-backend/internal/application/interview_progress"
 	interviewquestionapp "github.com/yilin/ai-for-backend/internal/application/interview_question"
 	jobpostingapp "github.com/yilin/ai-for-backend/internal/application/job_posting"
@@ -77,6 +78,8 @@ func main() {
 	interviewQuestionRepo := infraDB.NewInterviewQuestionRepo(db)
 	questionOccurrenceRepo := infraDB.NewQuestionOccurrenceRepo(db)
 	flashcardReviewRepo := infraDB.NewFlashcardReviewRepo(db)
+	dashboardTodoRepo := infraDB.NewDashboardTodoRepo(db)
+	activityLogRepo := infraDB.NewActivityLogRepo(db)
 	transactionRunner := infraDB.NewTransactionRunner(db)
 
 	// --- Application Services ---
@@ -87,6 +90,7 @@ func main() {
 	interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, resumeApplicationSvc)
 	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, resumeApplicationRepo)
 	interviewQuestionSvc := interviewquestionapp.NewInterviewQuestionServiceWithTransactions(interviewQuestionRepo, questionOccurrenceRepo, flashcardReviewRepo, resumeApplicationSvc, interviewProgressRepo, transactionRunner)
+	dashboardSvc := dashboardapp.NewService(resumeApplicationRepo, interviewProgressRepo, dashboardTodoRepo, activityLogRepo)
 
 	// --- Middleware ---
 	authMiddleware := middleware.Auth(
@@ -102,6 +106,7 @@ func main() {
 	resumeApplicationHandler := handler.NewResumeApplicationHandler(resumeApplicationSvc)
 	interviewProgressHandler := handler.NewInterviewProgressHandler(interviewProgressSvc)
 	interviewQuestionHandler := handler.NewInterviewQuestionHandler(interviewQuestionSvc)
+	dashboardHandler := handler.NewDashboardHandler(dashboardSvc)
 
 	// --- Router ---
 	r := router.NewRouter(router.Dependencies{
@@ -112,6 +117,7 @@ func main() {
 		ResumeApplicationHandler: resumeApplicationHandler,
 		InterviewProgressHandler: interviewProgressHandler,
 		InterviewQuestionHandler: interviewQuestionHandler,
+		DashboardHandler:         dashboardHandler,
 		AuthMiddleware:           authMiddleware,
 	})
 
