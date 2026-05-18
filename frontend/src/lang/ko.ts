@@ -62,7 +62,18 @@ export default {
     clipboard: 'Clipboard',
     i18n: '언어',
     externalLink: '외부 링크',
-    profile: '프로필'
+    profile: '프로필',
+    resumeManagement: '이력서 관리',
+    resumeRepository: '이력서 저장소',
+    resumeRepositoryDetail: '저장소 상세',
+    createResumeVersion: '이력서 버전 생성',
+    viewResumeVersion: '이력서 보기',
+    editResumeVersion: '이력서 수정',
+    createApplicationRecord: '지원 기록 생성',
+    applicationRecordDetail: '지원 기록 상세',
+    editApplicationRecord: '지원 기록 수정',
+    jobRepository: '채용 공고 저장소',
+    jobRepositoryDetail: '채용 공고 상세'
   },
   navbar: {
     dashboard: '대시보드',

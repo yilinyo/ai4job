@@ -138,6 +138,10 @@ export default class extends Vue {
       background-color: $subMenuHover !important;
     }
   }
+
+  .nest-menu .el-menu-item {
+    min-width: calc(#{$sideBarWidth} - 20px) !important;
+  }
 }
 
 .simple-mode {
@@ -175,9 +179,31 @@ export default class extends Vue {
   margin-right: 16px;
 }
 
+.full-mode {
+  &.first-level {
+    ::v-deep > .el-submenu > .el-submenu__title,
+    ::v-deep > .sidebar-item-link > .el-menu-item,
+    ::v-deep > .el-menu-item {
+      font-weight: 600;
+    }
+  }
+
+  ::v-deep .nest-menu .el-menu-item,
+  ::v-deep .nest-menu .el-submenu__title {
+    margin-left: 8px;
+    width: calc(100% - 8px);
+    border-radius: 12px;
+  }
+}
+
 .simple-mode {
   .svg-icon {
     margin-left: 20px;
+  }
+
+  ::v-deep .el-menu-item,
+  ::v-deep .el-submenu__title {
+    border-radius: 0;
   }
 }
 </style>

@@ -62,7 +62,18 @@ export default {
     clipboard: 'Clipboard',
     i18n: '多言語',
     externalLink: '外部リンク',
-    profile: 'プロフィール'
+    profile: 'プロフィール',
+    resumeManagement: '履歴書管理',
+    resumeRepository: '履歴書リポジトリ',
+    resumeRepositoryDetail: 'リポジトリ詳細',
+    createResumeVersion: '履歴書バージョン作成',
+    viewResumeVersion: '履歴書を表示',
+    editResumeVersion: '履歴書を編集',
+    createApplicationRecord: '応募記録を作成',
+    applicationRecordDetail: '応募記録詳細',
+    editApplicationRecord: '応募記録を編集',
+    jobRepository: '求人リポジトリ',
+    jobRepositoryDetail: '求人詳細'
   },
   navbar: {
     dashboard: 'トップ',
