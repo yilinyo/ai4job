@@ -102,8 +102,8 @@ app.post('/api/flashcard-reviews', interviewQuestions.createFlashcardReview)
 app.get('/api/dashboard', dashboard.getDashboard)
 app.get('/api/dashboard/todos', dashboard.getDashboardTodos)
 app.post('/api/dashboard/todos', dashboard.createDashboardTodo)
-app.put('/api/dashboard/todos/:id', dashboard.updateDashboardTodo)
 app.put('/api/dashboard/todos/:id/complete', dashboard.completeDashboardTodo)
+app.put('/api/dashboard/todos/:id', dashboard.updateDashboardTodo)
 app.delete('/api/dashboard/todos/:id', dashboard.deleteDashboardTodo)
 
 // Read and swagger config file

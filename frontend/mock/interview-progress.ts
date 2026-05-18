@@ -21,7 +21,7 @@ export enum InterviewResult {
   FAILED = 'failed'
 }
 
-interface InterviewProgress {
+export interface InterviewProgress {
   id: string
   applicationId: string
   stage: InterviewStage
@@ -153,6 +153,9 @@ let progressList: InterviewProgress[] = [
 export const deleteInterviewProgressByApplicationId = (applicationId: string) => {
   progressList = progressList.filter(item => item.applicationId !== applicationId)
 }
+
+export const getInterviewProgressByIdInternal = (id: string) =>
+  progressList.find(item => item.id === id)
 
 const stageToStatusMap: Record<InterviewStage, ApplicationStatus> = {
   [InterviewStage.APPLIED]: ApplicationStatus.APPLIED,

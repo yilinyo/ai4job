@@ -1,4 +1,8 @@
 import { Request, Response } from 'express'
+import { getApplicationByIdInternal } from './resume-applications'
+import { getInterviewProgressByIdInternal } from './interview-progress'
+import { getInterviewQuestionByIdInternal } from './interview-questions'
+import { getResumeRepoByIdInternal } from './resume-repos'
 
 type DashboardRange = '7d' | '30d' | '90d' | 'all'
 type DashboardTargetType = 'application' | 'interview' | 'question' | 'resume'
@@ -78,6 +82,12 @@ const success = (res: Response, data: any) => res.json({
   code: 20000,
   message: 'success',
   data
+})
+
+const badRequest = (res: Response, message = '参数错误') => res.status(400).json({
+  code: 50001,
+  message,
+  data: null
 })
 
 const notFound = (res: Response) => res.status(404).json({
@@ -212,6 +222,8 @@ const activities: ActivityLog[] = [
   }
 ]
 
+const validTargetTypes: DashboardTargetType[] = ['application', 'interview', 'question', 'resume']
+
 const toRange = (raw: any): DashboardRange => {
   const range = String(raw || '30d')
   return ['7d', '30d', '90d', 'all'].includes(range) ? range as DashboardRange : '30d'
@@ -272,6 +284,40 @@ const buildDashboard = (range: DashboardRange): DashboardResponse => {
 
 const getManualTodo = (id: string) => manualTodos.find(item => item.id === id)
 
+const trimOptional = (value: unknown) => typeof value === 'string' ? value.trim() : undefined
+
+const validateTitle = (title: unknown, required: boolean) => {
+  if (title === undefined && !required) return true
+  if (typeof title !== 'string') return false
+  const trimmed = title.trim()
+  return trimmed.length > 0 && trimmed.length <= 200
+}
+
+const validateDueAt = (dueAt: unknown) => {
+  if (dueAt === undefined) return true
+  if (typeof dueAt !== 'string') return false
+  return !Number.isNaN(new Date(dueAt).getTime())
+}
+
+const validateTargetPair = (targetType: unknown, targetId: unknown) => {
+  if (targetType === undefined && targetId === undefined) return true
+  if (typeof targetType !== 'string' || !validTargetTypes.includes(targetType as DashboardTargetType)) return false
+  if (typeof targetId !== 'string' || targetId.trim() === '') return false
+  return Boolean(buildRoute(targetType as DashboardTargetType, targetId))
+}
+
+const validateCreateTodo = (body: any) =>
+  validateTitle(body.title, true) &&
+  validateDueAt(body.dueAt) &&
+  validateTargetPair(body.targetType, body.targetId)
+
+const validateUpdateTodo = (body: UpdateDashboardTodoRequest) => {
+  if (!validateTitle(body.title, false) || !validateDueAt(body.dueAt)) return false
+  if (body.clearTarget) return true
+  if (body.targetType === undefined && body.targetId === undefined) return true
+  return validateTargetPair(body.targetType, body.targetId)
+}
+
 const ensureTodoMutable = (req: Request, res: Response) => {
   const todo = getManualTodo(req.params.id)
   if (!todo) {
@@ -288,7 +334,11 @@ export const getDashboardTodos = (req: Request, res: Response) => {
   let filteredTodos = [...manualTodos]
 
   if (completed !== undefined) {
-    const isCompleted = String(completed) === 'true'
+    const rawCompleted = String(completed)
+    if (!['true', 'false'].includes(rawCompleted)) {
+      return badRequest(res)
+    }
+    const isCompleted = rawCompleted === 'true'
     filteredTodos = filteredTodos.filter(item => Boolean(item.completedAt) === isCompleted)
   }
 
@@ -296,15 +346,21 @@ export const getDashboardTodos = (req: Request, res: Response) => {
 }
 
 export const createDashboardTodo = (req: Request, res: Response) => {
+  if (!validateCreateTodo(req.body)) {
+    return badRequest(res)
+  }
+
   const current = new Date().toISOString()
+  const targetType = req.body.targetType as DashboardTargetType | undefined
+  const targetId = trimOptional(req.body.targetId)
   const todo: DashboardTodo = {
     id: String(nextTodoId++),
-    title: req.body.title,
-    description: req.body.description || '',
+    title: req.body.title.trim(),
+    description: trimOptional(req.body.description) || '',
     dueAt: req.body.dueAt,
-    targetType: req.body.targetType,
-    targetId: req.body.targetId,
-    route: buildRoute(req.body.targetType, req.body.targetId),
+    targetType,
+    targetId,
+    route: buildRoute(targetType, targetId),
     source: 'manual',
     createdAt: current,
     updatedAt: current
@@ -319,8 +375,12 @@ export const updateDashboardTodo = (req: Request, res: Response) => {
   if (!todo) return
 
   const body = req.body as UpdateDashboardTodoRequest
-  if (body.title !== undefined) todo.title = body.title
-  if (body.description !== undefined) todo.description = body.description
+  if (!validateUpdateTodo(body)) {
+    return badRequest(res)
+  }
+
+  if (body.title !== undefined) todo.title = body.title.trim()
+  if (body.description !== undefined) todo.description = trimOptional(body.description) || ''
   if (body.clearDueAt) {
     delete todo.dueAt
   } else if (body.dueAt !== undefined) {
@@ -330,12 +390,10 @@ export const updateDashboardTodo = (req: Request, res: Response) => {
     delete todo.targetType
     delete todo.targetId
     delete todo.route
-  } else {
-    if (body.targetType !== undefined) todo.targetType = body.targetType
-    if (body.targetId !== undefined) todo.targetId = body.targetId
-    if (body.targetType !== undefined || body.targetId !== undefined) {
-      todo.route = buildRoute(todo.targetType, todo.targetId)
-    }
+  } else if (body.targetType !== undefined || body.targetId !== undefined) {
+    todo.targetType = body.targetType
+    todo.targetId = trimOptional(body.targetId)
+    todo.route = buildRoute(todo.targetType, todo.targetId)
   }
   todo.updatedAt = new Date().toISOString()
 
@@ -364,17 +422,20 @@ export const deleteDashboardTodo = (req: Request, res: Response) => {
 }
 
 const buildRoute = (targetType?: DashboardTargetType, targetId?: string) => {
-  if (!targetType || !targetId) return undefined
+  const id = trimOptional(targetId)
+  if (!targetType || !id) return undefined
 
   switch (targetType) {
     case 'application':
-      return `/resume/application/${targetId}`
-    case 'interview':
-      return '/resume/application/1'
+      return getApplicationByIdInternal(id) ? `/resume/application/${id}` : undefined
+    case 'interview': {
+      const progress = getInterviewProgressByIdInternal(id)
+      return progress ? `/resume/application/${progress.applicationId}` : undefined
+    }
     case 'question':
-      return `/interview-question-bank/question/${targetId}`
+      return getInterviewQuestionByIdInternal(id) ? `/interview-question-bank/question/${id}` : undefined
     case 'resume':
-      return `/resume/repo/${targetId}`
+      return getResumeRepoByIdInternal(id) ? `/resume/repo/${id}` : undefined
     default:
       return undefined
   }

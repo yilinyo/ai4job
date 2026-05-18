@@ -61,15 +61,17 @@ const repoList: ResumeRepo[] = [
   }
 ]
 
+export const getResumeRepoByIdInternal = (id: string) => repoList.find(item => item.id === id)
+
 export const incrementRepoVersionCount = (repoId: string) => {
-  const repo = repoList.find(item => item.id === repoId)
+  const repo = getResumeRepoByIdInternal(repoId)
   if (!repo) return
   repo.versionCount += 1
   repo.updatedAt = new Date().toISOString()
 }
 
 export const decrementRepoVersionCount = (repoId: string) => {
-  const repo = repoList.find(item => item.id === repoId)
+  const repo = getResumeRepoByIdInternal(repoId)
   if (!repo) return
   repo.versionCount = Math.max(0, repo.versionCount - 1)
   repo.updatedAt = new Date().toISOString()
@@ -115,7 +117,7 @@ export const getResumeRepos = (req: Request, res: Response) => {
 
 export const getResumeRepoById = (req: Request, res: Response) => {
   const { id } = req.params
-  const repo = repoList.find(r => r.id === id)
+  const repo = getResumeRepoByIdInternal(id)
 
   if (!repo) {
     return res.status(404).json({
@@ -157,7 +159,7 @@ export const createResumeRepo = (req: Request, res: Response) => {
 
 export const updateResumeRepo = (req: Request, res: Response) => {
   const { id } = req.params
-  const repo = repoList.find(r => r.id === id)
+  const repo = getResumeRepoByIdInternal(id)
 
   if (!repo) {
     return res.status(404).json({

@@ -71,10 +71,9 @@ class DashboardStore extends VuexModule implements IDashboardState {
   @Action
   public async GetTodos(params?: DashboardTodoQueryParams) {
     const { data } = await getDashboardTodos(params)
-    if (data) {
-      this.SET_TODOS(data.list)
-      return data.list
-    }
+    const list = data && data.list ? data.list : []
+    this.SET_TODOS(list)
+    return list
   }
 
   @Action
