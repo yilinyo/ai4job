@@ -115,15 +115,15 @@
         </el-form-item>
       </el-form>
       <div slot="footer">
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">保存</el-button>
+        <el-button :disabled="submitting" @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
       </div>
     </el-dialog>
   </el-card>
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator'
+import { Component, Prop, Vue, Watch } from 'vue-property-decorator'
 import { ElForm } from 'element-ui/types/form'
 import {
   CreateDashboardTodoRequest,
@@ -132,6 +132,16 @@ import {
   UpdateDashboardTodoRequest
 } from '@/models'
 import { parseTime } from '@/utils'
+
+const formatDashboardDateTime = (value?: string) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (!Number.isNaN(date.getTime())) {
+    const pad = (num: number) => String(num).padStart(2, '0')
+    return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  }
+  return parseTime(value, '{m}-{d} {h}:{i}') || '-'
+}
 
 interface TodoForm {
   title: string
@@ -146,6 +156,8 @@ interface TodoForm {
 })
 export default class extends Vue {
   @Prop({ required: true, default: () => [] }) private todos!: DashboardTodo[]
+  @Prop({ default: false }) private submitting!: boolean
+  @Prop({ default: 0 }) private submitSuccessKey!: number
 
   private dialogVisible = false
   private editingTodoId = ''
@@ -176,7 +188,14 @@ export default class extends Vue {
   }
 
   private formatDateTime(value?: string) {
-    return parseTime(value, '{m}-{d} {h}:{i}') || '-'
+    return formatDashboardDateTime(value)
+  }
+
+  @Watch('submitSuccessKey')
+  private handleSubmitSuccess() {
+    if (this.dialogVisible) {
+      this.dialogVisible = false
+    }
   }
 
   private targetTypeLabel(type: DashboardTargetType) {
@@ -235,6 +254,7 @@ export default class extends Vue {
   }
 
   private handleSubmit() {
+    if (this.submitting) return
     (this.$refs.todoForm as ElForm).validate((valid: boolean) => {
       if (!valid) return
       const payload = this.buildPayload()
@@ -246,7 +266,6 @@ export default class extends Vue {
       } else {
         this.$emit('create', payload)
       }
-      this.dialogVisible = false
     })
   }
 

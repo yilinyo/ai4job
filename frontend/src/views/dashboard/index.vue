@@ -25,6 +25,8 @@
         <el-col :xs="24" :lg="15">
           <todo-panel
             :todos="todos"
+            :submitting="todoSubmitting"
+            :submit-success-key="todoSubmitSuccessKey"
             @create="handleCreateTodo"
             @update="handleUpdateTodo"
             @complete="handleCompleteTodo"
@@ -89,6 +91,8 @@ const emptyMetrics: DashboardMetrics = {
 })
 export default class extends Vue {
   private selectedRange: DashboardRange = '30d'
+  private todoSubmitting = false
+  private todoSubmitSuccessKey = 0
 
   get loading() {
     return DashboardModule.loading
@@ -148,22 +152,30 @@ export default class extends Vue {
   }
 
   private async handleCreateTodo(payload: CreateDashboardTodoRequest) {
+    this.todoSubmitting = true
     try {
       await DashboardModule.CreateTodo(payload)
+      this.todoSubmitSuccessKey += 1
       this.$message.success('待办创建成功')
     } catch (error) {
       console.error('创建待办失败:', error)
       this.$message.error('创建待办失败，请检查目标信息')
+    } finally {
+      this.todoSubmitting = false
     }
   }
 
   private async handleUpdateTodo(payload: { id: string, data: UpdateDashboardTodoRequest }) {
+    this.todoSubmitting = true
     try {
       await DashboardModule.UpdateTodo(payload)
+      this.todoSubmitSuccessKey += 1
       this.$message.success('待办更新成功')
     } catch (error) {
       console.error('更新待办失败:', error)
       this.$message.error('更新待办失败，请检查目标信息')
+    } finally {
+      this.todoSubmitting = false
     }
   }
 

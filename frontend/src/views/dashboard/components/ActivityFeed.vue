@@ -30,6 +30,16 @@ import { Component, Prop, Vue } from 'vue-property-decorator'
 import { ActivityLog } from '@/models'
 import { parseTime } from '@/utils'
 
+const formatDashboardDateTime = (value?: string) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (!Number.isNaN(date.getTime())) {
+    const pad = (num: number) => String(num).padStart(2, '0')
+    return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  }
+  return parseTime(value, '{m}-{d} {h}:{i}') || '-'
+}
+
 @Component({
   name: 'ActivityFeed'
 })
@@ -37,7 +47,7 @@ export default class extends Vue {
   @Prop({ required: true, default: () => [] }) private activities!: ActivityLog[]
 
   private formatDateTime(value?: string) {
-    return parseTime(value, '{m}-{d} {h}:{i}') || '-'
+    return formatDashboardDateTime(value)
   }
 
   private handleOpen(activity: ActivityLog) {
