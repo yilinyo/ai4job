@@ -87,3 +87,21 @@ func TestActivityLogRepo_ListByUserFiltersStartAtAndLimit(t *testing.T) {
 	require.Len(t, rows, 1)
 	assert.Equal(t, newest.ID, rows[0].ID)
 }
+
+func TestActivityLogRepo_ListByUserZeroLimitDefaultsToTen(t *testing.T) {
+	db := setupTestDB(t)
+	migrateActivityLogTables(t, db)
+	repo := infrapostgres.NewActivityLogRepo(db)
+	ctx := context.Background()
+	userID := uuid.NewString()
+	base := time.Now().UTC().Truncate(time.Microsecond)
+
+	for i := 0; i < 11; i++ {
+		require.NoError(t, repo.Create(ctx, testActivityLog(uuid.NewString(), userID, base.Add(time.Duration(i)*time.Minute))))
+	}
+
+	rows, err := repo.ListByUser(ctx, activitylogrepo.ListFilter{UserID: userID, Limit: 0})
+
+	require.NoError(t, err)
+	require.Len(t, rows, 10)
+}

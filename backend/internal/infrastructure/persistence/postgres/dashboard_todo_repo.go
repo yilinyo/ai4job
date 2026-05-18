@@ -22,12 +22,16 @@ func NewDashboardTodoRepo(db *gorm.DB) *DashboardTodoRepo {
 }
 
 func (r *DashboardTodoRepo) Create(ctx context.Context, todo *domaintodo.DashboardTodo) error {
-	return r.db.WithContext(ctx).Create(todo).Error
+	err := dbFromContext(ctx, r.db).WithContext(ctx).Create(todo).Error
+	if err != nil && isUniqueViolation(err) {
+		return domainerrors.ErrDuplicate
+	}
+	return err
 }
 
 func (r *DashboardTodoRepo) FindByIDAndUserID(ctx context.Context, id, userID string) (*domaintodo.DashboardTodo, error) {
 	var todo domaintodo.DashboardTodo
-	err := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&todo).Error
+	err := dbFromContext(ctx, r.db).WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&todo).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domainerrors.ErrNotFound
 	}
@@ -35,7 +39,7 @@ func (r *DashboardTodoRepo) FindByIDAndUserID(ctx context.Context, id, userID st
 }
 
 func (r *DashboardTodoRepo) Update(ctx context.Context, todo *domaintodo.DashboardTodo) error {
-	result := r.db.WithContext(ctx).
+	result := dbFromContext(ctx, r.db).WithContext(ctx).
 		Model(&domaintodo.DashboardTodo{}).
 		Where("id = ? AND user_id = ?", todo.ID, todo.UserID).
 		Updates(map[string]any{
@@ -47,6 +51,9 @@ func (r *DashboardTodoRepo) Update(ctx context.Context, todo *domaintodo.Dashboa
 			"target_id":    todo.TargetID,
 		})
 	if result.Error != nil {
+		if isUniqueViolation(result.Error) {
+			return domainerrors.ErrDuplicate
+		}
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
@@ -56,7 +63,7 @@ func (r *DashboardTodoRepo) Update(ctx context.Context, todo *domaintodo.Dashboa
 }
 
 func (r *DashboardTodoRepo) Delete(ctx context.Context, id, userID string) error {
-	result := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&domaintodo.DashboardTodo{})
+	result := dbFromContext(ctx, r.db).WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&domaintodo.DashboardTodo{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -67,7 +74,7 @@ func (r *DashboardTodoRepo) Delete(ctx context.Context, id, userID string) error
 }
 
 func (r *DashboardTodoRepo) ListByUser(ctx context.Context, filter dashboardtodorepo.ListFilter) ([]domaintodo.DashboardTodo, error) {
-	q := r.db.WithContext(ctx).Model(&domaintodo.DashboardTodo{}).Where("user_id = ?", filter.UserID)
+	q := dbFromContext(ctx, r.db).WithContext(ctx).Model(&domaintodo.DashboardTodo{}).Where("user_id = ?", filter.UserID)
 	if filter.Completed != nil {
 		if *filter.Completed {
 			q = q.Where("completed_at IS NOT NULL")
@@ -79,7 +86,7 @@ func (r *DashboardTodoRepo) ListByUser(ctx context.Context, filter dashboardtodo
 		now := time.Now()
 		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 		end := start.AddDate(0, 0, 1)
-		q = q.Where("due_at >= ? AND due_at < ?", start, end)
+		q = q.Where("(due_at IS NULL OR due_at < ?) AND (completed_at IS NULL OR completed_at >= ?)", end, start)
 	}
 
 	var rows []domaintodo.DashboardTodo

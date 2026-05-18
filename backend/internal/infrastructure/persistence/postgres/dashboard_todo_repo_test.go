@@ -104,22 +104,30 @@ func TestDashboardTodoRepo_ListByUserFiltersCompleted(t *testing.T) {
 	assert.Equal(t, completedTodo.ID, rows[0].ID)
 }
 
-func TestDashboardTodoRepo_ListByUserTodayOnlyIncludesDueToday(t *testing.T) {
+func TestDashboardTodoRepo_ListByUserTodayOnlyIncludesRelevantTodos(t *testing.T) {
 	db := setupTestDB(t)
 	migrateDashboardTodoTables(t, db)
 	repo := infrapostgres.NewDashboardTodoRepo(db)
 	ctx := context.Background()
 	userID := uuid.NewString()
 	now := time.Now()
-	todayDue := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location()).Truncate(time.Microsecond)
-	futureDue := todayDue.Add(48 * time.Hour)
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Truncate(time.Microsecond)
+	todayDue := startOfToday.Add(12 * time.Hour)
+	overdueDue := startOfToday.Add(-24 * time.Hour)
+	futureDue := startOfToday.Add(48 * time.Hour)
+	completedBeforeTodayAt := startOfToday.Add(-time.Hour)
 
 	undated := testDashboardTodo(uuid.NewString(), userID, "Undated", nil)
+	overdue := testDashboardTodo(uuid.NewString(), userID, "Overdue", &overdueDue)
 	today := testDashboardTodo(uuid.NewString(), userID, "Today", &todayDue)
 	future := testDashboardTodo(uuid.NewString(), userID, "Future", &futureDue)
+	completedBeforeToday := testDashboardTodo(uuid.NewString(), userID, "Completed Yesterday", &todayDue)
+	completedBeforeToday.CompletedAt = &completedBeforeTodayAt
 	require.NoError(t, repo.Create(ctx, undated))
+	require.NoError(t, repo.Create(ctx, overdue))
 	require.NoError(t, repo.Create(ctx, today))
 	require.NoError(t, repo.Create(ctx, future))
+	require.NoError(t, repo.Create(ctx, completedBeforeToday))
 
 	rows, err := repo.ListByUser(ctx, dashboardtodorepo.ListFilter{UserID: userID, TodayOnly: true})
 
@@ -128,7 +136,7 @@ func TestDashboardTodoRepo_ListByUserTodayOnlyIncludesDueToday(t *testing.T) {
 	for _, row := range rows {
 		ids = append(ids, row.ID)
 	}
-	assert.ElementsMatch(t, []string{today.ID}, ids)
+	assert.ElementsMatch(t, []string{undated.ID, overdue.ID, today.ID}, ids)
 }
 
 func TestDashboardTodoRepo_UpdateAndDeleteMissingReturnNotFound(t *testing.T) {
