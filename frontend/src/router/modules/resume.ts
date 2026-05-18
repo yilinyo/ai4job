@@ -7,7 +7,7 @@ const resumeRoutes: RouteConfig = {
   redirect: '/resume/repos',
   name: 'Resume',
   meta: {
-    title: '简历管理',
+    title: 'resumeManagement',
     icon: 'documentation'
   },
   children: [
@@ -15,49 +15,49 @@ const resumeRoutes: RouteConfig = {
       path: 'repos',
       component: () => import(/* webpackChunkName: "resume-repo-list" */ '@/views/resume-repo/list.vue'),
       name: 'ResumeRepoList',
-      meta: { title: '简历仓库' }
+      meta: { title: 'resumeRepository', icon: 'documentation' }
     },
     {
       path: 'repo/:id',
       component: () => import(/* webpackChunkName: "resume-repo-detail" */ '@/views/resume-repo/detail.vue'),
       name: 'ResumeRepoDetail',
-      meta: { title: '仓库详情', hidden: true }
+      meta: { title: 'resumeRepositoryDetail', hidden: true }
     },
     {
       path: 'version/create',
       component: () => import(/* webpackChunkName: "resume-version-editor" */ '@/views/resume-version/editor.vue'),
       name: 'ResumeVersionCreate',
-      meta: { title: '创建简历版本', hidden: true }
+      meta: { title: 'createResumeVersion', hidden: true }
     },
     {
       path: 'version/:id',
       component: () => import(/* webpackChunkName: "resume-version-view" */ '@/views/resume-version/view.vue'),
       name: 'ResumeVersionView',
-      meta: { title: '查看简历', hidden: true }
+      meta: { title: 'viewResumeVersion', hidden: true }
     },
     {
       path: 'version/:id/edit',
       component: () => import(/* webpackChunkName: "resume-version-editor" */ '@/views/resume-version/editor.vue'),
       name: 'ResumeVersionEdit',
-      meta: { title: '编辑简历', hidden: true }
+      meta: { title: 'editResumeVersion', hidden: true }
     },
     {
       path: 'application/create',
       component: () => import(/* webpackChunkName: "resume-application-editor" */ '@/views/resume-application/editor.vue'),
       name: 'ResumeApplicationCreate',
-      meta: { title: '创建投递记录', hidden: true, activeMenu: '/resume/repos' }
+      meta: { title: 'createApplicationRecord', hidden: true, activeMenu: '/resume/repos' }
     },
     {
       path: 'application/:id',
       component: () => import(/* webpackChunkName: "resume-application-view" */ '@/views/resume-application/view.vue'),
       name: 'ResumeApplicationView',
-      meta: { title: '投递记录详情', hidden: true, activeMenu: '/resume/repos' }
+      meta: { title: 'applicationRecordDetail', hidden: true, activeMenu: '/resume/repos' }
     },
     {
       path: 'application/:id/edit',
       component: () => import(/* webpackChunkName: "resume-application-editor" */ '@/views/resume-application/editor.vue'),
       name: 'ResumeApplicationEdit',
-      meta: { title: '编辑投递记录', hidden: true, activeMenu: '/resume/repos' }
+      meta: { title: 'editApplicationRecord', hidden: true, activeMenu: '/resume/repos' }
     }
   ]
 }
@@ -68,21 +68,21 @@ export const jobPostingRoutes: RouteConfig = {
   redirect: '/job-postings/list',
   name: 'JobPostings',
   meta: {
-    title: '岗位列表',
-    icon: 'list'
+    title: 'jobRepository',
+    icon: 'shopping'
   },
   children: [
     {
       path: 'list',
       component: () => import(/* webpackChunkName: "job-posting-list" */ '@/views/job-posting/list.vue'),
       name: 'JobPostingList',
-      meta: { title: '岗位列表' }
+      meta: { title: 'jobRepository', icon: 'shopping' }
     },
     {
       path: 'detail/:id',
       component: () => import(/* webpackChunkName: "job-posting-detail" */ '@/views/job-posting/detail.vue'),
       name: 'JobPostingDetail',
-      meta: { title: '岗位详情', hidden: true, activeMenu: '/job-postings/list' }
+      meta: { title: 'jobRepositoryDetail', hidden: true, activeMenu: '/job-postings/list' }
     }
   ]
 }

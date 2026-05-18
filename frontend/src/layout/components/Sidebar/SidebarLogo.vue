@@ -62,7 +62,8 @@ export default class extends Vue {
   width: 100%;
   height: 50px;
   line-height: 50px;
-  background: #2b2f3a;
+  background: linear-gradient(180deg, #f7fbff 0%, #eef5ff 100%);
+  border-bottom: 1px solid rgba(211, 223, 243, 0.9);
   text-align: center;
   overflow: hidden;
 
@@ -80,7 +81,7 @@ export default class extends Vue {
     & .sidebar-title {
       display: inline-block;
       margin: 0;
-      color: #fff;
+      color: #1d63ed;
       font-weight: 600;
       line-height: 50px;
       font-size: 14px;

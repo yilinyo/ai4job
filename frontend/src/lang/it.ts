@@ -62,7 +62,18 @@ export default {
     clipboard: 'Appunti',
     i18n: 'I18n',
     externalLink: 'Link Esterno',
-    profile: 'Profilo'
+    profile: 'Profilo',
+    resumeManagement: 'Gestione CV',
+    resumeRepository: 'Archivio CV',
+    resumeRepositoryDetail: 'Dettaglio archivio',
+    createResumeVersion: 'Crea versione CV',
+    viewResumeVersion: 'Visualizza CV',
+    editResumeVersion: 'Modifica CV',
+    createApplicationRecord: 'Crea candidatura',
+    applicationRecordDetail: 'Dettaglio candidatura',
+    editApplicationRecord: 'Modifica candidatura',
+    jobRepository: 'Archivio posizioni',
+    jobRepositoryDetail: 'Dettaglio posizione'
   },
   navbar: {
     logOut: 'Esci',

@@ -62,7 +62,18 @@ export default {
     clipboard: 'Clipboard',
     i18n: 'I18n',
     externalLink: 'Enlace externo',
-    profile: 'Profile'
+    profile: 'Profile',
+    resumeManagement: 'Gestión de currículums',
+    resumeRepository: 'Repositorio de currículums',
+    resumeRepositoryDetail: 'Detalle del repositorio',
+    createResumeVersion: 'Crear versión del currículum',
+    viewResumeVersion: 'Ver currículum',
+    editResumeVersion: 'Editar currículum',
+    createApplicationRecord: 'Crear registro de postulación',
+    applicationRecordDetail: 'Detalle de la postulación',
+    editApplicationRecord: 'Editar registro de postulación',
+    jobRepository: 'Repositorio de puestos',
+    jobRepositoryDetail: 'Detalle del puesto'
   },
   navbar: {
     logOut: 'Salir',
