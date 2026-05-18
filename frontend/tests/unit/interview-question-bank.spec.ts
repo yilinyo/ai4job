@@ -150,6 +150,13 @@ jest.doMock('@/store/modules/interview-progress', () => ({
   InterviewProgressModule: mockInterviewProgressModule
 }))
 
+jest.doMock('@/components/MarkdownEditor/index.vue', () => ({
+  default: {
+    name: 'MarkdownEditor',
+    template: '<div class="markdown-editor-stub" />'
+  }
+}))
+
 const QuestionLibraryTab = require('@/views/interview-question-bank/question-library-tab.vue').default
 const FlashcardReviewTab = require('@/views/interview-question-bank/flashcard-review-tab.vue').default
 const ResumeApplicationView = require('@/views/resume-application/view.vue').default
@@ -365,7 +372,13 @@ describe('Interview question bank validation', () => {
     expect(detailSource).toContain('@dblclick.native="openEditDialog"')
     expect(detailSource).toContain('创建时间：{{ formatDateTime(question.createdAt) }}')
     expect(detailSource).toContain('修改时间：{{ formatDateTime(question.updatedAt) }}')
-    expect(formSource).toContain('@paste.native="handleMarkdownPaste')
+    expect(formSource).toContain('custom-class="question-form-dialog"')
+    expect(formSource).toContain('width="960px"')
+    expect(formSource).toContain(':height="editorHeight"')
+    expect(formSource).toContain('@change="handleContentChange"')
+    expect(formSource).toContain('@change="handleAnswerAnalysisChange"')
+    expect(formSource).toContain('MarkdownEditor')
+    expect(formSource).not.toContain('@paste.native="handleMarkdownPaste')
     expect(mockSource).toContain('createdAt: now')
     expect(mockSource).toContain('updatedAt: now')
     expect(mockSource).toContain('updatedAt: new Date().toISOString()')

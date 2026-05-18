@@ -29,36 +29,11 @@
         </el-form-item>
 
         <el-form-item label="简历内容" prop="content">
-          <div class="editor-mode-toolbar">
-            <el-tooltip content="编辑模式" placement="top">
-              <el-button
-                :type="editorMode === 'edit' ? 'primary' : 'default'"
-                icon="el-icon-edit"
-                circle
-                @click="setEditorMode('edit')"
-              />
-            </el-tooltip>
-            <el-tooltip content="预览模式" placement="top">
-              <el-button
-                :type="editorMode === 'preview' ? 'primary' : 'default'"
-                icon="el-icon-notebook-2"
-                circle
-                @click="setEditorMode('preview')"
-              />
-            </el-tooltip>
-          </div>
-
-          <el-input
-            v-if="editorMode === 'edit'"
-            v-model="versionForm.content"
-            type="textarea"
-            :rows="20"
-            placeholder="请输入简历内容（支持Markdown格式）"
-          />
-          <resume-markdown-preview
-            v-else
-            :html="renderedContent"
-            empty-text="切换到预览模式后，这里会显示 Markdown 渲染结果"
+          <markdown-editor
+            class="resume-markdown-editor"
+            :initial-value="versionForm.content"
+            :height="editorHeight"
+            @change="handleContentChange"
           />
         </el-form-item>
 
@@ -82,17 +57,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator'
 import { Form as ElForm } from 'element-ui'
-import ResumeMarkdownPreview from '@/components/ResumeMarkdownPreview/index.vue'
+import MarkdownEditor from '@/components/MarkdownEditor/index.vue'
 import { ResumeVersionModule } from '@/store/modules/resume-version'
 import { UserModule } from '@/store/modules/user'
 import { CreateResumeVersionRequest, UpdateResumeVersionRequest } from '@/models'
-import { renderResumeMarkdown } from '@/utils/resume-markdown'
 import { generateResumeDraftFromProfile } from '@/utils/resume-prefill'
 
 @Component({
   name: 'ResumeVersionEditor',
   components: {
-    ResumeMarkdownPreview
+    MarkdownEditor
   }
 })
 export default class extends Vue {
@@ -100,7 +74,7 @@ export default class extends Vue {
   private repoId = ''
   private isEdit = false
   private submitLoading = false
-  private editorMode: 'edit' | 'preview' = 'edit'
+  private editorHeight = 'calc(100vh - 360px)'
 
   private versionForm = {
     title: '',
@@ -110,7 +84,7 @@ export default class extends Vue {
 
   private versionRules = {
     title: [{ required: true, message: '请输入版本标题', trigger: 'blur' }],
-    content: [{ required: true, message: '请输入简历内容', trigger: 'blur' }]
+    content: [{ required: true, message: '请输入简历内容', trigger: 'change' }]
   }
 
   get loading() {
@@ -119,10 +93,6 @@ export default class extends Vue {
 
   get pageTitle() {
     return this.isEdit ? '编辑简历版本' : '创建简历版本'
-  }
-
-  get renderedContent() {
-    return renderResumeMarkdown(this.versionForm.content)
   }
 
   created() {
@@ -187,8 +157,8 @@ export default class extends Vue {
     })
   }
 
-  private setEditorMode(mode: 'edit' | 'preview') {
-    this.editorMode = mode
+  private handleContentChange(value: string) {
+    this.versionForm.content = value
   }
 
   private async prefillContentFromUserProfile() {
@@ -226,15 +196,12 @@ export default class extends Vue {
   }
 
   .editor-card {
-    .editor-mode-toolbar {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
+    max-width: 1280px;
+    margin: 0 auto;
 
-    .el-textarea {
-      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    .resume-markdown-editor {
+      display: block;
+      width: 100%;
     }
   }
 }
