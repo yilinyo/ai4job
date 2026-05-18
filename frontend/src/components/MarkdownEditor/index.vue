@@ -20,7 +20,7 @@ const defaultId = () => 'markdown-editor-' + +new Date() + ((Math.random() * 100
   name: 'MarkdownEditor'
 })
 export default class extends Vue {
-  @Prop({ required: true }) private initialValue!: string
+  @Prop({ default: '' }) private initialValue!: string
   @Prop({ default: defaultId }) private id!: string
   @Prop({ default: () => defaultOptions }) private options!: EditorOptions
   @Prop({ default: 'markdown' }) private mode!: string
@@ -41,10 +41,23 @@ export default class extends Vue {
 
   get editorOptions() {
     const options = Object.assign({}, defaultOptions, this.options)
+    const hooks = Object.assign({}, this.options.hooks || {})
+    if (!hooks.addImageBlobHook) {
+      hooks.addImageBlobHook = this.handleImageBlobHook
+    }
+    options.hooks = hooks
     options.initialEditType = this.mode
+    options.initialValue = this.initialValue
     options.height = this.height
     options.language = this.languageTypeList[this.language]
     return options
+  }
+
+  @Watch('initialValue')
+  private onInitialValueChange(value: string) {
+    if (!this.markdownEditor) return
+    if (value === this.markdownEditor.getMarkdown()) return
+    this.markdownEditor.setMarkdown(value || '', false)
   }
 
   @Watch('language')
@@ -83,13 +96,29 @@ export default class extends Vue {
       ...this.editorOptions,
       el: editorElement
     })
-    this.markdownEditor.insertText(this.initialValue)
+    this.markdownEditor.on('change', this.handleEditorChange)
   }
 
   private destroyEditor() {
     if (!this.markdownEditor) return
+    this.markdownEditor.off('change')
     this.markdownEditor.remove()
     this.markdownEditor = undefined
+  }
+
+  private handleEditorChange = () => {
+    if (!this.markdownEditor) return
+    const markdown = this.markdownEditor.getMarkdown()
+    this.$emit('change', markdown)
+    this.$emit('input', markdown)
+  }
+
+  private handleImageBlobHook(blob: File | Blob, callback: (url: string, altText: string) => void) {
+    const reader = new FileReader()
+    reader.onload = () => {
+      callback(String(reader.result || ''), '粘贴图片')
+    }
+    reader.readAsDataURL(blob)
   }
 
   public focus() {
@@ -98,9 +127,22 @@ export default class extends Vue {
     }
   }
 
+  public getMarkdown() {
+    if (this.markdownEditor) {
+      return this.markdownEditor.getMarkdown()
+    }
+    return this.initialValue
+  }
+
   public setHtml(value: string) {
     if (this.markdownEditor) {
       this.markdownEditor.setHtml(value)
+    }
+  }
+
+  public setMarkdown(value: string) {
+    if (this.markdownEditor) {
+      this.markdownEditor.setMarkdown(value || '', false)
     }
   }
 

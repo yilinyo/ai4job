@@ -201,7 +201,10 @@ describe('Resume application restriction flow', () => {
     expect((wrapper.vm as any).creationBlockedMessage).toBe('')
     ;(wrapper.vm as any).$refs = {
       applicationForm: {
-        validate: jest.fn(cb => cb(true))
+        validate: jest.fn((cb) => {
+          const isValid = true
+          cb(isValid)
+        })
       }
     }
     ;(wrapper.vm as any).handleSubmit()

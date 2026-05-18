@@ -2,7 +2,9 @@
   <el-dialog
     :title="title"
     :visible.sync="dialogVisible"
-    width="760px"
+    width="960px"
+    top="4vh"
+    custom-class="question-form-dialog"
     @closed="resetForm"
   >
     <el-form
@@ -15,21 +17,19 @@
         <el-input v-model="form.title" placeholder="请输入题目标题" maxlength="80" show-word-limit />
       </el-form-item>
       <el-form-item label="题目内容" prop="content">
-        <el-input
-          v-model="form.content"
-          type="textarea"
-          :rows="5"
-          placeholder="支持 Markdown，可粘贴图片附件"
-          @paste.native="handleMarkdownPaste($event, 'content')"
+        <markdown-editor
+          class="question-markdown-editor"
+          :initial-value="form.content"
+          :height="editorHeight"
+          @change="handleContentChange"
         />
       </el-form-item>
       <el-form-item label="答案解析" prop="answerAnalysis">
-        <el-input
-          v-model="form.answerAnalysis"
-          type="textarea"
-          :rows="6"
-          placeholder="支持 Markdown，可粘贴图片附件"
-          @paste.native="handleMarkdownPaste($event, 'answerAnalysis')"
+        <markdown-editor
+          class="question-markdown-editor"
+          :initial-value="form.answerAnalysis"
+          :height="editorHeight"
+          @change="handleAnswerAnalysisChange"
         />
       </el-form-item>
       <el-form-item label="标签">
@@ -129,6 +129,7 @@
 <script lang="ts">
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator'
 import { Form as ElForm } from 'element-ui'
+import MarkdownEditor from '@/components/MarkdownEditor/index.vue'
 import {
   CreateInterviewQuestionRequest,
   InterviewQuestionDifficulty,
@@ -147,7 +148,10 @@ type QuestionFormValue = Partial<CreateInterviewQuestionRequest> & {
 }
 
 @Component({
-  name: 'QuestionFormDialog'
+  name: 'QuestionFormDialog',
+  components: {
+    MarkdownEditor
+  }
 })
 export default class extends Vue {
   @Prop({ default: false }) private visible!: boolean
@@ -160,13 +164,14 @@ export default class extends Vue {
   private questionTypeOptions = questionTypeOptions
   private masteryStatusOptions = masteryStatusOptions
   private questionTagSuggestions = questionTagSuggestions
+  private editorHeight = '240px'
 
   private form: Required<CreateInterviewQuestionRequest> & { isFavorite: boolean } = this.getDefaultForm()
 
   private rules = {
     title: [{ required: true, message: '请输入题目标题', trigger: 'blur' }],
-    content: [{ required: true, message: '请输入题目内容', trigger: 'blur' }],
-    answerAnalysis: [{ required: true, message: '请输入答案解析', trigger: 'blur' }],
+    content: [{ required: true, message: '请输入题目内容', trigger: 'change' }],
+    answerAnalysis: [{ required: true, message: '请输入答案解析', trigger: 'change' }],
     difficulty: [{ required: true, message: '请选择难度', trigger: 'change' }],
     questionType: [{ required: true, message: '请选择题型', trigger: 'change' }],
     masteryStatus: [{ required: true, message: '请选择掌握状态', trigger: 'change' }]
@@ -248,18 +253,32 @@ export default class extends Vue {
     })
   }
 
-  private handleMarkdownPaste(event: ClipboardEvent, field: 'content' | 'answerAnalysis') {
-    const files = Array.from(event.clipboardData?.files || [])
-    const imageFile = files.find(file => file.type.startsWith('image/'))
-    if (!imageFile) return
+  private handleContentChange(value: string) {
+    this.form.content = value
+  }
 
-    event.preventDefault()
-    const reader = new FileReader()
-    reader.onload = () => {
-      const imageMarkdown = `\n![粘贴图片](${reader.result})\n`
-      this.form[field] = `${this.form[field] || ''}${imageMarkdown}`
-    }
-    reader.readAsDataURL(imageFile)
+  private handleAnswerAnalysisChange(value: string) {
+    this.form.answerAnalysis = value
   }
 }
 </script>
+
+<style lang="scss" scoped>
+::v-deep .question-form-dialog {
+  width: min(960px, calc(100vw - 32px)) !important;
+}
+
+::v-deep .question-form-dialog .el-dialog__body {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+}
+
+.question-markdown-editor {
+  display: block;
+  width: 100%;
+}
+
+::v-deep .question-markdown-editor .toastui-editor-defaultUI {
+  min-height: 240px;
+}
+</style>
