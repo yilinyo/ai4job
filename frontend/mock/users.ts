@@ -197,17 +197,11 @@ export const login = (req: Request, res: Response) => {
   const { username, password } = req.body
   const user = userList.find(u => u.username === username)
 
-  if (!user) {
-    return res.status(400).json({
-      code: 50004,
-      message: '用户不存在'
-    })
-  }
-
-  if (user.password !== password) {
+  if (!user || user.password !== password) {
     return res.status(400).json({
       code: 50005,
-      message: '密码错误'
+      message: '用户名或密码错误',
+      data: null
     })
   }
 

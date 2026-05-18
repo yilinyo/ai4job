@@ -72,6 +72,7 @@ GET /api/resume-repos?page=1&pageSize=10
 | 40000 | 参数错误 |
 | 40100 | 未登录或 token 无效 |
 | 40300 | 无权限 |
+| 50005 | 用户名或密码错误 |
 | 50004 | 资源不存在 |
 | 50008 | 业务规则冲突 |
 | 50000 | 服务端错误 |
@@ -459,6 +460,16 @@ POST /api/user/register
 ```
 
 响应 `data`：`LoginResponse`
+
+登录失败响应：
+
+```json
+{
+  "code": 50005,
+  "message": "用户名或密码错误",
+  "data": null
+}
+```
 
 ```json
 {
