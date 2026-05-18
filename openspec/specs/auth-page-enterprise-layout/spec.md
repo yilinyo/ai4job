@@ -1,18 +1,17 @@
 # auth-page-enterprise-layout Specification
 
 ## Purpose
-TBD - created by archiving change enhance-register-email-verification. Update Purpose after archive.
+Define the enterprise-style authentication page layout and its visual continuity with the post-login sidebar experience.
 ## Requirements
-### Requirement: 登录注册页必须采用企业级认证页布局
-系统 MUST 将登录页和注册页调整为统一的企业级认证页视觉布局，形成更专业的首屏体验。
+### Requirement: 认证页企业级蓝白风格必须与登录后基础导航形成连续体验
+系统 MUST 将登录页、注册页建立的蓝白企业级认证页视觉特征延续到登录后的左侧基础导航中，形成从认证入口到后台主框架的连续产品体验。
 
-#### Scenario: 用户查看登录页
-- **WHEN** 用户打开登录页
-- **THEN** 系统展示企业级认证页布局，包含品牌区、价值说明或氛围视觉，以及登录表单卡片
-- **AND** 登录页不展示默认演示账号密码文案
-- **AND** 用户名输入、密码输入和显示 / 隐藏密码操作对齐且间距合理
+#### Scenario: 用户从登录页进入后台首页
+- **WHEN** 用户完成登录并进入带侧边栏的后台页面
+- **THEN** 侧边栏在色彩、明度和强调色上延续登录页 / 注册页的蓝白视觉语言
+- **AND** 用户不会看到与认证页明显割裂的深色模板导航
 
-#### Scenario: 用户查看注册页
-- **WHEN** 用户打开注册页
-- **THEN** 系统展示与登录页风格一致的企业级认证页布局，包含品牌区、价值说明或氛围视觉，以及注册表单卡片
-
+#### Scenario: 用户对比登录页和登录后导航
+- **WHEN** 用户在登录页、注册页与后台页之间切换或回忆整体视觉印象
+- **THEN** 系统呈现连续的浅色企业级蓝白风格
+- **AND** 认证页建立的品牌感不只停留在未登录状态

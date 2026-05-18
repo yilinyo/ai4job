@@ -1,0 +1,33 @@
+# login-credential-error-response Specification
+
+## Purpose
+Define the separate business semantics for login credential failures versus authentication absence.
+
+## Requirements
+### Requirement: 登录凭证错误必须返回独立业务语义
+系统 MUST 将登录时的凭证校验失败与“未登录 / token 无效”场景分离，返回独立的业务错误码与“用户名或密码错误”文案。
+
+#### Scenario: 用户输入错误密码登录
+- **WHEN** 用户在登录页输入已存在用户名和错误密码并提交
+- **THEN** 系统返回登录凭证错误的独立业务错误码
+- **AND** 返回文案为“用户名或密码错误”
+- **AND** 不得返回 `40100 / 未登录`
+
+#### Scenario: 用户输入不存在的用户名登录
+- **WHEN** 用户在登录页输入不存在的用户名并提交
+- **THEN** 系统返回与错误密码相同的登录凭证错误业务语义
+- **AND** 返回文案仍为“用户名或密码错误”
+- **AND** 不得暴露“用户不存在”之类的区分性提示
+
+### Requirement: 认证缺失语义必须继续保留给 token 相关失败
+系统 MUST 继续将 `40100` 这一类认证缺失语义只用于未登录、token 无效、token 过期或访问受保护接口失败等场景。
+
+#### Scenario: 用户未携带 token 请求受保护接口
+- **WHEN** 用户未登录或未携带有效 token 请求受保护接口
+- **THEN** 系统返回 `40100` 对应的认证缺失语义
+- **AND** 该语义不得与登录凭证错误混用
+
+#### Scenario: 前端收到登录凭证错误响应
+- **WHEN** 前端提交登录请求并收到登录凭证错误业务码
+- **THEN** 前端仅提示登录失败信息
+- **AND** 不触发“会话失效 / 重新登录 / 清 token”这类 token 失效处理逻辑

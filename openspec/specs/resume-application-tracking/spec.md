@@ -5,7 +5,7 @@ Define how resume versions track multiple job applications and preserve the job-
 
 ## Requirements
 ### Requirement: 简历版本必须支持关联多个投递记录
-系统 MUST 允许一个简历版本关联多条投递记录，并在简历版本详情页展示这些记录。
+系统 MUST 允许一个简历版本关联多条投递记录，并在简历版本详情页展示这些记录；即使该版本未激活，也仍需展示既有投递历史。
 
 #### Scenario: 用户查看简历版本关联投递
 - **WHEN** 用户进入简历版本详情页
@@ -13,7 +13,7 @@ Define how resume versions track multiple job applications and preserve the job-
 
 #### Scenario: 用户新增投递记录
 - **WHEN** 用户从简历版本详情页新增投递记录
-- **THEN** 新投递记录关联到当前简历版本
+- **THEN** 仅当当前版本处于激活状态时才允许继续创建
 
 ### Requirement: 投递记录必须保留岗位级求职信息
 系统 MUST 在投递记录中保存公司名称、公司介绍、岗位名称、岗位要求、base、薪资范围、投递渠道、投递时间、当前状态和备注。
@@ -28,3 +28,11 @@ Define how resume versions track multiple job applications and preserve the job-
 #### Scenario: 删除已关联投递的简历版本
 - **WHEN** 用户尝试删除存在投递记录的简历版本
 - **THEN** 系统阻止删除并提示存在关联投递记录
+
+### Requirement: 未激活简历版本仍可查看历史投递记录
+系统 MUST 允许用户查看未激活简历版本已有的投递历史，但不得通过该版本继续创建新的投递记录。
+
+#### Scenario: 用户查看未激活版本历史投递
+- **WHEN** 用户进入未激活简历版本详情页
+- **THEN** 系统仍展示该版本历史关联投递记录
+- **AND** 该页面只读，不提供新增投递入口
