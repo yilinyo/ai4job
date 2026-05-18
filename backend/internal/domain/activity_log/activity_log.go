@@ -20,6 +20,14 @@ const (
 	ActionLinked        Action = "linked"
 )
 
+const (
+	maxActorTypeLength   = 40
+	maxActionLength      = 40
+	maxTargetTypeLength  = 40
+	maxTargetLabelLength = 200
+	maxRouteLength       = 500
+)
+
 type TargetType string
 
 const (
@@ -77,6 +85,9 @@ func (l *ActivityLog) TableName() string {
 
 func (l *ActivityLog) validate() error {
 	if strings.TrimSpace(l.ID) == "" || strings.TrimSpace(l.UserID) == "" || strings.TrimSpace(l.ActorType) == "" || strings.TrimSpace(l.TargetID) == "" || strings.TrimSpace(l.TargetLabel) == "" || strings.TrimSpace(l.Summary) == "" {
+		return domainerrors.ErrBadParams
+	}
+	if len([]rune(l.ActorType)) > maxActorTypeLength || len([]rune(l.Action)) > maxActionLength || len([]rune(l.TargetType)) > maxTargetTypeLength || len([]rune(l.TargetLabel)) > maxTargetLabelLength || len([]rune(l.Route)) > maxRouteLength {
 		return domainerrors.ErrBadParams
 	}
 	if !l.Action.Valid() || !l.TargetType.Valid() {

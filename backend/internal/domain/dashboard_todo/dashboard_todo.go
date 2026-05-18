@@ -10,9 +10,13 @@ import (
 type Source string
 
 const (
+	// Source is response metadata only: manual todos are persisted, system todos are generated.
+	// It is intentionally not stored on DashboardTodo.
 	SourceManual Source = "manual"
 	SourceSystem Source = "system"
 )
+
+const maxTitleLength = 200
 
 type TargetType string
 
@@ -75,6 +79,8 @@ func (t *DashboardTodo) TableName() string {
 }
 
 func (t *DashboardTodo) ApplyUpdate(spec UpdateSpec) error {
+	original := *t
+
 	if spec.Title != nil {
 		t.Title = strings.TrimSpace(*spec.Title)
 	}
@@ -90,7 +96,11 @@ func (t *DashboardTodo) ApplyUpdate(spec UpdateSpec) error {
 	if spec.TargetID != nil {
 		t.TargetID = normalizeTargetID(*spec.TargetID)
 	}
-	return t.validate()
+	if err := t.validate(); err != nil {
+		*t = original
+		return err
+	}
+	return nil
 }
 
 func (t *DashboardTodo) Complete(now time.Time) {
@@ -99,6 +109,9 @@ func (t *DashboardTodo) Complete(now time.Time) {
 
 func (t *DashboardTodo) validate() error {
 	if strings.TrimSpace(t.ID) == "" || strings.TrimSpace(t.UserID) == "" || strings.TrimSpace(t.Title) == "" {
+		return domainerrors.ErrBadParams
+	}
+	if len([]rune(t.Title)) > maxTitleLength {
 		return domainerrors.ErrBadParams
 	}
 	if t.TargetType != "" && !t.TargetType.Valid() {
