@@ -121,7 +121,23 @@ func TestUserService_Login_WrongPassword(t *testing.T) {
 		Password: "wrong",
 	})
 
-	assert.ErrorIs(t, err, domainerrors.ErrUnauthorized)
+	assert.ErrorIs(t, err, domainerrors.ErrLoginFailed)
+}
+
+func TestUserService_Login_UserNotFound(t *testing.T) {
+	repo := &mockUserRepo{}
+	cache := &mockTokenCache{}
+	jwtMgr := &mockJWT{}
+
+	repo.On("FindByUsername", mock.Anything, "missing").Return(nil, domainerrors.ErrNotFound)
+
+	svc := appuser.NewUserService(repo, cache, jwtMgr, true)
+	_, err := svc.Login(context.Background(), dto.LoginRequest{
+		Username: "missing",
+		Password: "wrongpass",
+	})
+
+	assert.ErrorIs(t, err, domainerrors.ErrLoginFailed)
 }
 
 func TestUserService_Register_InvalidEmailCode(t *testing.T) {

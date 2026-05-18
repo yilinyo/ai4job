@@ -9,6 +9,7 @@ const (
 	CodeBadParams     = 40000
 	CodeUnauthorized  = 40100
 	CodeForbidden     = 40300
+	CodeLoginFailed   = 50005
 	CodeNotFound      = 50004
 	CodeConflict      = 50008
 	CodeInternalError = 50000
@@ -21,6 +22,7 @@ var (
 	ErrForbidden      = errors.New("forbidden")
 	ErrConflict       = errors.New("resource conflict")
 	ErrBadParams      = errors.New("bad params")
+	ErrLoginFailed    = errors.New("login credentials are incorrect")
 	ErrVersionInUse   = errors.New("resume version is referenced by an application")
 	ErrEmailCodeWrong = errors.New("email verification code is incorrect or expired")
 	ErrDuplicate      = errors.New("duplicate entry")

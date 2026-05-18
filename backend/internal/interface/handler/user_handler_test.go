@@ -166,10 +166,10 @@ func TestUserHandler_Login_Success(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
-func TestUserHandler_Login_Unauthorized(t *testing.T) {
+func TestUserHandler_Login_CredentialFailure(t *testing.T) {
 	svc := &mockUserService{}
 	svc.On("Login", mock.Anything, mock.Anything).
-		Return(nil, pkgerrors.ErrUnauthorized)
+		Return(nil, pkgerrors.ErrLoginFailed)
 
 	h := handler.NewUserHandler(svc)
 	r := newRouter(h)
@@ -180,7 +180,24 @@ func TestUserHandler_Login_Unauthorized(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
+	assert.Equal(t, pkgerrors.CodeLoginFailed, responseCode(t, w))
+	assert.Equal(t, "用户名或密码错误", responseMap(t, w)["message"])
+}
+
+func TestUserHandler_GetProfile_Unauthorized(t *testing.T) {
+	svc := &mockUserService{}
+	svc.On("GetProfile", mock.Anything, "u1").
+		Return(nil, pkgerrors.ErrUnauthorized)
+
+	h := handler.NewUserHandler(svc)
+	r := newRouter(h)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/profile", nil)
+	r.ServeHTTP(w, req)
+
 	assert.Equal(t, pkgerrors.CodeUnauthorized, responseCode(t, w))
+	assert.Equal(t, "未登录", responseMap(t, w)["message"])
 }
 
 func TestUserHandler_GetProfile_Success(t *testing.T) {

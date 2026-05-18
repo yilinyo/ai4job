@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -90,10 +91,13 @@ func (s *UserService) Register(ctx context.Context, req dto.RegisterRequest) err
 func (s *UserService) Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error) {
 	u, err := s.repo.FindByUsername(ctx, req.Username)
 	if err != nil {
-		return nil, domainerrors.ErrUnauthorized
+		if errors.Is(err, domainerrors.ErrNotFound) {
+			return nil, domainerrors.ErrLoginFailed
+		}
+		return nil, err
 	}
 	if !u.CheckPassword(req.Password) {
-		return nil, domainerrors.ErrUnauthorized
+		return nil, domainerrors.ErrLoginFailed
 	}
 	token, err := s.jwt.Generate(u.ID, u.Username)
 	if err != nil {

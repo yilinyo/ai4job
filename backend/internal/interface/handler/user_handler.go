@@ -113,6 +113,8 @@ func mapError(c *gin.Context, err error) {
 		response.Fail(c, pkgerrors.CodeNotFound, "资源不存在")
 	case errors.Is(err, pkgerrors.ErrUnauthorized):
 		response.Fail(c, pkgerrors.CodeUnauthorized, "未登录")
+	case errors.Is(err, pkgerrors.ErrLoginFailed):
+		response.Fail(c, pkgerrors.CodeLoginFailed, "用户名或密码错误")
 	case errors.Is(err, pkgerrors.ErrForbidden):
 		response.Fail(c, pkgerrors.CodeForbidden, "无权限")
 	case errors.Is(err, pkgerrors.ErrBadParams):
