@@ -113,6 +113,28 @@ func (s *InterviewQuestionService) CreateQuestion(ctx context.Context, userID st
 	return question, nil
 }
 
+// CreateQuestions persists an all-or-nothing MCP batch.
+func (s *InterviewQuestionService) CreateQuestions(ctx context.Context, userID string, reqs []dto.CreateInterviewQuestionRequest) ([]*domainquestion.InterviewQuestion, error) {
+	if len(reqs) == 0 || len(reqs) > 50 || s.transactions == nil {
+		return nil, domainerrors.ErrBadParams
+	}
+	created := make([]*domainquestion.InterviewQuestion, 0, len(reqs))
+	err := s.withinTransaction(ctx, func(txCtx context.Context) error {
+		for _, req := range reqs {
+			question, err := s.CreateQuestion(txCtx, userID, req)
+			if err != nil {
+				return err
+			}
+			created = append(created, question)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return created, nil
+}
+
 func (s *InterviewQuestionService) ListQuestions(ctx context.Context, userID string, req dto.InterviewQuestionQuery) ([]questionrepo.QuestionWithOccurrenceCount, int64, error) {
 	filter, err := buildQuestionListFilter(userID, req)
 	if err != nil {

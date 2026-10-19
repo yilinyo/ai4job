@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/yilin/ai-for-backend/internal/interface/handler"
+	"net/http"
 )
 
 // Dependencies holds all handler and middleware dependencies for the router.
@@ -16,6 +17,8 @@ type Dependencies struct {
 	InterviewProgressHandler *handler.InterviewProgressHandler
 	InterviewQuestionHandler *handler.InterviewQuestionHandler
 	DashboardHandler         *handler.DashboardHandler
+	APIKeyHandler            *handler.APIKeyHandler
+	MCPHandler               http.Handler
 	AuthMiddleware           gin.HandlerFunc
 }
 
@@ -26,6 +29,9 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	r.GET("/healthz", func(c *gin.Context) {
 		c.Status(204)
 	})
+	if deps.MCPHandler != nil {
+		r.Any("/mcp", gin.WrapH(deps.MCPHandler))
+	}
 
 	v1 := r.Group("/api/v1")
 
@@ -40,6 +46,10 @@ func NewRouter(deps Dependencies) *gin.Engine {
 			authed.GET("/profile", deps.UserHandler.GetProfile)
 			authed.PUT("/profile", deps.UserHandler.UpdateProfile)
 			authed.POST("/logout", deps.UserHandler.Logout)
+			authed.GET("/api-keys", deps.APIKeyHandler.List)
+			authed.POST("/api-keys", deps.APIKeyHandler.Create)
+			authed.POST("/api-keys/:id/rotate", deps.APIKeyHandler.Rotate)
+			authed.DELETE("/api-keys/:id", deps.APIKeyHandler.Revoke)
 		}
 	}
 

@@ -37,9 +37,9 @@
 - `POST /api-keys/:id/rotate`：在事务中撤销旧 Key 并创建新 Key，响应一次性携带新完整 Key。
 - `DELETE /api-keys/:id`：撤销当前用户的一把 Key，不执行物理删除。
 
-所有端点从 JWT 上下文取 `userID`，仓储查询必须同时匹配 `id` 与 `user_id`。前端在 `frontend/src/models/`、`api/`、`store/modules/` 增加对应类型与请求；个人信息页在资料表单之后加入“开发者访问”分区，使用表格展示名称、掩码、状态、创建/过期/最近使用时间，并通过确认对话框执行撤销或重新生成。创建和重新生成表单以单选控件提供 30 天、60 天、90 天和永不过期；创建和重新生成使用不可关闭前的结果弹窗显示完整 Key，关闭后只刷新元数据。
+所有端点从 JWT 上下文取 `userID`，仓储查询必须同时匹配 `id` 与 `user_id`。前端在 `frontend/src/models/`、`api/`、`store/modules/` 增加对应类型与请求；个人中心新增“开发者访问”标签页，使用表格展示名称、掩码、状态、创建/过期/最近使用时间，并通过确认对话框执行撤销或重新生成。创建和重新生成表单以单选控件提供 30 天、60 天、90 天和永不过期；创建和重新生成使用不可关闭前的结果弹窗显示完整 Key，关闭后只刷新元数据。
 
-选择扩展个人信息页而非新增导航项，是为了保持“个人凭据属于账号设置”的信息层级。备选的独立一级菜单会扩大导航面并使用户资料与开发者凭据分散。
+选择扩展个人中心而非个人信息页或新增导航项，是为了保持“个人凭据属于账号设置”的信息层级，同时避免将开发者凭据混入求职资料编辑表单。备选的独立一级菜单会扩大导航面。
 
 ### 3. MCP 使用同一服务进程的 Streamable HTTP 传输，并只接受 Bearer API Key
 
@@ -61,6 +61,8 @@ MCP 请求在 HTTPS 终止后的反向代理或应用 TLS 中传输；CORS 不�
 | `list_interview_workflows` | 可选状态、分页 | 当前用户全部投递的简历版本、岗位快照、当前状态和流程节点 |
 | `list_interview_questions` | 可选关键词、标签、难度、题型、掌握状态、收藏状态、分页 | 当前用户题库条目及分页信息 |
 | `create_interview_questions` | `questions` 数组，长度 1-50 | 每条新题目的标识及创建结果 |
+
+题库工具的 JSON Schema 必须将枚举作为结构化 `enum` 暴露，而非仅依赖自然语言说明：`difficulty` 为 `easy`、`medium`、`hard`；`questionType` 为 `knowledge`、`scenario`、`coding`、`algorithm`、`project`、`behavior`、`discussion`；`masteryStatus` 为 `unreviewed`、`weak`、`normal`、`mastered`。字段描述同步标示各值的中文含义。查询工具还暴露 `isFavorite` 布尔筛选，且所有筛选字段复用网页题库的校验规则。
 
 `get_resume_interviews` 先确认简历版本归属，再查询投递和进展；其余查询直接带入已验证的 `userID`。批量创建新增 `CreateQuestions` 应用服务，在单一数据库事务内依次复用现有题目 DTO 与领域校验；任一条失败即回滚全部，并返回带数组索引的输入错误。创建结果将 `source` 固定为 `mcp` 或由服务端补充，绝不接收客户端 `userId`。
 

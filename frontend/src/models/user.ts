@@ -69,3 +69,22 @@ export interface UpdateProfileRequest {
   location?: string
   personalAdvantage?: string
 }
+
+export interface APIKeyRecord {
+  id: string
+  name: string
+  displayPrefix: string
+  status: 'active' | 'revoked'
+  createdAt: string
+  expiresAt?: string
+  lastUsedAt?: string
+}
+
+export interface CreateAPIKeyRequest {
+  name: string
+  expiresInDays: number | null
+}
+
+export interface CreatedAPIKeyResponse extends APIKeyRecord {
+  key: string
+}

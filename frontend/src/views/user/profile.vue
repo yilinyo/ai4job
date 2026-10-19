@@ -206,6 +206,7 @@
           </el-button>
         </el-form-item>
       </el-form>
+
     </el-card>
   </div>
 </template>
@@ -456,6 +457,7 @@ export default class extends Vue {
         color: #909399;
       }
     }
+
   }
 }
 </style>

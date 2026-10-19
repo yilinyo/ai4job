@@ -22,6 +22,7 @@ type Config struct {
 
 	JWTSecret      string `mapstructure:"JWT_SECRET"`
 	JWTExpireHours int    `mapstructure:"JWT_EXPIRE_HOURS"`
+	APIKeyPepper   string `mapstructure:"API_KEY_PEPPER"`
 
 	EmailMock bool `mapstructure:"EMAIL_MOCK"`
 }
@@ -49,6 +50,7 @@ func Load() *Config {
 		RedisPassword:  viper.GetString("REDIS_PASSWORD"),
 		JWTSecret:      viper.GetString("JWT_SECRET"),
 		JWTExpireHours: viper.GetInt("JWT_EXPIRE_HOURS"),
+		APIKeyPepper:   viper.GetString("API_KEY_PEPPER"),
 		EmailMock:      viper.GetBool("EMAIL_MOCK"),
 	}
 
@@ -57,6 +59,13 @@ func Load() *Config {
 	}
 	if cfg.JWTExpireHours == 0 {
 		cfg.JWTExpireHours = 24
+	}
+	if cfg.APIKeyPepper == "" {
+		if cfg.IsDevelopment() {
+			cfg.APIKeyPepper = "development-only-api-key-pepper"
+		} else {
+			log.Fatal("API_KEY_PEPPER is required outside development")
+		}
 	}
 
 	return cfg

@@ -35,6 +35,7 @@ services:
       REDIS_ADDR: redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in the production environment file}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in the production environment file}
+      API_KEY_PEPPER: ${API_KEY_PEPPER:?set API_KEY_PEPPER in the production environment file}
       JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-24}
       EMAIL_MOCK: ${EMAIL_MOCK:-true}
     labels:

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	activitylogapp "github.com/yilin/ai-for-backend/internal/application/activitylog"
+	apikeyapp "github.com/yilin/ai-for-backend/internal/application/api_key"
 	dashboardapp "github.com/yilin/ai-for-backend/internal/application/dashboard"
 	interviewprogressapp "github.com/yilin/ai-for-backend/internal/application/interview_progress"
 	interviewquestionapp "github.com/yilin/ai-for-backend/internal/application/interview_question"
@@ -24,6 +25,7 @@ import (
 	infraCache "github.com/yilin/ai-for-backend/internal/infrastructure/cache"
 	infraDB "github.com/yilin/ai-for-backend/internal/infrastructure/persistence/postgres"
 	"github.com/yilin/ai-for-backend/internal/interface/handler"
+	mcpserver "github.com/yilin/ai-for-backend/internal/interface/mcp"
 	"github.com/yilin/ai-for-backend/internal/interface/middleware"
 	"github.com/yilin/ai-for-backend/internal/interface/router"
 	"github.com/yilin/ai-for-backend/pkg/config"
@@ -83,11 +85,13 @@ func main() {
 	flashcardReviewRepo := infraDB.NewFlashcardReviewRepo(db)
 	dashboardTodoRepo := infraDB.NewDashboardTodoRepo(db)
 	activityLogRepo := infraDB.NewActivityLogRepo(db)
+	apiKeyRepo := infraDB.NewAPIKeyRepo(db)
 	transactionRunner := infraDB.NewTransactionRunner(db)
 
 	// --- Application Services ---
 	activityLogger := activitylogapp.NewRepositoryLogger(activityLogRepo)
 	userSvc := user.NewUserService(userRepo, tokenCache, jwtMgr, cfg.EmailMock)
+	apiKeySvc := apikeyapp.NewService(apiKeyRepo, cfg.APIKeyPepper, transactionRunner)
 	resumeRepoSvc := resumerepoapp.NewResumeRepoService(resumeRepoRepo).WithActivityLogger(activityLogger)
 	jobPostingSvc := jobpostingapp.NewJobPostingService(jobPostingRepo)
 	resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo, jobPostingRepo, resumeRepoRepo, resumeVersionRepo).WithActivityLogger(activityLogger)
@@ -106,6 +110,7 @@ func main() {
 
 	// --- Handlers ---
 	userHandler := handler.NewUserHandler(userSvc)
+	apiKeyHandler := handler.NewAPIKeyHandler(apiKeySvc)
 	resumeRepoHandler := handler.NewResumeRepoHandler(resumeRepoSvc)
 	resumeVersionHandler := handler.NewResumeVersionHandler(resumeVersionSvc)
 	resumeAttachmentHandler := handler.NewResumeAttachmentHandler(resumeAttachmentSvc)
@@ -114,6 +119,7 @@ func main() {
 	interviewProgressHandler := handler.NewInterviewProgressHandler(interviewProgressSvc)
 	interviewQuestionHandler := handler.NewInterviewQuestionHandler(interviewQuestionSvc)
 	dashboardHandler := handler.NewDashboardHandler(dashboardSvc)
+	mcpHandler := mcpserver.New(apiKeySvc, mcpserver.NewToolServer(resumeApplicationSvc, interviewProgressSvc, interviewQuestionSvc))
 
 	// --- Router ---
 	r := router.NewRouter(router.Dependencies{
@@ -126,6 +132,8 @@ func main() {
 		InterviewProgressHandler: interviewProgressHandler,
 		InterviewQuestionHandler: interviewQuestionHandler,
 		DashboardHandler:         dashboardHandler,
+		APIKeyHandler:            apiKeyHandler,
+		MCPHandler:               mcpHandler,
 		AuthMiddleware:           authMiddleware,
 	})
 

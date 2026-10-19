@@ -41,9 +41,20 @@ MCP 服务 MUST 提供一个工具，返回当前调用用户全部投递记录�
 ### Requirement: MCP 必须提供当前用户题库查询工具
 MCP 服务 MUST 提供一个工具，支持当前调用用户按关键词、标签、难度、题型、掌握状态或收藏状态筛选其题库，并支持分页返回题目基础信息与内容。
 
+题库查询与创建工具的 JSON Schema MUST 显式声明以下枚举值，且每个枚举值 MUST 提供可读说明：
+
+- `difficulty`：`easy`（简单）、`medium`（中等）、`hard`（困难）。
+- `questionType`：`knowledge`（知识点）、`scenario`（场景）、`coding`（编程）、`algorithm`（算法）、`project`（项目）、`behavior`（行为）、`discussion`（开放讨论）。
+- `masteryStatus`：`unreviewed`（未复习）、`weak`（薄弱）、`normal`（一般）、`mastered`（已掌握）。
+
 #### Scenario: 用户查询自己的题库
 - **WHEN** MCP 客户端提供有效筛选条件或分页参数调用题库查询工具
 - **THEN** 系统返回仅属于当前用户的匹配题目及分页信息
+
+#### Scenario: MCP 客户端发现题库枚举参数
+- **WHEN** MCP 客户端通过 `tools/list` 获取题库查询或创建工具的输入 Schema
+- **THEN** `difficulty`、`questionType` 和 `masteryStatus` 均以 JSON Schema `enum` 返回全部合法值及其说明
+- **AND** 客户端可据此构造符合既有题库字段约束的请求
 
 ### Requirement: MCP 必须支持向当前用户题库批量新增题目
 MCP 服务 MUST 提供一个工具，允许当前调用用户一次新增一条至五十条题目。每条题目 MUST 满足现有题库的必填字段和枚举约束；系统 MUST 将题目归属为当前调用用户，且调用者不得指定或覆盖题目所属用户。

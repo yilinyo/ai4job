@@ -3,7 +3,8 @@ import {
   RegisterRequest,
   LoginRequest,
   SendEmailCodeRequest,
-  UpdateProfileRequest
+  UpdateProfileRequest,
+  CreateAPIKeyRequest
 } from '@/models'
 
 /**
@@ -63,6 +64,11 @@ export const updateUserProfile = (data: UpdateProfileRequest) =>
     method: 'put',
     data
   })
+
+export const listAPIKeys = () => request({ url: '/api/user/api-keys', method: 'get' })
+export const createAPIKey = (data: CreateAPIKeyRequest) => request({ url: '/api/user/api-keys', method: 'post', data })
+export const revokeAPIKey = (id: string) => request({ url: `/api/user/api-keys/${id}`, method: 'delete' })
+export const rotateAPIKey = (id: string, data: CreateAPIKeyRequest) => request({ url: `/api/user/api-keys/${id}/rotate`, method: 'post', data })
 
 /**
  * 获取用户列表（兼容原模板 ArticleDetail 组件）

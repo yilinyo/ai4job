@@ -556,6 +556,36 @@ func TestCreateFlashcardReviewReturnsUpdateErrorWithoutSummaryOrCountQueries(t *
 	reviews.AssertExpectations(t)
 }
 
+func TestCreateQuestionsUsesOneTransactionAndRejectsInvalidBatch(t *testing.T) {
+	ctx := context.Background()
+	questions := new(mockQuestionRepo)
+	transactions := new(fakeTransactionRunner)
+	service := NewInterviewQuestionServiceWithTransactions(questions, new(mockOccurrenceRepo), new(mockReviewRepo), nil, nil, transactions)
+	txCtx := transactionContextMatcher()
+
+	questions.On("Create", txCtx, mock.MatchedBy(func(question *domainquestion.InterviewQuestion) bool {
+		return question.UserID == "user-1" && question.Title == "Question 1"
+	})).Return(nil).Once()
+	questions.On("Create", txCtx, mock.MatchedBy(func(question *domainquestion.InterviewQuestion) bool {
+		return question.UserID == "user-1" && question.Title == "Question 2"
+	})).Return(nil).Once()
+
+	created, err := service.CreateQuestions(ctx, "user-1", []dto.CreateInterviewQuestionRequest{
+		{Title: "Question 1", Content: "Content", AnswerAnalysis: "Answer", Difficulty: domainquestion.DifficultyEasy, QuestionType: domainquestion.QuestionTypeKnowledge, MasteryStatus: domainquestion.MasteryStatusUnreviewed},
+		{Title: "Question 2", Content: "Content", AnswerAnalysis: "Answer", Difficulty: domainquestion.DifficultyMedium, QuestionType: domainquestion.QuestionTypeCoding, MasteryStatus: domainquestion.MasteryStatusWeak},
+	})
+	require.NoError(t, err)
+	require.Len(t, created, 2)
+	require.Equal(t, 1, transactions.calls)
+	questions.AssertExpectations(t)
+
+	tooMany := make([]dto.CreateInterviewQuestionRequest, 51)
+	_, err = service.CreateQuestions(ctx, "user-1", tooMany)
+	require.ErrorIs(t, err, domainerrors.ErrBadParams)
+	_, err = service.CreateQuestions(ctx, "user-1", nil)
+	require.ErrorIs(t, err, domainerrors.ErrBadParams)
+}
+
 func TestGetQuestionAggregatesCountOccurrencesSummaryAndRecentReviews(t *testing.T) {
 	ctx := context.Background()
 	questions := new(mockQuestionRepo)

@@ -31,7 +31,7 @@ sudo install -o deploy -g deploy -m 600 deploy/production.env.example /etc/ai-fo
 sudoedit /etc/ai-for/production.env
 ```
 
-必须替换 `DB_PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`。密码若包含 URL 保留字符（尤其 `@`、`:`、`/`、`?`、`#`），请进行 URL 编码，因为迁移命令使用 PostgreSQL URL。
+必须替换 `DB_PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`、`API_KEY_PEPPER`。`API_KEY_PEPPER` 必须是独立于 `JWT_SECRET` 的高熵随机秘密，用于生成个人 API Key 的 HMAC 摘要；更换它会使所有现有 API Key 立即失效。密码若包含 URL 保留字符（尤其 `@`、`:`、`/`、`?`、`#`），请进行 URL 编码，因为迁移命令使用 PostgreSQL URL。
 
 创建 GitHub 的 `production` Environment，并按需要配置必需审批者。首次上线前，从 Actions 页面手动运行 **Verify and deploy production**；它会构建镜像、启动依赖、执行迁移并检查服务健康。
 

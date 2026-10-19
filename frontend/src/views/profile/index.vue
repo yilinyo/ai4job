@@ -32,6 +32,9 @@
               >
                 <account :user="user" />
               </el-tab-pane>
+              <el-tab-pane label="开发者访问" name="apiKeys">
+                <api-key-management />
+              </el-tab-pane>
             </el-tabs>
           </el-card>
         </el-col>
@@ -47,6 +50,7 @@ import Account from './components/Account.vue'
 import Activity from './components/Activity.vue'
 import Timeline from './components/Timeline.vue'
 import UserCard from './components/UserCard.vue'
+import ApiKeyManagement from './components/ApiKeyManagement.vue'
 
 export interface IProfile {
   name: string
@@ -68,7 +72,8 @@ const defaultProfile: IProfile = {
     Account,
     Activity,
     Timeline,
-    UserCard
+    UserCard,
+    ApiKeyManagement
   }
 })
 export default class extends Vue {
