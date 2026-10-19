@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags='-s -w' -o /out/ai-for-
 
 FROM alpine:3.21
 
-RUN addgroup -S app && adduser -S -G app app && apk add --no-cache ca-certificates wget
+RUN addgroup -S app && adduser -S -G app app && apk add --no-cache ca-certificates tzdata wget
 WORKDIR /app
 COPY --from=build /out/ai-for-api /app/ai-for-api
 USER app
