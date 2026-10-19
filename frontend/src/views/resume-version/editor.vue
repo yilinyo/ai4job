@@ -30,6 +30,7 @@
 
         <el-form-item label="简历内容" prop="content">
           <markdown-editor
+            ref="markdownEditor"
             class="resume-markdown-editor"
             :initial-value="versionForm.content"
             :height="editorHeight"
@@ -121,7 +122,13 @@ export default class extends Vue {
   }
 
   private handleSubmit() {
-    (this.$refs.versionForm as ElForm).validate(async(valid: boolean) => {
+    const markdownEditor = this.$refs.markdownEditor as MarkdownEditor
+    this.versionForm.content = markdownEditor
+      ? markdownEditor.getMarkdown()
+      : this.versionForm.content
+
+    const versionForm = this.$refs.versionForm as ElForm
+    versionForm.validate(async(valid: boolean) => {
       if (valid) {
         this.submitLoading = true
         try {
