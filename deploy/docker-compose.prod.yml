@@ -1,0 +1,105 @@
+services:
+  web:
+    image: ai-for-web:${APP_VERSION:-dev}
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    labels:
+      com.ai-for.service: web
+      com.ai-for.version: ${APP_VERSION:-dev}
+      com.ai-for.git-sha: ${GIT_SHA:-unknown}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-80}:80"
+    networks: [edge, internal]
+    restart: unless-stopped
+
+  api:
+    image: ai-for-api:${APP_VERSION:-dev}
+    build:
+      context: ../backend
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_PORT: "8080"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:?set DB_NAME in the production environment file}
+      DB_USER: ${DB_USER:?set DB_USER in the production environment file}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in the production environment file}
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in the production environment file}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in the production environment file}
+      JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-24}
+      EMAIL_MOCK: ${EMAIL_MOCK:-true}
+    labels:
+      com.ai-for.service: api
+      com.ai-for.version: ${APP_VERSION:-dev}
+      com.ai-for.git-sha: ${GIT_SHA:-unknown}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    networks: [internal]
+    restart: unless-stopped
+
+  migrate:
+    image: migrate/migrate:v4.18.3
+    profiles: [tools]
+    volumes:
+      - ../backend/migrations:/migrations:ro
+    entrypoint: ["migrate"]
+    command: ["-path", "/migrations", "-database", "postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+    restart: "no"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:?set DB_NAME in the production environment file}
+      POSTGRES_USER: ${DB_USER:?set DB_USER in the production environment file}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in the production environment file}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [internal]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in the production environment file}
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in the production environment file}"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    volumes:
+      - redis_data:/data
+    networks: [internal]
+    restart: unless-stopped
+
+networks:
+  edge:
+  internal:
+    internal: true
+
+volumes:
+  postgres_data:
+  redis_data:

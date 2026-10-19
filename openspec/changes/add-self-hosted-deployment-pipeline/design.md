@@ -27,7 +27,7 @@
 
 ### 生产 Runner 仅执行受信任分支部署
 
-工作流分为 GitHub 托管 Runner 上的验证 job 和标签为 `production` 的 self-hosted 部署 job。部署 job 只接受 `main` push 或人工触发，并使用 GitHub Environment 控制生产审批。Runner 以专用 deploy 用户运行，通过 Docker 执行部署。
+工作流分为 GitHub 托管 Runner 上的验证 job 和标签为 `production` 的 self-hosted 部署 job。部署 job 只接受 `master` push 或人工触发，并使用 GitHub Environment 控制生产审批。Runner 以专用 deploy 用户运行，通过 Docker 执行部署。
 
 选择 self-hosted runner 而非 SSH action：服务器保持仅出站 HTTPS 连接，减少入站凭据和 SSH Secrets 的维护。
 
@@ -47,7 +47,7 @@
 
 ## Risks / Trade-offs
 
-- [self-hosted runner 执行不受信任代码可危及服务器] → 仅私有仓库、仅受信任的 main/workflow_dispatch 事件使用 production 标签，生产 Environment 需审批。
+- [self-hosted runner 执行不受信任代码可危及服务器] → 仅私有仓库、仅受信任的 master/workflow_dispatch 事件使用 production 标签，生产 Environment 需审批。
 - [迁移后新 API 健康检查失败] → 记录失败版本；本次范围不承诺自动回滚数据库，迁移必须采用向后兼容策略。
 - [服务器构建消耗 CPU、磁盘] → 选择性构建，设置 Docker 镜像保留与清理策略，并在部署前检查磁盘空间。
 - [Runner 工作区含旧构建产物] → 每次部署 checkout 精确 Git SHA，构建使用版本化镜像标签，不依赖 `latest`。
@@ -57,5 +57,5 @@
 1. 在服务器安装 Docker Compose 与 self-hosted runner，并配置仅出站 HTTPS 和生产 Environment。
 2. 将生产环境变量、TLS 证书和数据卷放置于服务器受限路径。
 3. 合并部署文件后由人工触发首次部署，初始化数据卷和迁移。
-4. 验证容器版本、部署日志、API 与页面；后续 main 推送走自动选择性部署。
+4. 验证容器版本、部署日志、API 与页面；后续 `master` 推送走自动选择性部署。
 5. 回滚时使用上一个成功版本的镜像 tag 重新启动对应服务；数据库回滚按独立迁移策略执行。

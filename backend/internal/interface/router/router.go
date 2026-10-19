@@ -22,6 +22,9 @@ type Dependencies struct {
 func NewRouter(deps Dependencies) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.GET("/healthz", func(c *gin.Context) {
+		c.Status(204)
+	})
 
 	v1 := r.Group("/api/v1")
 

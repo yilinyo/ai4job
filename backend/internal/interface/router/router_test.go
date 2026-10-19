@@ -199,6 +199,25 @@ func (s *stubDashboardService) CompleteTodo(ctx context.Context, userID, id stri
 }
 func (s *stubDashboardService) DeleteTodo(ctx context.Context, userID, id string) error { return nil }
 
+func TestRouter_Healthz(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := router.NewRouter(router.Dependencies{
+		UserHandler:              handler.NewUserHandler(&stubUserService{}),
+		ResumeRepoHandler:        handler.NewResumeRepoHandler(&stubResumeRepoService{}),
+		ResumeVersionHandler:     handler.NewResumeVersionHandler(&stubResumeVersionService{}),
+		JobPostingHandler:        handler.NewJobPostingHandler(&stubJobPostingService{}),
+		ResumeApplicationHandler: handler.NewResumeApplicationHandler(&stubResumeApplicationService{}),
+		InterviewProgressHandler: handler.NewInterviewProgressHandler(&stubInterviewProgressService{}),
+		InterviewQuestionHandler: handler.NewInterviewQuestionHandler(&stubInterviewQuestionService{}),
+		DashboardHandler:         handler.NewDashboardHandler(&stubDashboardService{}),
+		AuthMiddleware:           func(c *gin.Context) { c.Next() },
+	})
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	assert.Equal(t, http.StatusNoContent, w.Code)
+}
+
 func TestRouter_ResumeRoutesRequireAuth(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	versionSvc := &stubResumeVersionService{}

@@ -5,10 +5,10 @@
 ## ADDED Requirements
 
 ### Requirement: 服务器 Runner 执行受控生产部署
-系统 SHALL 在标记为 production 的 self-hosted runner 上执行生产部署任务。部署任务 MUST 仅由主分支推送或人工触发，且不依赖 GitHub Actions 通过 SSH 入站连接服务器。
+系统 SHALL 在标记为 production 的 self-hosted runner 上执行生产部署任务。部署任务 MUST 仅由 `master` 分支推送或人工触发，且不依赖 GitHub Actions 通过 SSH 入站连接服务器。
 
-#### Scenario: 主分支提交触发部署
-- **WHEN** 主分支收到通过验证的提交
+#### Scenario: master 提交触发部署
+- **WHEN** `master` 收到通过验证的提交
 - **THEN** production runner SHALL 通过其主动建立的 HTTPS 连接领取并执行部署任务
 
 #### Scenario: 拉取请求不触发生产部署
