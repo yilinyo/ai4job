@@ -18,6 +18,7 @@
       </el-form-item>
       <el-form-item label="题目内容" prop="content">
         <markdown-editor
+          ref="contentEditor"
           class="question-markdown-editor"
           :initial-value="form.content"
           :height="editorHeight"
@@ -26,6 +27,7 @@
       </el-form-item>
       <el-form-item label="答案解析" prop="answerAnalysis">
         <markdown-editor
+          ref="answerAnalysisEditor"
           class="question-markdown-editor"
           :initial-value="form.answerAnalysis"
           :height="editorHeight"
@@ -233,6 +235,14 @@ export default class extends Vue {
   }
 
   private handleSubmit() {
+    const contentEditor = this.$refs.contentEditor as MarkdownEditor | undefined
+    const answerAnalysisEditor = this.$refs.answerAnalysisEditor as MarkdownEditor | undefined
+    if (contentEditor) {
+      this.form.content = contentEditor.getMarkdown()
+    }
+    if (answerAnalysisEditor) {
+      this.form.answerAnalysis = answerAnalysisEditor.getMarkdown()
+    }
     (this.$refs.questionForm as ElForm).validate((valid: boolean) => {
       if (!valid) return
 
