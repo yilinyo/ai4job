@@ -39,6 +39,12 @@ type DashboardResponse struct {
 	SourceDistribution   []DashboardNameCount    `json:"sourceDistribution"`
 	Todos                []DashboardTodoResponse `json:"todos"`
 	Activities           []ActivityLogResponse   `json:"activities"`
+	ActivityTotal        int64                   `json:"activityTotal"`
+	ActivityPage         int                     `json:"activityPage"`
+	ActivityPageSize     int                     `json:"activityPageSize"`
+	TodoTotal            int                     `json:"todoTotal"`
+	TodoPage             int                     `json:"todoPage"`
+	TodoPageSize         int                     `json:"todoPageSize"`
 }
 
 type DashboardMetrics struct {
@@ -87,6 +93,13 @@ type ActivityLogResponse struct {
 	Summary     string    `json:"summary"`
 	Route       string    `json:"route,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
+}
+
+type ActivityPageResponse struct {
+	List     []ActivityLogResponse `json:"list"`
+	Total    int64                 `json:"total"`
+	Page     int                   `json:"page"`
+	PageSize int                   `json:"pageSize"`
 }
 
 func ToDashboardTodoResponse(todo domaintodo.DashboardTodo, source domaintodo.Source, route string) DashboardTodoResponse {

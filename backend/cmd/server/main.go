@@ -16,6 +16,7 @@ import (
 	interviewquestionapp "github.com/yilin/ai-for-backend/internal/application/interview_question"
 	jobpostingapp "github.com/yilin/ai-for-backend/internal/application/job_posting"
 	resumeapplicationapp "github.com/yilin/ai-for-backend/internal/application/resume_application"
+	resumeattachmentapp "github.com/yilin/ai-for-backend/internal/application/resume_attachment"
 	resumerepoapp "github.com/yilin/ai-for-backend/internal/application/resume_repo"
 	resumeversionapp "github.com/yilin/ai-for-backend/internal/application/resume_version"
 	"github.com/yilin/ai-for-backend/internal/application/user"
@@ -73,6 +74,7 @@ func main() {
 	userRepo := infraDB.NewUserRepo(db)
 	resumeRepoRepo := infraDB.NewResumeRepoRepo(db)
 	resumeVersionRepo := infraDB.NewResumeVersionRepo(db)
+	resumeAttachmentRepo := infraDB.NewResumeAttachmentRepo(db)
 	jobPostingRepo := infraDB.NewJobPostingRepo(db)
 	resumeApplicationRepo := infraDB.NewResumeApplicationRepo(db)
 	interviewProgressRepo := infraDB.NewInterviewProgressRepo(db)
@@ -91,6 +93,7 @@ func main() {
 	resumeApplicationSvc := resumeapplicationapp.NewResumeApplicationService(resumeApplicationRepo, jobPostingRepo, resumeRepoRepo, resumeVersionRepo).WithActivityLogger(activityLogger)
 	interviewProgressSvc := interviewprogressapp.NewInterviewProgressService(interviewProgressRepo, resumeApplicationSvc).WithActivityLogger(activityLogger)
 	resumeVersionSvc := resumeversionapp.NewResumeVersionService(resumeRepoSvc, resumeVersionRepo, resumeApplicationRepo).WithActivityLogger(activityLogger)
+	resumeAttachmentSvc := resumeattachmentapp.NewService(resumeVersionSvc, resumeAttachmentRepo)
 	interviewQuestionSvc := interviewquestionapp.NewInterviewQuestionServiceWithTransactions(interviewQuestionRepo, questionOccurrenceRepo, flashcardReviewRepo, resumeApplicationSvc, interviewProgressRepo, transactionRunner).WithActivityLogger(activityLogger)
 	dashboardSvc := dashboardapp.NewService(resumeApplicationRepo, interviewProgressRepo, dashboardTodoRepo, activityLogRepo).
 		WithTargetReaders(dashboardapp.TargetReaders{Applications: resumeApplicationRepo, Progresses: interviewProgressRepo, Questions: interviewQuestionRepo, Resumes: resumeRepoRepo})
@@ -105,6 +108,7 @@ func main() {
 	userHandler := handler.NewUserHandler(userSvc)
 	resumeRepoHandler := handler.NewResumeRepoHandler(resumeRepoSvc)
 	resumeVersionHandler := handler.NewResumeVersionHandler(resumeVersionSvc)
+	resumeAttachmentHandler := handler.NewResumeAttachmentHandler(resumeAttachmentSvc)
 	jobPostingHandler := handler.NewJobPostingHandler(jobPostingSvc)
 	resumeApplicationHandler := handler.NewResumeApplicationHandler(resumeApplicationSvc)
 	interviewProgressHandler := handler.NewInterviewProgressHandler(interviewProgressSvc)
@@ -116,6 +120,7 @@ func main() {
 		UserHandler:              userHandler,
 		ResumeRepoHandler:        resumeRepoHandler,
 		ResumeVersionHandler:     resumeVersionHandler,
+		ResumeAttachmentHandler:  resumeAttachmentHandler,
 		JobPostingHandler:        jobPostingHandler,
 		ResumeApplicationHandler: resumeApplicationHandler,
 		InterviewProgressHandler: interviewProgressHandler,

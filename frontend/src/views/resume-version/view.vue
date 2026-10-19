@@ -58,6 +58,27 @@
           <resume-markdown-preview :html="renderedContent" />
         </div>
 
+        <div class="attachments-section">
+          <div class="section-header">
+            <div>
+              <div class="section-title">版本附件</div>
+              <div class="section-subtitle">仅支持 PDF 和 Markdown（单个文件不超过 10MB）</div>
+            </div>
+            <div>
+              <input ref="attachmentInput" class="attachment-input" type="file" accept=".pdf,.md,text/markdown,application/pdf" @change="handleAttachmentSelected">
+              <el-button type="primary" size="small" icon="el-icon-upload2" :loading="attachmentUploading" @click="selectAttachment">上传附件</el-button>
+            </div>
+          </div>
+          <el-table :data="attachments" style="width: 100%">
+            <el-table-column prop="fileName" label="文件名" min-width="220" />
+            <el-table-column label="类型" width="100"><template slot-scope="{row}">{{ attachmentType(row.fileName) }}</template></el-table-column>
+            <el-table-column label="大小" width="120"><template slot-scope="{row}">{{ formatFileSize(row.fileSize) }}</template></el-table-column>
+            <el-table-column label="上传时间" width="180"><template slot-scope="{row}">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
+            <el-table-column label="操作" width="140"><template slot-scope="{row}"><el-button type="text" size="small" @click="downloadAttachment(row)">下载</el-button><el-button type="text" size="small" class="danger" @click="deleteAttachment(row)">删除</el-button></template></el-table-column>
+          </el-table>
+          <empty-state v-if="attachments.length === 0" description="暂无版本附件" />
+        </div>
+
         <div class="applications-section">
           <div class="section-header">
             <div>
@@ -114,7 +135,7 @@
             </el-table-column>
           </el-table>
 
-          <el-empty
+          <empty-state
             v-if="!applicationLoading && applications.length === 0"
             description="当前版本还没有关联投递记录"
           />
@@ -128,30 +149,11 @@
         ref="pdfContent"
         class="pdf-export-document"
       >
-        <header class="pdf-header">
-          <div class="pdf-title-group">
-            <h1>{{ currentVersion.title }}</h1>
-            <p class="pdf-subtitle">简历版本 {{ currentVersion.version }}</p>
-          </div>
-          <div class="pdf-meta">
-            <span>导出时间 {{ pdfExportTimestamp }}</span>
-            <span>创建时间 {{ formatDateTime(currentVersion.createdAt) }}</span>
-          </div>
-        </header>
-
-        <section v-if="currentVersion.remark" class="pdf-section">
-          <h2>版本备注</h2>
-          <p class="pdf-remark">{{ currentVersion.remark }}</p>
-        </section>
-
-        <section class="pdf-section">
-          <h2>简历内容</h2>
-          <resume-markdown-preview
-            :html="renderedContent"
-            variant="pdf"
-            empty-text="暂无简历内容"
-          />
-        </section>
+        <resume-markdown-preview
+          :html="renderedContent"
+          variant="pdf"
+          empty-text="暂无简历内容"
+        />
       </div>
     </div>
   </div>
@@ -163,7 +165,8 @@ import html2pdf from 'html2pdf.js'
 import ResumeMarkdownPreview from '@/components/ResumeMarkdownPreview/index.vue'
 import { ResumeVersionModule } from '@/store/modules/resume-version'
 import { ResumeApplicationModule } from '@/store/modules/resume-application'
-import { ApplicationStatus } from '@/models'
+import { ApplicationStatus, ResumeAttachment } from '@/models'
+import { deleteResumeAttachment, downloadResumeAttachment, getResumeAttachments, uploadResumeAttachment } from '@/api/resume-versions'
 import { renderResumeMarkdown } from '@/utils/resume-markdown'
 
 @Component({
@@ -175,7 +178,8 @@ import { renderResumeMarkdown } from '@/utils/resume-markdown'
 export default class extends Vue {
   private versionId = ''
   private exportingPdf = false
-  private pdfExportTimestamp = ''
+  private attachments: ResumeAttachment[] = []
+  private attachmentUploading = false
   private applicationStatusMap: Record<string, string> = {
     [ApplicationStatus.APPLIED]: '已投递',
     [ApplicationStatus.VIEWED]: '已查看',
@@ -226,7 +230,34 @@ export default class extends Vue {
       page: 1,
       pageSize: 100
     })
+    await this.loadAttachments()
   }
+
+  private async loadAttachments() { this.attachments = (await getResumeAttachments(this.versionId)).data || [] }
+
+  private selectAttachment() { (this.$refs.attachmentInput as HTMLInputElement).click() }
+
+  private async handleAttachmentSelected(event: Event) {
+    const input = event.target as HTMLInputElement
+    const file = input.files && input.files[0]
+    input.value = ''
+    if (!file) return
+    if (!/\.(pdf|md)$/i.test(file.name) || file.size > 10 * 1024 * 1024) { this.$message.error('仅支持不超过 10MB 的 PDF 或 Markdown 文件'); return }
+    this.attachmentUploading = true
+    try { await uploadResumeAttachment(this.versionId, file); await this.loadAttachments(); this.$message.success('附件上传成功') } catch (error) { console.error('附件上传失败:', error) } finally { this.attachmentUploading = false }
+  }
+
+  private async downloadAttachment(attachment: ResumeAttachment) {
+    const blob = await downloadResumeAttachment(this.versionId, attachment.id)
+    const url = URL.createObjectURL(blob as unknown as Blob); const link = document.createElement('a'); link.href = url; link.download = attachment.fileName; link.click(); URL.revokeObjectURL(url)
+  }
+
+  private async deleteAttachment(attachment: ResumeAttachment) {
+    try { await this.$confirm(`确定删除附件“${attachment.fileName}”吗？`, '提示', { type: 'warning' }); await deleteResumeAttachment(this.versionId, attachment.id); await this.loadAttachments(); this.$message.success('附件已删除') } catch (error) { if (error !== 'cancel') console.error('删除附件失败:', error) }
+  }
+
+  private attachmentType(fileName: string) { return /\.pdf$/i.test(fileName) ? 'PDF' : 'Markdown' }
+  private formatFileSize(size: number) { return size < 1024 * 1024 ? `${Math.ceil(size / 1024)} KB` : `${(size / 1024 / 1024).toFixed(2)} MB` }
 
   private formatDateTime(dateString: string) {
     const date = new Date(dateString)
@@ -323,7 +354,6 @@ export default class extends Vue {
     const fileName = this.getPdfFileName()
 
     this.exportingPdf = true
-    this.pdfExportTimestamp = this.formatDateTime(new Date().toISOString())
 
     try {
       await this.$nextTick()
@@ -482,6 +512,15 @@ export default class extends Vue {
         color: #f56c6c;
       }
     }
+
+    .attachments-section {
+      margin-bottom: 30px;
+
+      .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      .section-title { font-size: 16px; font-weight: bold; color: #303133; }
+      .section-subtitle { margin-top: 4px; color: #909399; font-size: 13px; }
+      .attachment-input { display: none; }
+    }
   }
 
   .pdf-export-document {
@@ -492,63 +531,6 @@ export default class extends Vue {
     color: #1f2937;
     font-family: 'Helvetica Neue', Arial, sans-serif;
     line-height: 1.75;
-
-    .pdf-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 24px;
-      padding-bottom: 24px;
-      border-bottom: 2px solid #dbe3f0;
-      margin-bottom: 28px;
-      page-break-inside: avoid;
-
-      .pdf-title-group {
-        h1 {
-          margin: 0 0 8px;
-          font-size: 30px;
-          font-weight: 600;
-          color: #111827;
-        }
-
-        .pdf-subtitle {
-          margin: 0;
-          font-size: 14px;
-          color: #4b5563;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-      }
-
-      .pdf-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        font-size: 12px;
-        color: #6b7280;
-        text-align: right;
-      }
-    }
-
-    .pdf-section {
-      margin-bottom: 28px;
-      page-break-inside: avoid;
-
-      h2 {
-        margin: 0 0 14px;
-        font-size: 16px;
-        font-weight: 600;
-        color: #1d4ed8;
-      }
-    }
-
-    .pdf-remark {
-      margin: 0;
-      font-size: 14px;
-      color: #1f2937;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
   }
 }
 </style>

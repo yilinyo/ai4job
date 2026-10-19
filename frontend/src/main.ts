@@ -8,6 +8,7 @@ import '@/styles/element-variables.scss'
 import '@/styles/index.scss'
 
 import App from '@/App.vue'
+import EmptyState from '@/components/EmptyState/index.vue'
 import store from '@/store'
 import { AppModule } from '@/store/modules/app'
 import router from '@/router'
@@ -23,6 +24,8 @@ Vue.use(ElementUI, {
   size: AppModule.size, // Set element-ui default size
   i18n: (key: string, value: string) => i18n.t(key, value)
 })
+
+Vue.component('empty-state', EmptyState)
 
 Vue.use(SvgIcon, {
   tagName: 'svg-icon',

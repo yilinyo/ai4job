@@ -117,9 +117,6 @@ func (t *DashboardTodo) validate() error {
 	if t.TargetType != "" && !t.TargetType.Valid() {
 		return domainerrors.ErrBadParams
 	}
-	if t.TargetType != "" && (t.TargetID == nil || strings.TrimSpace(*t.TargetID) == "") {
-		return domainerrors.ErrBadParams
-	}
 	if t.TargetType == "" && t.TargetID != nil {
 		return domainerrors.ErrBadParams
 	}

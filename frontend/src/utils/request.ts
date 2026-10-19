@@ -25,6 +25,9 @@ service.interceptors.request.use(
 // Response interceptors
 service.interceptors.response.use(
   (response) => {
+    if (response.config.responseType === 'blob') {
+      return response.data
+    }
     // Some example codes here:
     // code == 20000: success
     // code == 50001: invalid access token

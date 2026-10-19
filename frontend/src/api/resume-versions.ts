@@ -74,3 +74,18 @@ export const compareVersions = (oldVersionId: string, newVersionId: string) =>
       newVersionId
     }
   })
+
+export const getResumeAttachments = (versionId: string) =>
+  request({ url: `/api/resume-versions/${versionId}/attachments`, method: 'get' })
+
+export const uploadResumeAttachment = (versionId: string, file: File) => {
+  const data = new FormData()
+  data.append('file', file)
+  return request({ url: `/api/resume-versions/${versionId}/attachments`, method: 'post', data })
+}
+
+export const deleteResumeAttachment = (versionId: string, attachmentId: string) =>
+  request({ url: `/api/resume-versions/${versionId}/attachments/${attachmentId}`, method: 'delete' })
+
+export const downloadResumeAttachment = (versionId: string, attachmentId: string) =>
+  request({ url: `/api/resume-versions/${versionId}/attachments/${attachmentId}/download`, method: 'get', responseType: 'blob' })

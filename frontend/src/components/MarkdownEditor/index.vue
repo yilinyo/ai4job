@@ -1,5 +1,16 @@
 <template>
-  <div :id="id" />
+  <div class="markdown-editor-wrapper" @focusout="handleEditorBlur">
+    <div :id="id" />
+    <div
+      v-if="resizable"
+      class="resize-handle"
+      title="拖拽调节编辑器高度"
+      @mousedown.prevent="startResize"
+    >
+      <i class="el-icon-rank" />
+      <span>拖拽调节高度</span>
+    </div>
+  </div>
 </template>
 
 <script lang="ts">
@@ -26,8 +37,11 @@ export default class extends Vue {
   @Prop({ default: 'markdown' }) private mode!: string
   @Prop({ default: '300px' }) private height!: string
   @Prop({ default: 'en' }) private language!: string
+  @Prop({ default: false }) private resizable!: boolean
 
   private markdownEditor?: Editor
+  private resizeStartY = 0
+  private resizeStartHeight = 0
   // Mapping for local lang to tuiEditor lang
   // https://github.com/nhn/tui.editor/blob/master/apps/editor/docs/i18n.md#supported-languages
   private languageTypeList: { [key: string]: string } = {
@@ -85,6 +99,7 @@ export default class extends Vue {
   }
 
   destroyed() {
+    this.stopResize()
     this.destroyEditor()
   }
 
@@ -97,11 +112,13 @@ export default class extends Vue {
       el: editorElement
     })
     this.markdownEditor.on('change', this.handleEditorChange)
+    this.markdownEditor.on('blur', this.handleEditorBlur)
   }
 
   private destroyEditor() {
     if (!this.markdownEditor) return
     this.markdownEditor.off('change')
+    this.markdownEditor.off('blur')
     this.markdownEditor.remove()
     this.markdownEditor = undefined
   }
@@ -111,6 +128,30 @@ export default class extends Vue {
     const markdown = this.markdownEditor.getMarkdown()
     this.$emit('change', markdown)
     this.$emit('input', markdown)
+  }
+
+  private handleEditorBlur() {
+    this.$emit('blur')
+  }
+
+  private startResize(event: MouseEvent) {
+    const editorElement = document.getElementById(this.id)
+    if (!editorElement) return
+
+    this.resizeStartY = event.clientY
+    this.resizeStartHeight = editorElement.getBoundingClientRect().height
+    document.addEventListener('mousemove', this.resizeEditor)
+    document.addEventListener('mouseup', this.stopResize)
+  }
+
+  private resizeEditor = (event: MouseEvent) => {
+    const nextHeight = Math.max(300, Math.round(this.resizeStartHeight + event.clientY - this.resizeStartY))
+    this.$emit('height-change', `${nextHeight}px`)
+  }
+
+  private stopResize = () => {
+    document.removeEventListener('mousemove', this.resizeEditor)
+    document.removeEventListener('mouseup', this.stopResize)
   }
 
   private handleImageBlobHook(blob: File | Blob, callback: (url: string, altText: string) => void) {
@@ -154,3 +195,25 @@ export default class extends Vue {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+.markdown-editor-wrapper {
+  width: 100%;
+}
+
+.resize-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  color: #909399;
+  font-size: 12px;
+  cursor: ns-resize;
+  user-select: none;
+
+  &:hover {
+    color: #409eff;
+  }
+}
+</style>

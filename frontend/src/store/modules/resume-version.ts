@@ -54,10 +54,13 @@ class ResumeVersionStore extends VuexModule implements IResumeVersionState {
     this.SET_LOADING(true)
     try {
       const { data } = await getResumeVersions(params)
-      if (data) {
-        this.SET_VERSIONS(data.list)
-        this.SET_TOTAL(data.total)
-      }
+      // 后端分页响应为 { list, total }；无论响应是否为空，都必须覆盖旧状态，
+      // 否则从创建页返回时会继续显示此前缓存的版本列表。
+      const payload = (data || {}) as { list?: ResumeVersion[], total?: number }
+      const versions = Array.isArray(payload.list) ? payload.list : []
+      const total = typeof payload.total === 'number' ? payload.total : versions.length
+      this.SET_VERSIONS(versions)
+      this.SET_TOTAL(total)
     } finally {
       this.SET_LOADING(false)
     }
@@ -78,26 +81,24 @@ class ResumeVersionStore extends VuexModule implements IResumeVersionState {
 
   @Action
   public async CreateResumeVersion(versionData: CreateResumeVersionRequest) {
+    // 创建接口按约定返回 data: null；请求成功后仍必须刷新列表。
     const { data } = await createResumeVersion(versionData)
-    if (data) {
-      await this.GetResumeVersions({
-        repoId: versionData.repoId,
-        page: 1,
-        pageSize: 10
-      })
-      return data
-    }
+    await this.GetResumeVersions({
+      repoId: versionData.repoId,
+      page: 1,
+      pageSize: 100
+    })
+    return data
   }
 
   @Action
   public async UpdateResumeVersion(payload: { id: string, data: UpdateResumeVersionRequest }) {
     const { data } = await updateResumeVersion(payload.id, payload.data)
-    if (data) {
-      if (this.currentVersion && (this.currentVersion as any).id === payload.id) {
-        this.SET_CURRENT_VERSION(data)
-      }
-      return data
+    // 更新接口成功时返回 data: null，重新读取详情以同步缓存的版本详情页。
+    if (this.currentVersion && this.currentVersion.id === payload.id) {
+      await this.GetResumeVersionById(payload.id)
     }
+    return data
   }
 
   @Action

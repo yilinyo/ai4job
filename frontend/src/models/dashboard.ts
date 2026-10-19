@@ -66,14 +66,27 @@ export interface DashboardResponse {
   sourceDistribution: DashboardNameCount[]
   todos: DashboardTodo[]
   activities: ActivityLog[]
+  activityTotal: number
+  activityPage: number
+  activityPageSize: number
+  todoTotal: number
+  todoPage: number
+  todoPageSize: number
 }
 
 export interface DashboardQueryParams {
   range?: DashboardRange
+  activityPage?: number
+  activityPageSize?: number
+  todoPage?: number
+  todoPageSize?: number
+  includeCompleted?: boolean
 }
 
 export interface DashboardTodoQueryParams {
   completed?: boolean
+  page?: number
+  pageSize?: number
 }
 
 export interface DashboardTodoListResponse {

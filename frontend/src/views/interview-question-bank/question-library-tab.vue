@@ -149,7 +149,7 @@
       </el-table-column>
     </el-table>
 
-    <el-empty
+    <empty-state
       v-if="!loading && questions.length === 0"
       description="暂无面试题，点击新增题目开始沉淀"
     />

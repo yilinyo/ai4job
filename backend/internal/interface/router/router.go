@@ -10,6 +10,7 @@ type Dependencies struct {
 	UserHandler              *handler.UserHandler
 	ResumeRepoHandler        *handler.ResumeRepoHandler
 	ResumeVersionHandler     *handler.ResumeVersionHandler
+	ResumeAttachmentHandler  *handler.ResumeAttachmentHandler
 	JobPostingHandler        *handler.JobPostingHandler
 	ResumeApplicationHandler *handler.ResumeApplicationHandler
 	InterviewProgressHandler *handler.InterviewProgressHandler
@@ -45,6 +46,7 @@ func NewRouter(deps Dependencies) *gin.Engine {
 	auth := v1.Group("/", deps.AuthMiddleware)
 	{
 		auth.GET("/dashboard", deps.DashboardHandler.Get)
+		auth.GET("/dashboard/activities", deps.DashboardHandler.ListActivities)
 		auth.GET("/dashboard/todos", deps.DashboardHandler.ListTodos)
 		auth.POST("/dashboard/todos", deps.DashboardHandler.CreateTodo)
 		auth.PUT("/dashboard/todos/:id", deps.DashboardHandler.UpdateTodo)
@@ -61,6 +63,10 @@ func NewRouter(deps Dependencies) *gin.Engine {
 		auth.PUT("/resume-versions/:id", deps.ResumeVersionHandler.Update)
 		auth.DELETE("/resume-versions/:id", deps.ResumeVersionHandler.Delete)
 		auth.POST("/resume-versions/:id/activate", deps.ResumeVersionHandler.Activate)
+		auth.GET("/resume-versions/:id/attachments", deps.ResumeAttachmentHandler.List)
+		auth.POST("/resume-versions/:id/attachments", deps.ResumeAttachmentHandler.Upload)
+		auth.GET("/resume-versions/:id/attachments/:attachmentId/download", deps.ResumeAttachmentHandler.Download)
+		auth.DELETE("/resume-versions/:id/attachments/:attachmentId", deps.ResumeAttachmentHandler.Delete)
 
 		auth.GET("/job-postings", deps.JobPostingHandler.List)
 		auth.POST("/job-postings", deps.JobPostingHandler.Create)

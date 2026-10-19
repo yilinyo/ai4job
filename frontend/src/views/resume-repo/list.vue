@@ -65,7 +65,7 @@
         </el-col>
       </el-row>
 
-      <el-empty
+      <empty-state
         v-if="!loading && repos.length === 0"
         description="暂无简历仓库，点击右上角创建一个吧"
       />

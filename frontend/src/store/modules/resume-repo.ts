@@ -53,10 +53,18 @@ class ResumeRepoStore extends VuexModule implements IResumeRepoState {
     this.SET_LOADING(true)
     try {
       const { data } = await getResumeRepos(params)
-      if (data) {
-        this.SET_REPOS(data.list)
-        this.SET_TOTAL(data.total)
-      }
+      // 兼容后端返回空数组或缺少 list 的响应，避免将 undefined 写入列表状态，
+      // 从而导致页面的空态条件无法渲染。
+      const payload = (data || {}) as unknown as { list?: ResumeRepo[], total?: number }
+      const repos: ResumeRepo[] = Array.isArray(data)
+        ? (data as unknown as ResumeRepo[])
+        : Array.isArray(payload.list)
+          ? payload.list
+          : []
+      const total: number = typeof payload.total === 'number' ? payload.total : repos.length
+
+      this.SET_REPOS(repos)
+      this.SET_TOTAL(total)
     } finally {
       this.SET_LOADING(false)
     }
@@ -78,19 +86,20 @@ class ResumeRepoStore extends VuexModule implements IResumeRepoState {
   @Action
   public async CreateResumeRepo(repoData: CreateResumeRepoRequest) {
     const { data } = await createResumeRepo(repoData)
-    if (data) {
-      await this.GetResumeRepos({ page: 1, pageSize: 10 })
-      return data
-    }
+    // 创建接口成功时返回 data: null，不能以 data 是否存在判断是否刷新。
+    await this.GetResumeRepos({ page: 1, pageSize: 10 })
+    return data
   }
 
   @Action
   public async UpdateResumeRepo(payload: { id: string, data: UpdateResumeRepoRequest }) {
     const { data } = await updateResumeRepo(payload.id, payload.data)
-    if (data) {
-      await this.GetResumeRepos({ page: 1, pageSize: 10 })
-      return data
+    // 更新接口同样只返回成功状态。刷新列表，并在当前详情正是该仓库时更新详情状态。
+    await this.GetResumeRepos({ page: 1, pageSize: 10 })
+    if (this.currentRepo && this.currentRepo.id === payload.id) {
+      await this.GetResumeRepoById(payload.id)
     }
+    return data
   }
 
   @Action

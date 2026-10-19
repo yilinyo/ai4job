@@ -119,7 +119,7 @@
             </el-button>
           </div>
 
-          <el-empty v-if="!progressLoading && progressList.length === 0" description="暂无面试进展" />
+          <empty-state v-if="!progressLoading && progressList.length === 0" description="暂无面试进展" />
 
           <el-timeline v-else>
             <el-timeline-item

@@ -5,6 +5,7 @@
 export * from './user'
 export * from './resume-repo'
 export * from './resume-version'
+export * from './resume-attachment'
 export * from './resume-application'
 export * from './interview-progress'
 export * from './job-posting'

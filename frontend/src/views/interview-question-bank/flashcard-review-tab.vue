@@ -124,7 +124,7 @@
       </el-card>
     </div>
 
-    <el-empty
+    <empty-state
       v-else
       :description="loading ? '正在抽题' : '选择复习模式后开始抽题'"
     />

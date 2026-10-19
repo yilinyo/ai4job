@@ -52,11 +52,11 @@ class DashboardStore extends VuexModule implements IDashboardState {
   }
 
   @Action
-  public async GetDashboard(range?: DashboardRange) {
+  public async GetDashboard(range?: DashboardRange, activityPage = 1, todoPage = 1, includeCompleted = false) {
     const currentRange = range || this.range
     this.SET_LOADING(true)
     try {
-      const { data } = await getDashboard({ range: currentRange })
+      const { data } = await getDashboard({ range: currentRange, activityPage, activityPageSize: 5, todoPage, todoPageSize: 7, includeCompleted })
       if (data) {
         this.SET_RANGE(data.range || currentRange)
         this.SET_DASHBOARD(data)
@@ -73,7 +73,7 @@ class DashboardStore extends VuexModule implements IDashboardState {
     const { data } = await getDashboardTodos(params)
     const list = data && data.list ? data.list : []
     this.SET_TODOS(list)
-    return list
+    return data || { list: [], total: 0, page: 1, pageSize: 7 }
   }
 
   @Action

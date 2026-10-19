@@ -13,6 +13,9 @@ export const getDashboard = (params: DashboardQueryParams) =>
     params
   })
 
+export const getDashboardActivities = (params: { range?: string, page: number, pageSize: number }) =>
+  request({ url: '/api/dashboard/activities', method: 'get', params })
+
 export const getDashboardTodos = (params?: DashboardTodoQueryParams) =>
   request({
     url: '/api/dashboard/todos',
