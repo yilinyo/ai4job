@@ -1,26 +1,62 @@
-name: Deploy on GitHub Pages
+name: Verify and deploy production
 
 on:
   push:
-    branches:
-    - master
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 jobs:
-  build-deploy:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+      backend: ${{ steps.changes.outputs.backend }}
+      infrastructure: ${{ steps.changes.outputs.infrastructure }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: changes
+        run: scripts/ci/detect-changes.sh
+
+  verify:
+    needs: detect
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-    - name: Yarn install
-      uses: Borales/actions-yarn@v2.3.0
-      with:
-        cmd: --cwd frontend install
-    - name: Yarn build
-      uses: Borales/actions-yarn@v2.3.0
-      with:
-        cmd: --cwd frontend build:prod
-    - name: Deploy
-      uses: maxheld83/ghpages@v0.3.0
-      env:
-        BUILD_DIR: frontend/dist/
-        GH_PAT: ${{ secrets.GH_PAT }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps && npm run lint
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+      - name: Test backend
+        working-directory: backend
+        run: go test ./...
+
+  deploy:
+    needs: [detect, verify]
+    if: needs.detect.outputs.frontend == 'true' || needs.detect.outputs.backend == 'true'
+    runs-on: [self-hosted, linux, x64, production]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy changed services
+        env:
+          FRONTEND_CHANGED: ${{ needs.detect.outputs.frontend }}
+          BACKEND_CHANGED: ${{ needs.detect.outputs.backend }}
+          INFRASTRUCTURE_CHANGED: ${{ needs.detect.outputs.infrastructure }}
+          AI_FOR_ENV_FILE: /etc/ai-for/production.env
+        run: deploy/scripts/deploy.sh
