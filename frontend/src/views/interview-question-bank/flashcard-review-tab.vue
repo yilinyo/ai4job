@@ -467,12 +467,80 @@ export default class extends Vue {
 
 @media (max-width: 768px) {
   .flashcard-review-tab {
+    .review-form {
+      display: block;
+
+      ::v-deep .el-form-item {
+        display: block;
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 14px;
+      }
+
+      ::v-deep .el-form-item__content,
+      ::v-deep .el-select,
+      ::v-deep .el-input-number,
+      ::v-deep .el-input-number .el-input {
+        width: 100%;
+      }
+
+      ::v-deep .el-button {
+        width: 100%;
+        margin-left: 0;
+      }
+    }
+
+    .flashcard-workspace {
+      width: 100%;
+    }
+
+    .progress-line {
+      grid-template-columns: 42px 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
     .flashcard-shell {
-      height: 480px;
+      width: 100%;
+      height: min(480px, 70vh);
+      min-height: 360px;
     }
 
     .flashcard-face {
-      padding: 20px;
+      padding: 16px;
+
+      h3 {
+        margin: 12px 0;
+        font-size: 20px;
+      }
+    }
+
+    .question-text,
+    .answer-text {
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .card-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+
+      .el-button {
+        width: 100%;
+        margin-left: 0;
+      }
+
+      .el-button:last-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    .review-actions {
+      .el-button {
+        flex: 1 1 100%;
+        margin-left: 0;
+      }
     }
 
     .summary-card ::v-deep .el-card__body {
