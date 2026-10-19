@@ -114,7 +114,7 @@
             </el-table-column>
           </el-table>
 
-          <el-empty
+          <empty-state
             v-if="!applicationLoading && applications.length === 0"
             description="当前版本还没有关联投递记录"
           />

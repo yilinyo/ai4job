@@ -1,10 +1,9 @@
 <template>
   <el-card shadow="never" class="activity-feed">
     <div slot="header" class="card-header">最近动态</div>
-    <el-empty
+    <empty-state
       v-if="!activities.length"
       description="暂无动态"
-      :image-size="100"
     />
     <el-timeline v-else class="activity-feed__timeline">
       <el-timeline-item

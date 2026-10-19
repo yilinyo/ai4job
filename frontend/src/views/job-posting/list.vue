@@ -70,7 +70,7 @@
         </el-col>
       </el-row>
 
-      <el-empty
+      <empty-state
         v-if="!loading && jobPostings.length === 0"
         description="暂无岗位记录，点击右上角新增一个吧"
       />

@@ -62,10 +62,17 @@ class JobPostingStore extends VuexModule implements IJobPostingState {
     this.SET_LOADING(true)
     try {
       const { data } = await getJobPostings(params)
-      if (data) {
-        this.SET_JOB_POSTINGS(data.list)
-        this.SET_TOTAL(data.total)
-      }
+      // 兼容后端返回空数组或缺少 list 的响应，确保页面可以显示空态。
+      const payload = (data || {}) as unknown as { list?: JobPosting[], total?: number }
+      const jobPostings: JobPosting[] = Array.isArray(data)
+        ? (data as unknown as JobPosting[])
+        : Array.isArray(payload.list)
+          ? payload.list
+          : []
+      const total: number = typeof payload.total === 'number' ? payload.total : jobPostings.length
+
+      this.SET_JOB_POSTINGS(jobPostings)
+      this.SET_TOTAL(total)
     } finally {
       this.SET_LOADING(false)
     }

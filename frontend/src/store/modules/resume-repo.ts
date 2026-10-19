@@ -53,10 +53,18 @@ class ResumeRepoStore extends VuexModule implements IResumeRepoState {
     this.SET_LOADING(true)
     try {
       const { data } = await getResumeRepos(params)
-      if (data) {
-        this.SET_REPOS(data.list)
-        this.SET_TOTAL(data.total)
-      }
+      // 兼容后端返回空数组或缺少 list 的响应，避免将 undefined 写入列表状态，
+      // 从而导致页面的空态条件无法渲染。
+      const payload = (data || {}) as unknown as { list?: ResumeRepo[], total?: number }
+      const repos: ResumeRepo[] = Array.isArray(data)
+        ? (data as unknown as ResumeRepo[])
+        : Array.isArray(payload.list)
+          ? payload.list
+          : []
+      const total: number = typeof payload.total === 'number' ? payload.total : repos.length
+
+      this.SET_REPOS(repos)
+      this.SET_TOTAL(total)
     } finally {
       this.SET_LOADING(false)
     }

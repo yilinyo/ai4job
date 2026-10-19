@@ -7,10 +7,9 @@
       </el-button>
     </div>
 
-    <el-empty
+    <empty-state
       v-if="!todos.length"
       description="暂无待办事项"
-      :image-size="100"
     />
     <div v-else class="todo-list">
       <div

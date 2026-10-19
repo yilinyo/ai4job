@@ -3,10 +3,9 @@
     <el-col :xs="24" :lg="8">
       <el-card shadow="never" class="distribution-card">
         <div slot="header" class="card-header">公司投递 Top N</div>
-        <el-empty
+        <empty-state
           v-if="!hasCompanies"
           description="暂无公司投递数据"
-          :image-size="100"
         />
         <div v-else ref="companyChart" class="chart" />
       </el-card>
@@ -14,10 +13,9 @@
     <el-col :xs="24" :lg="8">
       <el-card shadow="never" class="distribution-card">
         <div slot="header" class="card-header">岗位方向分布</div>
-        <el-empty
+        <empty-state
           v-if="!hasJobs"
           description="暂无岗位方向数据"
-          :image-size="100"
         />
         <div v-else ref="jobChart" class="chart" />
       </el-card>
@@ -25,10 +23,9 @@
     <el-col :xs="24" :lg="8">
       <el-card shadow="never" class="distribution-card">
         <div slot="header" class="card-header">渠道来源分布</div>
-        <el-empty
+        <empty-state
           v-if="!hasSources"
           description="暂无渠道来源数据"
-          :image-size="100"
         />
         <div v-else ref="sourceChart" class="chart" />
       </el-card>

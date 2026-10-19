@@ -76,7 +76,7 @@
                 <span>真实面试提问记录</span>
                 <el-button type="text" icon="el-icon-plus" @click="openOccurrenceDialog">新增</el-button>
               </div>
-              <el-empty v-if="question.occurrences.length === 0" description="暂无真实面试提问记录" />
+              <empty-state v-if="question.occurrences.length === 0" description="暂无真实面试提问记录" />
               <el-table v-else :data="question.occurrences" style="width: 100%">
                 <el-table-column label="公司 / 岗位" min-width="180">
                   <template slot-scope="{row}">
@@ -141,7 +141,7 @@
                   <el-tag size="mini">{{ reviewResultLabelMap[review.result] }}</el-tag>
                 </div>
               </div>
-              <el-empty v-else description="暂无复习记录" />
+              <empty-state v-else description="暂无复习记录" />
             </el-card>
           </el-col>
         </el-row>

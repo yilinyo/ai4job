@@ -107,7 +107,7 @@
         </el-table-column>
       </el-table>
 
-      <el-empty
+      <empty-state
         v-if="!versionLoading && versions.length === 0"
         description="暂无简历版本"
       />

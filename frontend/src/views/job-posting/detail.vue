@@ -62,7 +62,7 @@
             关联投递记录（{{ applications.length }}）
           </div>
 
-          <el-empty
+          <empty-state
             v-if="!applicationLoading && applications.length === 0"
             description="当前岗位还没有关联投递记录"
           />

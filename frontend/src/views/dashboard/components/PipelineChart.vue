@@ -3,10 +3,9 @@
     <div slot="header" class="card-header">
       <span>投递管线与趋势</span>
     </div>
-    <el-empty
+    <empty-state
       v-if="isEmpty"
       description="暂无投递管线和趋势数据"
-      :image-size="120"
     />
     <div v-else class="pipeline-chart-card__body">
       <div class="chart-section">

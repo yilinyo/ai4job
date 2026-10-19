@@ -59,6 +59,7 @@
 import { Component, Vue } from 'vue-property-decorator'
 import { Form as ElForm } from 'element-ui'
 import MarkdownEditor from '@/components/MarkdownEditor/index.vue'
+import { ResumeRepoModule } from '@/store/modules/resume-repo'
 import { ResumeVersionModule } from '@/store/modules/resume-version'
 import { UserModule } from '@/store/modules/user'
 import { CreateResumeVersionRequest, UpdateResumeVersionRequest } from '@/models'
@@ -151,6 +152,7 @@ export default class extends Vue {
               remark: this.versionForm.remark
             }
             await ResumeVersionModule.CreateResumeVersion(data)
+            await ResumeRepoModule.GetResumeRepoById(this.repoId)
             this.$message.success('创建成功！')
           }
           this.goBack()
