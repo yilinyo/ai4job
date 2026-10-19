@@ -1,5 +1,5 @@
 <template>
-  <div class="markdown-editor-wrapper">
+  <div class="markdown-editor-wrapper" @focusout="handleEditorBlur">
     <div :id="id" />
     <div
       v-if="resizable"
@@ -112,11 +112,13 @@ export default class extends Vue {
       el: editorElement
     })
     this.markdownEditor.on('change', this.handleEditorChange)
+    this.markdownEditor.on('blur', this.handleEditorBlur)
   }
 
   private destroyEditor() {
     if (!this.markdownEditor) return
     this.markdownEditor.off('change')
+    this.markdownEditor.off('blur')
     this.markdownEditor.remove()
     this.markdownEditor = undefined
   }
@@ -126,6 +128,10 @@ export default class extends Vue {
     const markdown = this.markdownEditor.getMarkdown()
     this.$emit('change', markdown)
     this.$emit('input', markdown)
+  }
+
+  private handleEditorBlur() {
+    this.$emit('blur')
   }
 
   private startResize(event: MouseEvent) {

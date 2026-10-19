@@ -18,8 +18,16 @@ import (
 
 type mockDashboardService struct{ mock.Mock }
 
-func (m *mockDashboardService) Get(ctx context.Context, userID, rawRange string) (*dto.DashboardResponse, error) {
-	args := m.Called(ctx, userID, rawRange)
+func (m *mockDashboardService) ListActivities(ctx context.Context, userID, rawRange string, page, pageSize int) (*dto.ActivityPageResponse, error) {
+	return &dto.ActivityPageResponse{}, nil
+}
+
+func (m *mockDashboardService) ListTodosPage(ctx context.Context, userID string, completed *bool, page, pageSize int) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
+func (m *mockDashboardService) Get(ctx context.Context, userID, rawRange string, activityPage, activityPageSize, todoPage, todoPageSize int, includeCompleted bool) (*dto.DashboardResponse, error) {
+	args := m.Called(ctx, userID, rawRange, activityPage, activityPageSize, todoPage, todoPageSize, includeCompleted)
 	return args.Get(0).(*dto.DashboardResponse), args.Error(1)
 }
 
@@ -56,7 +64,7 @@ func (m *mockDashboardService) DeleteTodo(ctx context.Context, userID, id string
 func TestDashboardHandler_GetUsesRangeAndDTOShape(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := &mockDashboardService{}
-	svc.On("Get", mock.Anything, "u1", "30d").Return(&dto.DashboardResponse{Range: "30d", Metrics: dto.DashboardMetrics{TotalApplications: 2}}, nil).Once()
+	svc.On("Get", mock.Anything, "u1", "30d", 1, 5, 1, 7, false).Return(&dto.DashboardResponse{Range: "30d", Metrics: dto.DashboardMetrics{TotalApplications: 2}}, nil).Once()
 	r := gin.New()
 	h := handler.NewDashboardHandler(svc)
 	r.GET("/dashboard", func(c *gin.Context) { c.Set("userID", "u1"); h.Get(c) })

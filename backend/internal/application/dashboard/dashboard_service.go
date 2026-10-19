@@ -23,6 +23,8 @@ import (
 
 const followUpDays = 7
 const applicationPageSize = 100
+const defaultActivityPageSize = 5
+const defaultTodoPageSize = 7
 
 type ApplicationRepository interface {
 	ListByUser(ctx context.Context, filter apprepo.ListFilter) ([]domainapp.ResumeApplication, int64, error)
@@ -82,7 +84,7 @@ func (s *Service) WithTargetReaders(readers TargetReaders) *Service {
 	return s
 }
 
-func (s *Service) Get(ctx context.Context, userID, rawRange string) (*dto.DashboardResponse, error) {
+func (s *Service) Get(ctx context.Context, userID, rawRange string, activityPage, activityPageSize, todoPage, todoPageSize int, includeCompleted bool) (*dto.DashboardResponse, error) {
 	now := s.now()
 	rangeKey, startAt, err := parseRange(rawRange, now)
 	if err != nil {
@@ -95,12 +97,27 @@ func (s *Service) Get(ctx context.Context, userID, rawRange string) (*dto.Dashbo
 	}
 	filtered := filterApplications(applications, startAt)
 
-	manualTodos, err := s.todos.ListByUser(ctx, todorepo.ListFilter{UserID: userID, TodayOnly: true})
+	todoPage, todoPageSize = normalizeTodoPagination(todoPage, todoPageSize)
+	var completed *bool
+	if !includeCompleted {
+		value := false
+		completed = &value
+	}
+	manualTodos, err := s.todos.ListByUser(ctx, todorepo.ListFilter{
+		UserID:         userID,
+		Completed:      completed,
+		CompletedFirst: includeCompleted,
+		// 未开启时只展示当前待办；开启后需要包含历史已完成项目。
+		TodayOnly: !includeCompleted,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	activities, err := s.activities.ListByUser(ctx, activityrepo.ListFilter{UserID: userID, StartAt: startAt, Limit: 10})
+	activityPage, activityPageSize = normalizeActivityPagination(activityPage, activityPageSize)
+	activities, activityTotal, err := s.activities.ListByUser(ctx, activityrepo.ListFilter{
+		UserID: userID, StartAt: startAt, Limit: activityPageSize, Offset: (activityPage - 1) * activityPageSize,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +135,16 @@ func (s *Service) Get(ctx context.Context, userID, rawRange string) (*dto.Dashbo
 		return nil, err
 	}
 	allTodos = append(allTodos, systemTodos...)
+	todoTotal := len(allTodos)
+	todoStart := (todoPage - 1) * todoPageSize
+	if todoStart > todoTotal {
+		todoStart = todoTotal
+	}
+	todoEnd := todoStart + todoPageSize
+	if todoEnd > todoTotal {
+		todoEnd = todoTotal
+	}
+	pagedTodos := allTodos[todoStart:todoEnd]
 
 	activityResponses := make([]dto.ActivityLogResponse, 0, len(activities))
 	for _, activity := range activities {
@@ -134,9 +161,52 @@ func (s *Service) Get(ctx context.Context, userID, rawRange string) (*dto.Dashbo
 		SourceDistribution: buildNameCounts(filtered, func(a domainapp.ResumeApplication) string {
 			return firstNonEmpty(a.SourcePlatform, a.DeliveryChannel, "其他")
 		}),
-		Todos:      allTodos,
-		Activities: activityResponses,
+		Todos:            pagedTodos,
+		Activities:       activityResponses,
+		ActivityTotal:    activityTotal,
+		ActivityPage:     activityPage,
+		ActivityPageSize: activityPageSize,
+		TodoTotal:        todoTotal,
+		TodoPage:         todoPage,
+		TodoPageSize:     todoPageSize,
 	}, nil
+}
+
+func normalizeTodoPagination(page, pageSize int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 50 {
+		pageSize = defaultTodoPageSize
+	}
+	return page, pageSize
+}
+
+func normalizeActivityPagination(page, pageSize int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 50 {
+		pageSize = defaultActivityPageSize
+	}
+	return page, pageSize
+}
+
+func (s *Service) ListActivities(ctx context.Context, userID, rawRange string, page, pageSize int) (*dto.ActivityPageResponse, error) {
+	_, startAt, err := parseRange(rawRange, s.now())
+	if err != nil {
+		return nil, err
+	}
+	page, pageSize = normalizeActivityPagination(page, pageSize)
+	rows, total, err := s.activities.ListByUser(ctx, activityrepo.ListFilter{UserID: userID, StartAt: startAt, Limit: pageSize, Offset: (page - 1) * pageSize})
+	if err != nil {
+		return nil, err
+	}
+	list := make([]dto.ActivityLogResponse, 0, len(rows))
+	for _, row := range rows {
+		list = append(list, dto.ToActivityLogResponse(row))
+	}
+	return &dto.ActivityPageResponse{List: list, Total: total, Page: page, PageSize: pageSize}, nil
 }
 
 func (s *Service) ListTodos(ctx context.Context, userID string, completed *bool) ([]dto.DashboardTodoResponse, error) {
@@ -153,6 +223,28 @@ func (s *Service) ListTodos(ctx context.Context, userID string, completed *bool)
 		responses = append(responses, dto.ToDashboardTodoResponse(todo, domaintodo.SourceManual, route))
 	}
 	return responses, nil
+}
+
+func (s *Service) ListTodosPage(ctx context.Context, userID string, completed *bool, page, pageSize int) (map[string]interface{}, error) {
+	rows, err := s.ListTodos(ctx, userID, completed)
+	if err != nil {
+		return nil, err
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 50 {
+		pageSize = defaultTodoPageSize
+	}
+	start := (page - 1) * pageSize
+	if start > len(rows) {
+		start = len(rows)
+	}
+	end := start + pageSize
+	if end > len(rows) {
+		end = len(rows)
+	}
+	return map[string]interface{}{"list": rows[start:end], "total": len(rows), "page": page, "pageSize": pageSize}, nil
 }
 
 func (s *Service) CreateTodo(ctx context.Context, userID string, req dto.CreateDashboardTodoRequest) (*domaintodo.DashboardTodo, error) {
@@ -276,11 +368,17 @@ func (s *Service) listAllApplications(ctx context.Context, userID string) ([]dom
 }
 
 func (s *Service) validateTarget(ctx context.Context, userID string, target domaintodo.TargetType, id *string) error {
-	if target == "" && id == nil {
-		return nil
-	}
 	if id == nil || strings.TrimSpace(*id) == "" {
+		if target.Valid() {
+			return nil
+		}
+		if target == "" {
+			return nil
+		}
 		return domainerrors.ErrBadParams
+	}
+	if target == "" {
+		return nil
 	}
 	targetID := strings.TrimSpace(*id)
 	switch target {

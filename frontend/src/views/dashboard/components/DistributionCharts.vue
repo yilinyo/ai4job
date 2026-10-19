@@ -215,6 +215,7 @@ export default class extends Vue {
 
 <style lang="scss" scoped>
 .distribution-charts {
+  margin-top: 20px;
   margin-bottom: 20px;
 }
 

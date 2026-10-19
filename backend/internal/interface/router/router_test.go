@@ -175,7 +175,15 @@ func (s *stubInterviewQuestionService) CreateFlashcardReview(ctx context.Context
 
 type stubDashboardService struct{}
 
-func (s *stubDashboardService) Get(ctx context.Context, userID, rawRange string) (*dto.DashboardResponse, error) {
+func (s *stubDashboardService) ListActivities(ctx context.Context, userID, rawRange string, page, pageSize int) (*dto.ActivityPageResponse, error) {
+	return &dto.ActivityPageResponse{}, nil
+}
+
+func (s *stubDashboardService) ListTodosPage(ctx context.Context, userID string, completed *bool, page, pageSize int) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
+func (s *stubDashboardService) Get(ctx context.Context, userID, rawRange string, activityPage, activityPageSize, todoPage, todoPageSize int, includeCompleted bool) (*dto.DashboardResponse, error) {
 	return &dto.DashboardResponse{Range: rawRange}, nil
 }
 func (s *stubDashboardService) ListTodos(ctx context.Context, userID string, completed *bool) ([]dto.DashboardTodoResponse, error) {

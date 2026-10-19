@@ -27,16 +27,20 @@ func (r *ActivityLogRepo) Create(ctx context.Context, activity *domainactivity.A
 	return err
 }
 
-func (r *ActivityLogRepo) ListByUser(ctx context.Context, filter activitylogrepo.ListFilter) ([]domainactivity.ActivityLog, error) {
+func (r *ActivityLogRepo) ListByUser(ctx context.Context, filter activitylogrepo.ListFilter) ([]domainactivity.ActivityLog, int64, error) {
 	q := dbFromContext(ctx, r.db).WithContext(ctx).Model(&domainactivity.ActivityLog{}).Where("user_id = ?", filter.UserID)
 	if filter.StartAt != nil {
 		q = q.Where("created_at >= ?", *filter.StartAt)
 	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
 	limit := normalizeActivityLogLimit(filter.Limit)
 
 	var rows []domainactivity.ActivityLog
-	err := q.Order("created_at DESC").Limit(limit).Find(&rows).Error
-	return rows, err
+	err := q.Order("created_at DESC").Offset(max(filter.Offset, 0)).Limit(limit).Find(&rows).Error
+	return rows, total, err
 }
 
 func normalizeActivityLogLimit(limit int) int {

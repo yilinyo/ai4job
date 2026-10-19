@@ -58,6 +58,27 @@
           <resume-markdown-preview :html="renderedContent" />
         </div>
 
+        <div class="attachments-section">
+          <div class="section-header">
+            <div>
+              <div class="section-title">版本附件</div>
+              <div class="section-subtitle">仅支持 PDF 和 Markdown（单个文件不超过 10MB）</div>
+            </div>
+            <div>
+              <input ref="attachmentInput" class="attachment-input" type="file" accept=".pdf,.md,text/markdown,application/pdf" @change="handleAttachmentSelected">
+              <el-button type="primary" size="small" icon="el-icon-upload2" :loading="attachmentUploading" @click="selectAttachment">上传附件</el-button>
+            </div>
+          </div>
+          <el-table :data="attachments" style="width: 100%">
+            <el-table-column prop="fileName" label="文件名" min-width="220" />
+            <el-table-column label="类型" width="100"><template slot-scope="{row}">{{ attachmentType(row.fileName) }}</template></el-table-column>
+            <el-table-column label="大小" width="120"><template slot-scope="{row}">{{ formatFileSize(row.fileSize) }}</template></el-table-column>
+            <el-table-column label="上传时间" width="180"><template slot-scope="{row}">{{ formatDateTime(row.createdAt) }}</template></el-table-column>
+            <el-table-column label="操作" width="140"><template slot-scope="{row}"><el-button type="text" size="small" @click="downloadAttachment(row)">下载</el-button><el-button type="text" size="small" class="danger" @click="deleteAttachment(row)">删除</el-button></template></el-table-column>
+          </el-table>
+          <empty-state v-if="attachments.length === 0" description="暂无版本附件" />
+        </div>
+
         <div class="applications-section">
           <div class="section-header">
             <div>
@@ -144,7 +165,8 @@ import html2pdf from 'html2pdf.js'
 import ResumeMarkdownPreview from '@/components/ResumeMarkdownPreview/index.vue'
 import { ResumeVersionModule } from '@/store/modules/resume-version'
 import { ResumeApplicationModule } from '@/store/modules/resume-application'
-import { ApplicationStatus } from '@/models'
+import { ApplicationStatus, ResumeAttachment } from '@/models'
+import { deleteResumeAttachment, downloadResumeAttachment, getResumeAttachments, uploadResumeAttachment } from '@/api/resume-versions'
 import { renderResumeMarkdown } from '@/utils/resume-markdown'
 
 @Component({
@@ -156,6 +178,8 @@ import { renderResumeMarkdown } from '@/utils/resume-markdown'
 export default class extends Vue {
   private versionId = ''
   private exportingPdf = false
+  private attachments: ResumeAttachment[] = []
+  private attachmentUploading = false
   private applicationStatusMap: Record<string, string> = {
     [ApplicationStatus.APPLIED]: '已投递',
     [ApplicationStatus.VIEWED]: '已查看',
@@ -206,7 +230,34 @@ export default class extends Vue {
       page: 1,
       pageSize: 100
     })
+    await this.loadAttachments()
   }
+
+  private async loadAttachments() { this.attachments = (await getResumeAttachments(this.versionId)).data || [] }
+
+  private selectAttachment() { (this.$refs.attachmentInput as HTMLInputElement).click() }
+
+  private async handleAttachmentSelected(event: Event) {
+    const input = event.target as HTMLInputElement
+    const file = input.files && input.files[0]
+    input.value = ''
+    if (!file) return
+    if (!/\.(pdf|md)$/i.test(file.name) || file.size > 10 * 1024 * 1024) { this.$message.error('仅支持不超过 10MB 的 PDF 或 Markdown 文件'); return }
+    this.attachmentUploading = true
+    try { await uploadResumeAttachment(this.versionId, file); await this.loadAttachments(); this.$message.success('附件上传成功') } catch (error) { console.error('附件上传失败:', error) } finally { this.attachmentUploading = false }
+  }
+
+  private async downloadAttachment(attachment: ResumeAttachment) {
+    const blob = await downloadResumeAttachment(this.versionId, attachment.id)
+    const url = URL.createObjectURL(blob as unknown as Blob); const link = document.createElement('a'); link.href = url; link.download = attachment.fileName; link.click(); URL.revokeObjectURL(url)
+  }
+
+  private async deleteAttachment(attachment: ResumeAttachment) {
+    try { await this.$confirm(`确定删除附件“${attachment.fileName}”吗？`, '提示', { type: 'warning' }); await deleteResumeAttachment(this.versionId, attachment.id); await this.loadAttachments(); this.$message.success('附件已删除') } catch (error) { if (error !== 'cancel') console.error('删除附件失败:', error) }
+  }
+
+  private attachmentType(fileName: string) { return /\.pdf$/i.test(fileName) ? 'PDF' : 'Markdown' }
+  private formatFileSize(size: number) { return size < 1024 * 1024 ? `${Math.ceil(size / 1024)} KB` : `${(size / 1024 / 1024).toFixed(2)} MB` }
 
   private formatDateTime(dateString: string) {
     const date = new Date(dateString)
@@ -460,6 +511,15 @@ export default class extends Vue {
       .danger {
         color: #f56c6c;
       }
+    }
+
+    .attachments-section {
+      margin-bottom: 30px;
+
+      .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      .section-title { font-size: 16px; font-weight: bold; color: #303133; }
+      .section-subtitle { margin-top: 4px; color: #909399; font-size: 13px; }
+      .attachment-input { display: none; }
     }
   }
 

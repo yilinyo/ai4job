@@ -2,9 +2,22 @@
   <el-card shadow="never" class="todo-panel">
     <div slot="header" class="todo-panel__header">
       <span>待办事项</span>
-      <el-button type="primary" size="mini" icon="el-icon-plus" @click="handleCreate">
-        新建待办
-      </el-button>
+      <div class="todo-panel__header-actions">
+        <el-checkbox :value="includeCompleted" @change="handleCompletedToggle">显示已完成</el-checkbox>
+        <div class="todo-panel__pager">
+          <button type="button" class="pager-button" :disabled="currentPage === 1" @click="handlePageChange(currentPage - 1)">‹</button>
+          <button
+            v-for="page in pageCount"
+            :key="page"
+            type="button"
+            class="pager-button"
+            :class="{'is-active': page === currentPage}"
+            @click="handlePageChange(page)"
+          >{{ page }}</button>
+          <button type="button" class="pager-button" :disabled="currentPage === pageCount" @click="handlePageChange(currentPage + 1)">›</button>
+        </div>
+        <el-button type="primary" size="mini" icon="el-icon-plus" @click="handleCreate">新建待办</el-button>
+      </div>
     </div>
 
     <empty-state
@@ -24,6 +37,9 @@
             <el-tag :type="todo.source === 'system' ? 'warning' : 'success'" size="mini">
               {{ todo.source === 'system' ? '系统' : '手动' }}
             </el-tag>
+            <el-tag v-if="todo.targetType" type="info" size="mini">
+              {{ targetTypeLabel(todo.targetType) }}
+            </el-tag>
           </div>
           <div v-if="todo.description" class="todo-item__description">
             {{ todo.description }}
@@ -32,8 +48,8 @@
             <span v-if="todo.dueAt">
               <i class="el-icon-time" /> {{ formatDateTime(todo.dueAt) }}
             </span>
-            <span v-if="todo.targetType && todo.targetId">
-              <i class="el-icon-connection" /> {{ targetTypeLabel(todo.targetType) }} #{{ todo.targetId }}
+            <span v-if="todo.targetType">
+              <span v-if="todo.targetId"><i class="el-icon-connection" /> #{{ todo.targetId }}</span>
             </span>
             <span v-if="todo.completedAt">
               <i class="el-icon-circle-check" /> 已完成 {{ formatDateTime(todo.completedAt) }}
@@ -109,9 +125,6 @@
             <el-option label="简历" value="resume" />
           </el-select>
         </el-form-item>
-        <el-form-item label="目标 ID">
-          <el-input v-model="form.targetId" placeholder="请输入目标 ID" clearable />
-        </el-form-item>
       </el-form>
       <div slot="footer">
         <el-button :disabled="submitting" @click="dialogVisible = false">取消</el-button>
@@ -157,6 +170,15 @@ export default class extends Vue {
   @Prop({ required: true, default: () => [] }) private todos!: DashboardTodo[]
   @Prop({ default: false }) private submitting!: boolean
   @Prop({ default: 0 }) private submitSuccessKey!: number
+  @Prop({ default: 0 }) private total!: number
+  @Prop({ default: 1 }) private currentPage!: number
+  @Prop({ default: false }) private includeCompleted!: boolean
+
+  private readonly pageSize = 7
+
+  get pageCount() {
+    return Math.max(1, Math.ceil(this.total / this.pageSize))
+  }
 
   private dialogVisible = false
   private editingTodoId = ''
@@ -252,6 +274,14 @@ export default class extends Vue {
     this.$emit('open', todo.route)
   }
 
+  private handlePageChange(page: number) {
+    this.$emit('page-change', page)
+  }
+
+  private handleCompletedToggle(value: boolean) {
+    this.$emit('completed-toggle', value)
+  }
+
   private handleSubmit() {
     if (this.submitting) return
     (this.$refs.todoForm as ElForm).validate((valid: boolean) => {
@@ -270,7 +300,6 @@ export default class extends Vue {
 
   private buildPayload(): CreateDashboardTodoRequest | UpdateDashboardTodoRequest {
     const targetType = this.form.targetType || undefined
-    const targetId = this.form.targetId.trim() || undefined
     const payload: CreateDashboardTodoRequest | UpdateDashboardTodoRequest = {
       title: this.form.title.trim(),
       description: this.form.description.trim()
@@ -282,9 +311,8 @@ export default class extends Vue {
       (payload as UpdateDashboardTodoRequest).clearDueAt = true
     }
 
-    if (targetType && targetId) {
+    if (targetType) {
       payload.targetType = targetType
-      payload.targetId = targetId
     } else if (this.editingTodoId) {
       (payload as UpdateDashboardTodoRequest).clearTarget = true
     }
@@ -314,6 +342,43 @@ export default class extends Vue {
   justify-content: space-between;
   font-weight: 600;
   color: #303133;
+}
+
+.todo-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.todo-panel__pager {
+  display: flex;
+  align-items: center;
+}
+
+.pager-button {
+  min-width: 28px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid #dcdfe6;
+  border-radius: 3px;
+  background: #fff;
+  color: #606266;
+  cursor: pointer;
+
+  & + .pager-button {
+    margin-left: 4px;
+  }
+
+  &.is-active {
+    border-color: #409eff;
+    background: #409eff;
+    color: #fff;
+  }
+
+  &:disabled {
+    color: #c0c4cc;
+    cursor: not-allowed;
+  }
 }
 
 .todo-list {

@@ -56,7 +56,7 @@ func TestActivityLogRepo_CreateAndListByUser(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, newer))
 	require.NoError(t, repo.Create(ctx, other))
 
-	rows, err := repo.ListByUser(ctx, activitylogrepo.ListFilter{UserID: userID, Limit: 10})
+	rows, _, err := repo.ListByUser(ctx, activitylogrepo.ListFilter{UserID: userID, Limit: 10})
 
 	require.NoError(t, err)
 	require.Len(t, rows, 2)
@@ -81,7 +81,7 @@ func TestActivityLogRepo_ListByUserFiltersStartAtAndLimit(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, newest))
 
 	startAt := middle.CreatedAt
-	rows, err := repo.ListByUser(ctx, activitylogrepo.ListFilter{UserID: userID, StartAt: &startAt, Limit: 1})
+	rows, _, err := repo.ListByUser(ctx, activitylogrepo.ListFilter{UserID: userID, StartAt: &startAt, Limit: 1})
 
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
@@ -100,7 +100,7 @@ func TestActivityLogRepo_ListByUserZeroLimitDefaultsToTen(t *testing.T) {
 		require.NoError(t, repo.Create(ctx, testActivityLog(uuid.NewString(), userID, base.Add(time.Duration(i)*time.Minute))))
 	}
 
-	rows, err := repo.ListByUser(ctx, activitylogrepo.ListFilter{UserID: userID, Limit: 0})
+	rows, _, err := repo.ListByUser(ctx, activitylogrepo.ListFilter{UserID: userID, Limit: 0})
 
 	require.NoError(t, err)
 	require.Len(t, rows, 10)

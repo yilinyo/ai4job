@@ -7,9 +7,10 @@ import (
 )
 
 type ListFilter struct {
-	UserID    string
-	Completed *bool
-	TodayOnly bool
+	UserID         string
+	Completed      *bool
+	TodayOnly      bool
+	CompletedFirst bool
 }
 
 type Repository interface {

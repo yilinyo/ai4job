@@ -29,7 +29,7 @@ func TestDashboardService_GetAggregatesMetricsAndDistributions(t *testing.T) {
 		{ID: "app-3", UserID: "u1", CompanyName: "字节", JobTitle: "AI 工程师", SourcePlatform: "Boss", AppliedAt: now.AddDate(0, 0, -40), CurrentStatus: domainapp.StatusOffer},
 	}
 
-	resp, err := svc.Service.Get(context.Background(), "u1", "30d")
+	resp, err := svc.Service.Get(context.Background(), "u1", "30d", 1, 5, 1, 5, false)
 	require.NoError(t, err)
 	require.Equal(t, "30d", resp.Range)
 	require.Equal(t, 2, resp.Metrics.TotalApplications)
@@ -50,7 +50,7 @@ func TestDashboardService_GetIncludesManualAndSystemTodos(t *testing.T) {
 	svc.progresses.byApplication["app-1"] = []domainprogress.InterviewProgress{{ID: "p1", UserID: "u1", ApplicationID: "app-1", Stage: domainprogress.StageFirstInterview, OccurredAt: now, Result: domainprogress.ResultPending}}
 	svc.todos.rows = []domaintodo.DashboardTodo{{ID: "todo-1", UserID: "u1", Title: "手动准备简历"}}
 
-	resp, err := svc.Service.Get(context.Background(), "u1", "30d")
+	resp, err := svc.Service.Get(context.Background(), "u1", "30d", 1, 5, 1, 5, false)
 	require.NoError(t, err)
 	require.Len(t, resp.Todos, 3)
 	require.Equal(t, "manual", resp.Todos[0].Source)
@@ -65,7 +65,7 @@ func TestDashboardService_GetIncludesRecentActivities(t *testing.T) {
 	svc := newTestService(now)
 	svc.activities.rows = []domainactivity.ActivityLog{{ID: "a1", UserID: "u1", Action: domainactivity.ActionUpdated, TargetType: domainactivity.TargetTypeApplication, TargetID: "app-1", TargetLabel: "腾讯 / 前端工程师", Summary: "腾讯 / 前端工程师 投递状态更新为一面", Route: "/resume/application/app-1", CreatedAt: now}}
 
-	resp, err := svc.Service.Get(context.Background(), "u1", "30d")
+	resp, err := svc.Service.Get(context.Background(), "u1", "30d", 1, 5, 1, 5, false)
 	require.NoError(t, err)
 	require.Len(t, resp.Activities, 1)
 	require.Equal(t, "/resume/application/app-1", resp.Activities[0].Route)
@@ -79,7 +79,7 @@ func TestDashboardService_GetFetchesAllApplicationPages(t *testing.T) {
 		svc.apps.rows = append(svc.apps.rows, domainapp.ResumeApplication{ID: "app", UserID: "u1", CompanyName: "腾讯", JobTitle: "前端工程师", AppliedAt: now, CurrentStatus: domainapp.StatusApplied})
 	}
 
-	resp, err := svc.Service.Get(context.Background(), "u1", "30d")
+	resp, err := svc.Service.Get(context.Background(), "u1", "30d", 1, 5, 1, 5, false)
 	require.NoError(t, err)
 	require.Equal(t, 101, resp.Metrics.TotalApplications)
 	require.Equal(t, []int{1, 2}, svc.apps.pages)
@@ -107,7 +107,7 @@ func TestDashboardService_ListTodosFiltersManualTodosAndComputesInterviewRoute(t
 func TestDashboardService_GetInvalidRangeReturnsBadParams(t *testing.T) {
 	svc := newTestService(time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC))
 
-	_, err := svc.Service.Get(context.Background(), "u1", "bad")
+	_, err := svc.Service.Get(context.Background(), "u1", "bad", 1, 5, 1, 5, false)
 	require.ErrorIs(t, err, domainerrors.ErrBadParams)
 }
 
@@ -370,7 +370,7 @@ func (r *fakeActivityRepo) Create(ctx context.Context, activity *domainactivity.
 	return nil
 }
 
-func (r *fakeActivityRepo) ListByUser(ctx context.Context, filter activityrepo.ListFilter) ([]domainactivity.ActivityLog, error) {
+func (r *fakeActivityRepo) ListByUser(ctx context.Context, filter activityrepo.ListFilter) ([]domainactivity.ActivityLog, int64, error) {
 	r.lastFilter = filter
 	rows := make([]domainactivity.ActivityLog, 0, len(r.rows))
 	for _, row := range r.rows {
@@ -379,8 +379,14 @@ func (r *fakeActivityRepo) ListByUser(ctx context.Context, filter activityrepo.L
 		}
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].CreatedAt.After(rows[j].CreatedAt) })
+	total := int64(len(rows))
+	if filter.Offset < len(rows) {
+		rows = rows[filter.Offset:]
+	} else {
+		rows = []domainactivity.ActivityLog{}
+	}
 	if filter.Limit > 0 && len(rows) > filter.Limit {
 		rows = rows[:filter.Limit]
 	}
-	return rows, nil
+	return rows, total, nil
 }

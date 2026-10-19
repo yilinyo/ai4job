@@ -1,6 +1,20 @@
 <template>
   <el-card shadow="never" class="activity-feed">
-    <div slot="header" class="card-header">最近动态</div>
+    <div slot="header" class="card-header">
+      <span>最近动态</span>
+      <div class="activity-feed__pager">
+        <button type="button" class="pager-button" :disabled="currentPage === 1" @click="handlePageChange(currentPage - 1)">‹</button>
+        <button
+          v-for="page in pageCount"
+          :key="page"
+          type="button"
+          class="pager-button"
+          :class="{'is-active': page === currentPage}"
+          @click="handlePageChange(page)"
+        >{{ page }}</button>
+        <button type="button" class="pager-button" :disabled="currentPage === pageCount" @click="handlePageChange(currentPage + 1)">›</button>
+      </div>
+    </div>
     <empty-state
       v-if="!activities.length"
       description="暂无动态"
@@ -44,6 +58,14 @@ const formatDashboardDateTime = (value?: string) => {
 })
 export default class extends Vue {
   @Prop({ required: true, default: () => [] }) private activities!: ActivityLog[]
+  @Prop({ required: true, default: 0 }) private total!: number
+  @Prop({ required: true, default: 1 }) private currentPage!: number
+
+  private readonly pageSize = 5
+
+  get pageCount() {
+    return Math.max(1, Math.ceil(this.total / this.pageSize))
+  }
 
   private formatDateTime(value?: string) {
     return formatDashboardDateTime(value)
@@ -52,6 +74,10 @@ export default class extends Vue {
   private handleOpen(activity: ActivityLog) {
     if (!activity.route) return
     this.$emit('open', activity.route)
+  }
+
+  private handlePageChange(page: number) {
+    this.$emit('page-change', page)
   }
 }
 </script>
@@ -62,8 +88,42 @@ export default class extends Vue {
 }
 
 .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-weight: 600;
   color: #303133;
+}
+
+.activity-feed__pager {
+  display: flex;
+  align-items: center;
+}
+
+.pager-button {
+  min-width: 28px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid #dcdfe6;
+  border-radius: 3px;
+  background: #fff;
+  color: #606266;
+  cursor: pointer;
+
+  & + .pager-button {
+    margin-left: 4px;
+  }
+
+  &.is-active {
+    border-color: #409eff;
+    background: #409eff;
+    color: #fff;
+  }
+
+  &:disabled {
+    color: #c0c4cc;
+    cursor: not-allowed;
+  }
 }
 
 .activity-feed__timeline {

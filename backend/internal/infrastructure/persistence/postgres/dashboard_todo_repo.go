@@ -90,6 +90,10 @@ func (r *DashboardTodoRepo) ListByUser(ctx context.Context, filter dashboardtodo
 	}
 
 	var rows []domaintodo.DashboardTodo
-	err := q.Order("completed_at ASC NULLS FIRST, due_at ASC NULLS LAST, created_at DESC").Find(&rows).Error
+	order := "completed_at ASC NULLS FIRST, due_at ASC NULLS LAST, created_at DESC"
+	if filter.CompletedFirst {
+		order = "completed_at DESC NULLS LAST, due_at ASC NULLS LAST, created_at DESC"
+	}
+	err := q.Order(order).Find(&rows).Error
 	return rows, err
 }

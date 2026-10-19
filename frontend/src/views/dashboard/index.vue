@@ -27,17 +27,25 @@
             :todos="todos"
             :submitting="todoSubmitting"
             :submit-success-key="todoSubmitSuccessKey"
+            :total="todoTotal"
+            :current-page="todoPage"
+            :include-completed="includeCompleted"
             @create="handleCreateTodo"
             @update="handleUpdateTodo"
             @complete="handleCompleteTodo"
             @delete="handleDeleteTodo"
             @open="handleOpenRoute"
+            @page-change="handleTodoPageChange"
+            @completed-toggle="handleCompletedToggle"
           />
         </el-col>
         <el-col :xs="24" :lg="9">
           <activity-feed
             :activities="activities"
+            :total="activityTotal"
+            :current-page="activityPage"
             @open="handleOpenRoute"
+            @page-change="handleActivityPageChange"
           />
         </el-col>
       </el-row>
@@ -59,6 +67,7 @@ import TodoPanel from './components/TodoPanel.vue'
 import DistributionCharts from './components/DistributionCharts.vue'
 import ActivityFeed from './components/ActivityFeed.vue'
 import { DashboardModule } from '@/store/modules/dashboard'
+import { getDashboardActivities } from '@/api/dashboard'
 import {
   ActivityLog,
   CreateDashboardTodoRequest,
@@ -91,6 +100,9 @@ const emptyMetrics: DashboardMetrics = {
 })
 export default class extends Vue {
   private selectedRange: DashboardRange = '30d'
+  private activityPage = 1
+  private todoPage = 1
+  private includeCompleted = false
   private todoSubmitting = false
   private todoSubmitSuccessKey = 0
 
@@ -134,13 +146,23 @@ export default class extends Vue {
     return this.dashboard ? this.dashboard.activities : []
   }
 
+  get activityTotal(): number {
+    return this.dashboard ? this.dashboard.activityTotal : 0
+  }
+
+  get todoTotal(): number {
+    return this.dashboard ? this.dashboard.todoTotal : 0
+  }
+
   created() {
     this.loadDashboard()
   }
 
-  private async loadDashboard() {
+  private async loadDashboard(activityPage = this.activityPage, todoPage = this.todoPage) {
     try {
-      await DashboardModule.GetDashboard(this.selectedRange)
+      await DashboardModule.GetDashboard(this.selectedRange, activityPage, todoPage, this.includeCompleted)
+      this.activityPage = activityPage
+      this.todoPage = todoPage
     } catch (error) {
       console.error('加载工作台失败:', error)
       this.$message.error('加载工作台失败，请稍后重试')
@@ -148,7 +170,40 @@ export default class extends Vue {
   }
 
   private handleRangeChange() {
+    this.activityPage = 1
+    this.todoPage = 1
     this.loadDashboard()
+  }
+
+  private handleActivityPageChange(page: number) {
+    getDashboardActivities({ range: this.selectedRange, page, pageSize: 5 }).then(({ data }) => {
+      if (!this.dashboard) return
+      this.activityPage = data.page || page
+      this.$set(this.dashboard, 'activities', data.list || [])
+      this.$set(this.dashboard, 'activityTotal', data.total || 0)
+      this.$set(this.dashboard, 'activityPage', this.activityPage)
+    }).catch(() => this.$message.error('加载最近动态失败，请稍后重试'))
+  }
+
+  private handleTodoPageChange(page: number) {
+    DashboardModule.GetTodos({ completed: this.includeCompleted, page, pageSize: 7 }).then(() => {
+      this.todoPage = page
+    }).catch(() => this.$message.error('加载待办失败，请稍后重试'))
+  }
+
+  private handleCompletedToggle(value: boolean) {
+    this.includeCompleted = Boolean(value)
+    this.todoPage = 1
+    DashboardModule.GetTodos({
+      completed: this.includeCompleted ? undefined : false,
+      page: 1,
+      pageSize: 7
+    }).then(data => {
+      if (!this.dashboard) return
+      this.$set(this.dashboard, 'todos', data.list || [])
+      this.$set(this.dashboard, 'todoTotal', data.total || 0)
+      this.$set(this.dashboard, 'todoPage', 1)
+    }).catch(() => this.$message.error('加载待办失败，请稍后重试'))
   }
 
   private async handleCreateTodo(payload: CreateDashboardTodoRequest) {
@@ -246,6 +301,29 @@ export default class extends Vue {
 
 .dashboard-main-row {
   margin-bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+
+  > .el-col {
+    display: flex;
+    align-self: stretch;
+  }
+
+  ::v-deep .todo-panel,
+  ::v-deep .activity-feed {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  ::v-deep .todo-panel .el-card__body,
+  ::v-deep .activity-feed .el-card__body {
+    flex: 1;
+  }
 }
 
 @media (max-width: 768px) {
