@@ -34,9 +34,22 @@ func Load() *Config {
 		log.Printf("no .env file found, using environment variables: %v", err)
 	}
 
-	cfg := &Config{}
-	if err := viper.Unmarshal(cfg); err != nil {
-		log.Fatalf("failed to unmarshal config: %v", err)
+	// Viper's Unmarshal does not include values discovered only through
+	// AutomaticEnv. Read each setting directly so container environment
+	// variables and local .env values behave identically.
+	cfg := &Config{
+		AppEnv:         viper.GetString("APP_ENV"),
+		AppPort:        viper.GetString("APP_PORT"),
+		DBHost:         viper.GetString("DB_HOST"),
+		DBPort:         viper.GetString("DB_PORT"),
+		DBName:         viper.GetString("DB_NAME"),
+		DBUser:         viper.GetString("DB_USER"),
+		DBPassword:     viper.GetString("DB_PASSWORD"),
+		RedisAddr:      viper.GetString("REDIS_ADDR"),
+		RedisPassword:  viper.GetString("REDIS_PASSWORD"),
+		JWTSecret:      viper.GetString("JWT_SECRET"),
+		JWTExpireHours: viper.GetInt("JWT_EXPIRE_HOURS"),
+		EmailMock:      viper.GetBool("EMAIL_MOCK"),
 	}
 
 	if cfg.AppPort == "" {
