@@ -94,12 +94,11 @@ class ResumeVersionStore extends VuexModule implements IResumeVersionState {
   @Action
   public async UpdateResumeVersion(payload: { id: string, data: UpdateResumeVersionRequest }) {
     const { data } = await updateResumeVersion(payload.id, payload.data)
-    if (data) {
-      if (this.currentVersion && (this.currentVersion as any).id === payload.id) {
-        this.SET_CURRENT_VERSION(data)
-      }
-      return data
+    // 更新接口成功时返回 data: null，重新读取详情以同步缓存的版本详情页。
+    if (this.currentVersion && this.currentVersion.id === payload.id) {
+      await this.GetResumeVersionById(payload.id)
     }
+    return data
   }
 
   @Action

@@ -34,7 +34,9 @@
             class="resume-markdown-editor"
             :initial-value="versionForm.content"
             :height="editorHeight"
+            :resizable="true"
             @change="handleContentChange"
+            @height-change="handleEditorHeightChange"
           />
         </el-form-item>
 
@@ -76,7 +78,8 @@ export default class extends Vue {
   private repoId = ''
   private isEdit = false
   private submitLoading = false
-  private editorHeight = 'calc(100vh - 360px)'
+  // 默认高度为原编辑区的两倍；用户可通过编辑器底部的拖拽手柄继续调整。
+  private editorHeight = 'calc(200vh - 720px)'
 
   private versionForm = {
     title: '',
@@ -168,6 +171,10 @@ export default class extends Vue {
 
   private handleContentChange(value: string) {
     this.versionForm.content = value
+  }
+
+  private handleEditorHeightChange(height: string) {
+    this.editorHeight = height
   }
 
   private async prefillContentFromUserProfile() {

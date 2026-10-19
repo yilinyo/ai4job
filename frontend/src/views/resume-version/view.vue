@@ -128,30 +128,11 @@
         ref="pdfContent"
         class="pdf-export-document"
       >
-        <header class="pdf-header">
-          <div class="pdf-title-group">
-            <h1>{{ currentVersion.title }}</h1>
-            <p class="pdf-subtitle">简历版本 {{ currentVersion.version }}</p>
-          </div>
-          <div class="pdf-meta">
-            <span>导出时间 {{ pdfExportTimestamp }}</span>
-            <span>创建时间 {{ formatDateTime(currentVersion.createdAt) }}</span>
-          </div>
-        </header>
-
-        <section v-if="currentVersion.remark" class="pdf-section">
-          <h2>版本备注</h2>
-          <p class="pdf-remark">{{ currentVersion.remark }}</p>
-        </section>
-
-        <section class="pdf-section">
-          <h2>简历内容</h2>
-          <resume-markdown-preview
-            :html="renderedContent"
-            variant="pdf"
-            empty-text="暂无简历内容"
-          />
-        </section>
+        <resume-markdown-preview
+          :html="renderedContent"
+          variant="pdf"
+          empty-text="暂无简历内容"
+        />
       </div>
     </div>
   </div>
@@ -175,7 +156,6 @@ import { renderResumeMarkdown } from '@/utils/resume-markdown'
 export default class extends Vue {
   private versionId = ''
   private exportingPdf = false
-  private pdfExportTimestamp = ''
   private applicationStatusMap: Record<string, string> = {
     [ApplicationStatus.APPLIED]: '已投递',
     [ApplicationStatus.VIEWED]: '已查看',
@@ -323,7 +303,6 @@ export default class extends Vue {
     const fileName = this.getPdfFileName()
 
     this.exportingPdf = true
-    this.pdfExportTimestamp = this.formatDateTime(new Date().toISOString())
 
     try {
       await this.$nextTick()
@@ -492,63 +471,6 @@ export default class extends Vue {
     color: #1f2937;
     font-family: 'Helvetica Neue', Arial, sans-serif;
     line-height: 1.75;
-
-    .pdf-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 24px;
-      padding-bottom: 24px;
-      border-bottom: 2px solid #dbe3f0;
-      margin-bottom: 28px;
-      page-break-inside: avoid;
-
-      .pdf-title-group {
-        h1 {
-          margin: 0 0 8px;
-          font-size: 30px;
-          font-weight: 600;
-          color: #111827;
-        }
-
-        .pdf-subtitle {
-          margin: 0;
-          font-size: 14px;
-          color: #4b5563;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-      }
-
-      .pdf-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        font-size: 12px;
-        color: #6b7280;
-        text-align: right;
-      }
-    }
-
-    .pdf-section {
-      margin-bottom: 28px;
-      page-break-inside: avoid;
-
-      h2 {
-        margin: 0 0 14px;
-        font-size: 16px;
-        font-weight: 600;
-        color: #1d4ed8;
-      }
-    }
-
-    .pdf-remark {
-      margin: 0;
-      font-size: 14px;
-      color: #1f2937;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
   }
 }
 </style>

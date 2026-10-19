@@ -7,7 +7,7 @@
 
     <el-card v-loading="loading" class="detail-card">
       <div slot="header" class="card-header">
-        <span class="title">{{ currentRepo ? currentRepo.name : '' }}</span>
+        <span class="title">仓库概览</span>
         <el-button
           type="primary"
           size="small"
@@ -19,29 +19,38 @@
       </div>
 
       <div v-if="currentRepo" class="repo-info">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="仓库名称">
-            {{ currentRepo.name }}
-          </el-descriptions-item>
-          <el-descriptions-item label="求职类型">
+        <div class="repo-name-block">
+          <span class="field-label">仓库名称</span>
+          <h2>{{ currentRepo.name }}</h2>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="field-label">求职类型</span>
             <el-tag :type="jobTypeTag">{{ jobTypeText }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="目标岗位">
-            {{ currentRepo.targetPosition }}
-          </el-descriptions-item>
-          <el-descriptions-item label="版本数量">
-            {{ currentRepo.versionCount }} 个
-          </el-descriptions-item>
-          <el-descriptions-item label="创建时间">
-            {{ formatDateTime(currentRepo.createdAt) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="更新时间">
-            {{ formatDateTime(currentRepo.updatedAt) }}
-          </el-descriptions-item>
-          <el-descriptions-item label="仓库描述" :span="2">
-            {{ currentRepo.description || '暂无描述' }}
-          </el-descriptions-item>
-        </el-descriptions>
+          </div>
+          <div class="info-item">
+            <span class="field-label">目标岗位</span>
+            <span class="field-value">{{ currentRepo.targetPosition }}</span>
+          </div>
+          <div class="info-item">
+            <span class="field-label">版本数量</span>
+            <span class="field-value">{{ currentRepo.versionCount }} 个</span>
+          </div>
+          <div class="info-item">
+            <span class="field-label">创建时间</span>
+            <span class="field-value">{{ formatDateTime(currentRepo.createdAt) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="field-label">更新时间</span>
+            <span class="field-value">{{ formatDateTime(currentRepo.updatedAt) }}</span>
+          </div>
+        </div>
+
+        <div class="description-block">
+          <span class="field-label">仓库描述</span>
+          <p>{{ currentRepo.description || '暂无描述' }}</p>
+        </div>
       </div>
     </el-card>
 
@@ -158,6 +167,13 @@ export default class extends Vue {
     this.loadVersions()
   }
 
+  activated() {
+    // 详情页会被 keep-alive 缓存。从仓库列表编辑后再次进入时，重新同步信息。
+    this.repoId = this.$route.params.id
+    this.loadRepoDetail()
+    this.loadVersions()
+  }
+
   private async loadRepoDetail() {
     await ResumeRepoModule.GetResumeRepoById(this.repoId)
   }
@@ -262,6 +278,76 @@ export default class extends Vue {
         font-size: 18px;
         font-weight: bold;
       }
+    }
+
+    .repo-info {
+      .field-label {
+        display: block;
+        margin-bottom: 8px;
+        color: #909399;
+        font-size: 13px;
+        line-height: 1;
+      }
+
+      .repo-name-block {
+        padding-bottom: 20px;
+        border-bottom: 1px solid #ebeef5;
+
+        h2 {
+          margin: 0;
+          color: #303133;
+          font-size: 24px;
+          line-height: 1.35;
+        }
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 20px 32px;
+        padding: 22px 0;
+      }
+
+      .info-item {
+        min-width: 0;
+      }
+
+      .field-value {
+        display: block;
+        overflow: hidden;
+        color: #303133;
+        font-size: 15px;
+        line-height: 1.5;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .description-block {
+        padding: 18px 20px;
+        background: #f8fafc;
+        border-radius: 4px;
+
+        p {
+          margin: 0;
+          color: #606266;
+          font-size: 14px;
+          line-height: 1.7;
+          white-space: pre-wrap;
+        }
+      }
+    }
+  }
+
+  @media (max-width: 900px) {
+    .detail-card .repo-info .info-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .detail-card .repo-info .info-grid {
+      grid-template-columns: 1fr;
+      gap: 18px;
     }
   }
 

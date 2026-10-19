@@ -86,19 +86,20 @@ class ResumeRepoStore extends VuexModule implements IResumeRepoState {
   @Action
   public async CreateResumeRepo(repoData: CreateResumeRepoRequest) {
     const { data } = await createResumeRepo(repoData)
-    if (data) {
-      await this.GetResumeRepos({ page: 1, pageSize: 10 })
-      return data
-    }
+    // 创建接口成功时返回 data: null，不能以 data 是否存在判断是否刷新。
+    await this.GetResumeRepos({ page: 1, pageSize: 10 })
+    return data
   }
 
   @Action
   public async UpdateResumeRepo(payload: { id: string, data: UpdateResumeRepoRequest }) {
     const { data } = await updateResumeRepo(payload.id, payload.data)
-    if (data) {
-      await this.GetResumeRepos({ page: 1, pageSize: 10 })
-      return data
+    // 更新接口同样只返回成功状态。刷新列表，并在当前详情正是该仓库时更新详情状态。
+    await this.GetResumeRepos({ page: 1, pageSize: 10 })
+    if (this.currentRepo && this.currentRepo.id === payload.id) {
+      await this.GetResumeRepoById(payload.id)
     }
+    return data
   }
 
   @Action
