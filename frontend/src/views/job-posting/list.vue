@@ -57,7 +57,9 @@
         <el-col
           v-for="jobPosting in jobPostings"
           :key="jobPosting.id"
-          :span="8"
+          :xs="24"
+          :sm="12"
+          :md="8"
           style="margin-bottom: 20px"
         >
           <job-posting-card

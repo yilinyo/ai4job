@@ -154,3 +154,179 @@ aside {
 .no-padding {
   padding: 0px !important;
 }
+
+/* Mobile layout safeguards. Keep these rules global so every business view
+ * gets the same compact spacing without changing its data or interaction. */
+@media (max-width: 768px) {
+  .app-container,
+  .job-dashboard-container,
+  .job-posting-list-container,
+  .job-posting-detail-container,
+  .resume-repo-list-container,
+  .resume-repo-detail-container,
+  .resume-application-view-container,
+  .resume-application-editor-container,
+  .question-detail-container,
+  .interview-question-bank-container,
+  .resume-version-editor-container,
+  .resume-version-view-container {
+    padding: 12px !important;
+  }
+
+  .el-card__header {
+    padding: 14px 16px;
+  }
+
+  .el-card__body {
+    padding: 16px;
+  }
+
+  .el-row {
+    margin-left: -6px !important;
+    margin-right: -6px !important;
+  }
+
+  .el-col {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+
+  .el-form-item__label {
+    display: block;
+    float: none;
+    width: 100% !important;
+    padding: 0 0 6px;
+    line-height: 20px;
+    text-align: left;
+  }
+
+  .el-form-item__content {
+    margin-left: 0 !important;
+  }
+
+  .el-dialog {
+    width: calc(100vw - 24px) !important;
+    margin: 6vh auto 0 !important;
+  }
+
+  .el-dialog__header {
+    padding: 16px 18px 10px;
+  }
+
+  .el-dialog__body {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 12px 18px 18px;
+  }
+
+  .el-dialog__footer {
+    padding: 10px 18px 16px;
+  }
+
+  .el-table {
+    width: 100% !important;
+    overflow-x: auto;
+  }
+
+  .el-table__body-wrapper,
+  .el-table__header-wrapper {
+    overflow-x: auto;
+  }
+
+  .el-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 0;
+    white-space: normal;
+  }
+
+  .el-pagination .el-pagination__total,
+  .el-pagination .el-pagination__jump {
+    width: 100%;
+    margin: 0 0 4px;
+    text-align: center;
+  }
+
+  .filter-container,
+  .search-card .el-row {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .filter-container .filter-item,
+  .search-card .el-col {
+    width: 100%;
+    margin-left: 0 !important;
+    margin-bottom: 8px;
+  }
+
+  .search-card .el-button,
+  .search-card .el-input,
+  .search-card .el-select {
+    width: 100%;
+  }
+
+  .el-button + .el-button {
+    margin-left: 6px;
+  }
+
+  .el-message-box {
+    width: calc(100vw - 32px) !important;
+  }
+
+  .dashboard-hero,
+  .module-header,
+  .version-header,
+  .section-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px;
+  }
+
+  .dashboard-hero .el-radio-group {
+    display: flex;
+    width: 100%;
+  }
+
+  .dashboard-hero .el-radio-button,
+  .dashboard-hero .el-radio-button__inner {
+    flex: 1;
+  }
+
+  .todo-panel__header,
+  .activity-feed__header,
+  .todo-panel__header-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .parse-toolbar {
+    flex-direction: column;
+  }
+
+  .parse-toolbar .el-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .el-button-group,
+  .header-right {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .repo-card .card-footer,
+  .job-posting-card .card-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .repo-card .actions .el-button,
+  .job-posting-card .actions .el-button {
+    margin-left: 0;
+    margin-right: 12px;
+  }
+}

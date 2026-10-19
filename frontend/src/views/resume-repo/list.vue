@@ -53,7 +53,9 @@
         <el-col
           v-for="repo in repos"
           :key="repo.id"
-          :span="8"
+          :xs="24"
+          :sm="12"
+          :md="8"
           style="margin-bottom: 20px"
         >
           <resume-repo-card
