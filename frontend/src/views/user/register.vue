@@ -477,20 +477,64 @@ export default class extends Vue {
   }
 
   @media only screen and (max-width: 520px) {
+    align-items: flex-start;
+    padding: 20px 14px;
+
+    .auth-hero {
+      gap: 18px;
+    }
+
+    .brand-panel {
+      .brand-badge {
+        height: 32px;
+        margin-bottom: 14px;
+        padding: 0 12px;
+        font-size: 13px;
+      }
+
+      h1 {
+        font-size: 28px;
+        line-height: 1.3;
+      }
+
+      p {
+        margin: 12px 0 0;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+    }
+
     .auth-card {
-      padding: 28px 22px;
-      border-radius: 20px;
+      padding: 24px 18px;
+      border-radius: 14px;
     }
 
     .brand-steps {
-      grid-template-columns: 1fr;
+      display: none;
     }
 
-    .email-code-row {
-      flex-direction: column;
+    .title-container {
+      margin-bottom: 22px;
 
-      .el-button {
-        width: 100%;
+      .title {
+        font-size: 24px;
+      }
+    }
+
+    .register-form {
+      .email-code-row {
+        flex-direction: row;
+
+        .el-input {
+          min-width: 0;
+        }
+
+        .el-button {
+          flex-shrink: 0;
+          width: 108px;
+          padding: 0 8px;
+          font-size: 12px;
+        }
       }
     }
   }
