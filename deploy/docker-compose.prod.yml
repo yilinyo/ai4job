@@ -5,6 +5,7 @@ services:
     image: ai-for-web:${APP_VERSION:-dev}
     build:
       context: ..
+      network: host
       dockerfile: frontend/Dockerfile
     labels:
       com.ai-for.service: web
@@ -22,6 +23,7 @@ services:
     image: ai-for-api:${APP_VERSION:-dev}
     build:
       context: ../backend
+      network: host
     environment:
       APP_ENV: ${APP_ENV:-production}
       APP_PORT: "8080"

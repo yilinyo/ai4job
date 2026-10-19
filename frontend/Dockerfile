@@ -1,7 +1,9 @@
 FROM node:18-alpine AS build
 
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /build/frontend
-COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
 RUN npm ci --legacy-peer-deps
 
 COPY frontend .
