@@ -24,6 +24,8 @@ sudoedit /etc/ai-for/production.env
 
 ## 客户端配置
 
+Web Nginx 通过 `deploy/nginx/default.conf` 将 `/mcp` 原路径转发到 `api:8080`，并关闭响应缓冲以支持流式连接。本机部署的 Web 端口为 8081 时，客户端地址为 `http://localhost:8081/mcp`。修改此配置后需重新构建并部署 Web 镜像；仅编辑运行中的容器会在下次部署时丢失。
+
 MCP 使用 Streamable HTTP 和 Bearer 鉴权：
 
 ```toml
